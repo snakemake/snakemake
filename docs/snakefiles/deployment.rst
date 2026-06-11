@@ -86,9 +86,10 @@ Consider the following example:
     use rule * from dna_seq
 
 First, we load a local configuration file.
-Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile``, while using the contents of the local configuration file.
-Note that it is possible to either specify the full URL pointing to the raw Snakefile as a string or to use the github marker as done here.
-With the latter, Snakemake can however cache the used source files persistently (if a tag is given), such that they don't have to be downloaded on each invocation.
+Next, we define the module ``dna_seq`` to be loaded from the Github repository ``snakemake-workflows/dna-seq-gatk-variant-calling`` at tag ``v2.0.1`` and path ``workflow/Snakefile``, while using the contents of the local configuration file (see :ref:`snakefile-code-hosting-providers`).
+Note that it is also possible to provide the Snakefile as a plain HTTP/HTTPS URL string.
+As an alternative convenience syntax for hosted repositories, the same module source could also be written as ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1`` or ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile``.
+Because the source is pinned to a tag, Snakemake can cache the used source files persistently, such that they don't have to be downloaded on each invocation.
 Finally we declare all rules of the dna_seq module to be used.
 
 This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
