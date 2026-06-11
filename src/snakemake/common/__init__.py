@@ -18,8 +18,9 @@ import uuid
 import os
 import asyncio
 import collections
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Union
+from urllib.parse import urlsplit
 
 from snakemake import __version__
 from snakemake.exceptions import NestedCoroutineError
@@ -187,14 +188,24 @@ RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 def get_appdirs():
     global APPDIRS
     if APPDIRS is None:
-        from appdirs import AppDirs
+        from platformdirs import AppDirs
 
         APPDIRS = AppDirs("snakemake", "snakemake")
     return APPDIRS
 
 
 def is_local_file(path_or_uri):
-    return parse_uri(path_or_uri).scheme == "file"
+    path_or_uri = os.fspath(path_or_uri)
+    if isinstance(path_or_uri, bytes):
+        path_or_uri = os.fsdecode(path_or_uri)
+
+    scheme = urlsplit(path_or_uri).scheme
+    windows_drive = (
+        ON_WINDOWS
+        and len(scheme) == 1
+        and PureWindowsPath(path_or_uri).drive.lower() == f"{scheme}:"
+    )
+    return scheme in {"", "file"} or windows_drive
 
 
 def parse_uri(path_or_uri):
@@ -247,7 +258,7 @@ def num_if_possible(s):
 
 
 def get_last_stable_version():
-    return __version__.split("+")[0]
+    return __version__
 
 
 def get_container_image():

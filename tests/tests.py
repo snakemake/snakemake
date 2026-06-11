@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir
+from .common import run, dpath, apptainer, connected, prepare_tmpdir, serve_directory
 from .conftest import (
     skip_on_windows,
     only_on_windows,
@@ -557,6 +557,15 @@ def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
 
+def test_remote_snakefile_multiple_includes():
+    source_dir = dpath("test_multiple_includes")
+    with serve_directory(source_dir) as server_url:
+        run(
+            source_dir,
+            shellcmd=f"snakemake --snakefile {server_url}/Snakefile --cores 1",
+        )
+
+
 def test_name_override():
     run(dpath("test_name_override"))
 
@@ -869,17 +878,52 @@ def test_run_namedlist():
     run(dpath("test_run_namedlist"))
 
 
-def test_profile():
-    run(dpath("test_profile"))
+def test_profile_old():
+    run(dpath("test_profile_old"))
 
     from snakemake.profiles import ProfileConfigFileParser
 
-    grouped_profile = Path(dpath("test_profile")) / "config.yaml"
+    grouped_profile = Path(dpath("test_profile_old")) / "config.yaml"
     with grouped_profile.open("r") as f:
         parser = ProfileConfigFileParser()
         result = parser.parse(f)
         assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
         assert result["group-components"] == list(["grp1=5"])
+
+
+def test_profile_new():
+    run(dpath("test_profile_new"))
+
+    from snakemake.profiles import ProfileConfigFileParser
+
+    grouped_profile = Path(dpath("test_profile_new")) / "profile.v9+.yaml"
+    with grouped_profile.open("r") as f:
+        parser = ProfileConfigFileParser()
+        result = parser.parse(f)
+        assert result["groups"] == list(["a=grp1", "b=grp1", "c=grp1"])
+        assert result["group-components"] == list(["grp1=5"])
+
+
+def test_profile_none():
+    run(dpath("test_profile_none"))
+    # this seems to be necessary, so this doesn't persist for other tests
+    os.environ.pop("SNAKEMAKE_PROFILE")
+
+
+# windows doesn't seem to like semicolon-separated multiline `shell:` calls
+@skip_on_windows
+def test_profile_with_env_var():
+    run(dpath("test_profile_with_env_var"))
+    # this seems to be necessary, so this doesn't persist for other tests
+    os.environ.pop("SNAKEMAKE_PROFILE")
+
+
+def test_profile_filename():
+    run(dpath("test_profile_filename"))
+
+
+def test_profile_multiple():
+    run(dpath("test_profile_multiple"))
 
 
 @skip_on_windows
@@ -1608,10 +1652,6 @@ def test_module_checkpoint():
     run(dpath("test_module_checkpoint"))
 
 
-def test_checkpoint_missout():
-    run(dpath("test_checkpoint_missout"))
-
-
 def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 
@@ -1627,6 +1667,19 @@ def test_checkpoint_rerun():
     run(d, no_tmpdir=True, cleanup=False, check_results=False)
     with open(f"{d}/inputs/a/0.out", "r") as f:
         assert f.read().strip() == "1"
+
+
+def test_checkpoint_missing_output():
+    """test for issue 3879, also covers 3009"""
+    # normal run to create the checkpoint output and final output
+    tmpdir = run(dpath("test_checkpoint_missing_output"), cleanup=False)
+    assert tmpdir
+    # should not fail (target file exists so nothing to do)
+    (tmpdir / "output" / "test_1.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
+    # should not fail (target file exists so nothing to do)
+    (tmpdir / "output" / "test_0.txt").unlink()
+    run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
 
 
 def test_issue1092():
@@ -1701,14 +1754,13 @@ def test_default_resources_mebibytes():
 
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
-    # artificially set the tmpdir to an expected value
-    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
-
-
-def test_tmpdir_default():
-    # Do not check the content (OS and setup dependent),
-    # just check whether everything runs smoothly with the default.
-    run(dpath("test_tmpdir"), check_md5=False)
+    test_path = dpath("test_tmpdir")
+    general_profile = os.path.join(test_path, "profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        shellcmd=f"snakemake -c1 --profile {general_profile} --set-resources 'a:tmpdir=/tmp'",
+    )
 
 
 def test_issue1284():
@@ -1834,9 +1886,11 @@ def test_output_file_cache_storage(s3_storage):
     )
 
 
-@patch("snakemake.io._IOFile.retrieve_from_storage", AsyncMock(side_effect=Exception))
-def test_storage_noretrieve_dryrun():
-    run(dpath("test_storage_noretrieve_dryrun"), executor="dryrun")
+@pytest.mark.parametrize("executor", ["dryrun", "touch"])
+@patch("snakemake.dag.DAG.retrieve_storage_inputs", new_callable=AsyncMock)
+def test_storage_noretrieve_dryrun_or_touch(mock_retrieve_storage_inputs, executor):
+    run(dpath("test_storage_noretrieve_dryrun"), executor=executor)
+    mock_retrieve_storage_inputs.assert_not_called()
 
 
 def test_multiext():
@@ -2228,7 +2282,8 @@ def test_default_target():
 
 
 def test_cache_multioutput():
-    run(dpath("test_cache_multioutput"), shouldfail=True)
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
+    run(dpath("test_cache_multioutput"), cache=["a"])
 
 
 @skip_on_windows
@@ -2260,6 +2315,10 @@ def test_template_engine():
 
 def test_groupid_expand_local():
     run(dpath("test_groupid_expand"))
+
+
+def test_script_import_snakemake_obj():
+    run(dpath("test_script_import_snakemake_obj"))
 
 
 @skip_on_windows
@@ -2486,7 +2545,43 @@ def test_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --profile {general_profile} -c1",
+        shellcmd=f"snakemake --profile {general_profile}",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_cli_overwrite():
+    run(
+        dpath("test_workflow_profile_cli_overwrite"),
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --set-resources a:foo='overwritten' a:mem_mb=8 --cores 2",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_default_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_path():
+    run(
+        dpath("test_workflow_profile_relative_path"),
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile workflow/profiles/workflow_at_site_x --cores 1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile_relative_filename():
+    run(
+        dpath("test_workflow_profile_relative_filename"),
+        snakefile="workflow/Snakefile",
+        shellcmd="snakemake --workflow-profile ./workflow/some_dir/workflow_profile.yaml --cores 1",
     )
 
 
@@ -2714,6 +2809,16 @@ def test_pathvars_modules():
 
 def test_pathvars_cycle():
     run(dpath("test_pathvars_cycle"), shouldfail=True)
+
+
+@skip_on_windows
+def test_pathvars_storage():
+    run(
+        dpath("test_pathvars_storage"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+        cores=1,
+    )
 
 
 @skip_on_windows  # OS agnostic
@@ -3081,6 +3186,19 @@ def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
 
 
+@skip_on_windows  # symlinks not properly supported in test framework on windows
+def test_github_issue3687():
+    tmpdir = run(dpath("test_github_issue3687"), cleanup=False)
+    target_file = Path(tmpdir) / "dir2/Done"  # type: ignore[arg-type]
+    shell("rm -rf {tmpdir}/.snakemake/metadata")
+    shell("cp -r {tmpdir}/dir1/D {tmpdir}/")
+    target_file.touch()
+    timestamp = target_file.stat().st_mtime
+    shell("ln -sf ../D {tmpdir}/dir2/")
+    run(dpath("test_github_issue3687"), tmpdir=tmpdir, cleanup=False)
+    assert target_file.stat().st_mtime != timestamp, "input updated, should rerun"
+
+
 @skip_on_windows
 def test_temp_checkpoint():
     tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
@@ -3127,6 +3245,17 @@ def test_cyclic_dependency_single():
     # It is expected behavior that Snakemake would not rerun in such a case without
     # forcing it.
     run(dpath("test_cyclic_dependency_single"), forceall=True)
+
+
+@skip_on_windows
+@apptainer
+@connected
+def test_issue3958():
+    run(
+        dpath("test_issue3958"),
+        shellcmd="snakemake --sdm apptainer --cores 1",
+        targets=["all"],
+    )
 
 
 def test_stats_table_order_and_counts():
@@ -3179,6 +3308,50 @@ def test_stats_table_order_and_counts():
         assert (
             counts.get(name) == exp_count
         ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+
+
+def test_github_issue4003():
+    from snakemake.ioutils.as_py_module import format_python_module
+
+    assert (
+        format_python_module("package/subpackage/module.py")
+        == "package.subpackage.module"
+    )
+
+    windows_path = r"package\subpackage\module.py"
+    if ON_WINDOWS:
+        assert format_python_module(windows_path) == "package.subpackage.module"
+    else:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                f"{windows_path} does not translate to a valid Python name"
+            ),
+        ):
+            format_python_module(windows_path)
+
+    for bad_name in [
+        "0package/module.py",
+        "sub-package/module.py",
+        "package/mod-ule.py",
+    ]:
+        if ON_WINDOWS:
+            expect_name = bad_name.replace("/", "\\")
+        else:
+            expect_name = bad_name
+
+        with pytest.raises(
+            ValueError,
+            match=re.escape(f"{expect_name} does not translate to a valid Python name"),
+        ):
+            format_python_module(bad_name)
+
+    with pytest.raises(
+        ValueError, match=re.escape("Only .py files may be run as Python modules.")
+    ):
+        format_python_module("package/module.pyx")
+
+    run(dpath("test_github_issue4003"))
 
 
 @skip_on_windows
@@ -3255,5 +3428,59 @@ def test_module_onerror():
     run(dpath("test_module_onerror"), shouldfail=True, check_results=True)
 
 
+def test_github_issue672():
+    run(dpath("test_github_issue672"))
+
+
 def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
+
+
+# On Windows this test output is emitted with
+# quotes around the output string what cause these tests to fail
+@skip_on_windows
+def test_github_issue_4039_runtime_cli():
+    """Test that runtime values from CLI are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_runtime:runtime=120'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_mem_cli():
+    """Test that mem values from CLI are correctly interpreted as MB, not bytes.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_mem_cli"),
+        shellcmd="snakemake -c1 --set-resources 'echo_mem:mem=1024'",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_profile():
+    """Test that runtime values from a profile are correctly interpreted as minutes, not seconds.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_profile"),
+        shellcmd="snakemake -c1 --profile profile/",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_github_issue_4039_runtime_no_override():
+    """Test the correct processing of times with units or as int/str in the resources directive in the snakefile.
+    Test for https://github.com/snakemake/snakemake/issues/4039"""
+    tmpdir = run(
+        dpath("test_github_issue_4039_runtime_no_override"),
+        shellcmd="snakemake -c1",
+        cleanup=False,
+    )
+    shutil.rmtree(tmpdir)

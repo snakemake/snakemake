@@ -10,24 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           release-type: python
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
         if: ${{ steps.release.outputs.release_created }}
         with:
           fetch-depth: 0
 
       - name: Set up Pixi
         if: ${{ steps.release.outputs.release_created }}
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.6
         with:
           environments: quality
-          cache: false
-          locked: false
+          cache: true
 
       - name: Build and check package
         if: ${{ steps.release.outputs.release_created }}

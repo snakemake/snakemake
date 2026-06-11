@@ -27,6 +27,9 @@ following structure:
     │   ├── notebooks
     |   │   ├── notebook1.py.ipynb
     |   │   └── notebook2.r.ipynb
+    │   ├── profiles
+    |   │   └── default
+    |   │       └── profile.yaml
     │   ├── report
     |   │   ├── plot1.rst
     |   │   └── plot2.rst
@@ -83,9 +86,10 @@ Consider the following example:
     use rule * from dna_seq
 
 First, we load a local configuration file.
-Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile``, while using the contents of the local configuration file.
-Note that it is possible to either specify the full URL pointing to the raw Snakefile as a string or to use the github marker as done here.
-With the latter, Snakemake can however cache the used source files persistently (if a tag is given), such that they don't have to be downloaded on each invocation.
+Next, we define the module ``dna_seq`` to be loaded from the Github repository ``snakemake-workflows/dna-seq-gatk-variant-calling`` at tag ``v2.0.1`` and path ``workflow/Snakefile``, while using the contents of the local configuration file (see :ref:`snakefile-code-hosting-providers`).
+Note that it is also possible to provide the Snakefile as a plain HTTP/HTTPS URL string.
+As an alternative convenience syntax for hosted repositories, the same module source could also be written as ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1`` or ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile``.
+Because the source is pinned to a tag, Snakemake can cache the used source files persistently, such that they don't have to be downloaded on each invocation.
 Finally we declare all rules of the dna_seq module to be used.
 
 This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
@@ -370,6 +374,19 @@ Importantly, if the script relies on certain shell specific syntax, (e.g. `set -
     # ...
 
 If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
+
+Also, make sure that you do not accidentally inherit any environment variables that set installation paths.
+This can for example be the case if you set up ``$R_LIBS_USER`` in a ``.Renviron`` file (usually in your ``$HOME`` directory), which automatically gets `loaded on every startup of <https://rstats.wtf/r-startup.html>`_ ``R`` and ``Rscript``.
+To make sure that any package installations in the ``.post-deploy.sh`` do not go into such a user ``R`` library path, but into the conda environment, run the installation with the ``--no-environ`` flag.
+And if you use the ``R`` package ``remotes`` to install software into your conda environment, also make sure that it emits an error upon failure (instead of just a warning) `by setting the respective environment variable <https://remotes.r-lib.org/#environment-variables>`_.
+Otherwise ``Rscript`` reports success and the conda environment installation succeeds, even if the package installation in the ``Rscript`` statement failed.
+Altogether, the recommendation for installing ``R`` packages not available via conda into a conda environment, is:
+
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    Rscript --no-environ -e 'Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="false"); remotes::install_github("some-org/RPackageNotOnConda", ref = "v1.3.2", upgrade = "never")'
 
 .. _conda_named_env:
 
