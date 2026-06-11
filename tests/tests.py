@@ -1669,6 +1669,10 @@ def test_checkpoint_rerun():
         assert f.read().strip() == "1"
 
 
+def test_checkpoint_import():
+    run(dpath("test_checkpoint_import"))
+
+
 def test_checkpoint_missing_output():
     """test for issue 3879, also covers 3009"""
     # normal run to create the checkpoint output and final output

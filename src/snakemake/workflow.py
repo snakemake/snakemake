@@ -1941,7 +1941,7 @@ class Workflow(WorkflowExecutorInterface):
             self.add_rule(rule, allow_overwrite=self.modifier.allow_rule_overwrite)
             rule.is_checkpoint = checkpoint
             if checkpoint:
-                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
+                self.globals["checkpoints"]._register(rule, orig_name)
 
             # If requested, modify ruleinfo via the modifier.
             rule.module_globals = self.modifier.globals
