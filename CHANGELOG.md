@@ -1,6 +1,26 @@
 # Changelog
 
 
+## [9.23.0](https://github.com/snakemake/snakemake/compare/v9.22.0...v9.23.0) (2026-06-11)
+
+
+### Features
+
+* support remote snakefile via gh/gl shorthand ([#4161](https://github.com/snakemake/snakemake/issues/4161)) ([ec2f12a](https://github.com/snakemake/snakemake/commit/ec2f12a909e47ae6c2b503ef93de090cea1f09c3))
+
+
+### Bug Fixes
+
+* remove leaked secrets in input source file display and ensure that wrapper scripts are properly fetched as GithubFile (including caching) ([#4225](https://github.com/snakemake/snakemake/issues/4225)) ([6b06433](https://github.com/snakemake/snakemake/commit/6b0643378050cac6e8252781787cdb48f457079d))
+* set log level accordingly when debug dag is set ([#3778](https://github.com/snakemake/snakemake/issues/3778)) ([eea0f41](https://github.com/snakemake/snakemake/commit/eea0f410376bda298482c5fc0d326a1e517ce13d))
+
+
+### Documentation
+
+* add post-deploy example that ensures `.Renviron` is ignored for R package installations ([#4140](https://github.com/snakemake/snakemake/issues/4140)) ([b64c39e](https://github.com/snakemake/snakemake/commit/b64c39ee5f412024bda48f34133f190e6b7d4dfb))
+* note about quoting dynamic resource statements with python code, quotes in example ([#4214](https://github.com/snakemake/snakemake/issues/4214)) ([66503de](https://github.com/snakemake/snakemake/commit/66503de1ac1ceb2118232d58b72a92985e294dc0))
+* sort faq questions into sections ([#4095](https://github.com/snakemake/snakemake/issues/4095)) ([d92f290](https://github.com/snakemake/snakemake/commit/d92f290509d4537ebc4347e204bbacee25c5bbcb))
+
 ## [9.22.0](https://github.com/snakemake/snakemake/compare/v9.21.1...v9.22.0) (2026-06-01)
 
 

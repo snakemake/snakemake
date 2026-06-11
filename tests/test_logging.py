@@ -118,7 +118,7 @@ def test_issue4063():
     handler.setFormatter(formatter)
 
     log_filter = DefaultFilter(
-        quiet=set(), debug_dag=False, dryrun=False, printshellcmds=True
+        quiet=set(), debug_dag=False, verbose=False, dryrun=False, printshellcmds=True
     )
     handler.addFilter(log_filter)
 
