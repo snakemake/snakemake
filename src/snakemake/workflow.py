@@ -297,7 +297,7 @@ class Workflow(WorkflowExecutorInterface):
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
             "config_md5": hashlib.md5(
-                json.dumps(config, sort_keys=True).encode("utf-8")
+                json.dumps(self.config, sort_keys=True).encode("utf-8")
             ).hexdigest(),
         }
 

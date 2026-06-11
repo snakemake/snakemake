@@ -75,13 +75,12 @@ def find_extension(
         try:
             sourcecache.try_access(script)
             return script
+        except WorkflowError as e:
+            errors[script_name] = str(e)
         except Exception as e:
-            if isinstance(e, WorkflowError):
-                msg = str(e)
-            else:
-                msg = e.__class__.__name__
-                if str(e):
-                    msg += f": {str(e)}"
+            msg = e.__class__.__name__
+            if str(e):
+                msg += f": {e!s}"
             errors[script_name] = msg
     return errors
 
