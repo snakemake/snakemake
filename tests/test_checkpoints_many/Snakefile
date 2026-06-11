@@ -53,9 +53,10 @@ def aggregate(wildcards):
 
     outputs_i = [output.split("/")[-2] for output in outputs_i]
 
+    with checkpoints as waitfor:
+        outs = {i: waitfor.second.get(**wildcards, i=i).output[0] for i in outputs_i}
     split_files = []
-    for i in outputs_i:
-        s2out = checkpoints.second.get(**wildcards, i=i).output[0]
+    for i, s2out in outs.items():
         assert Path(s2out).exists()
         output_j = glob.glob(f"{s2out}/*/")
         outputs_j = [output.split("/")[-2] for output in output_j]
