@@ -268,6 +268,40 @@ class Workflow(WorkflowExecutorInterface):
         return runner.run(coro)
 
     @property
+    def info_header(self):
+        import os
+        import sys
+        import shutil
+        import getpass
+        from datetime import datetime
+        from snakemake.common import __version__
+        import uuid
+        import json
+        import hashlib
+
+        conda_bin = shutil.which("conda")
+
+        return {
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "snakemake_version": __version__,
+            "platform": platform.platform(),
+            "host": platform.node(),
+            "user": getpass.getuser(),
+            "python_version": sys.version,
+            "cmd": " ".join(sys.argv),
+            "basedir": self.basedir,
+            "rundir": self.rundir,
+            "cwd": self.workdir_init,
+            "configfiles": self.configfiles,
+            "snakefile_main": self.main_snakefile,
+            "snakefile": self.snakefile,
+            "workflow_id": uuid.uuid4(),
+            "config_md5": hashlib.md5(
+                json.dumps(config, sort_keys=True).encode("utf-8")
+            ).hexdigest(),
+        }
+
+    @property
     def included(self) -> Iterator[SourceFile]:
         """
         Return the included Snakefiles.
@@ -1250,9 +1284,16 @@ class Workflow(WorkflowExecutorInterface):
         greedy_scheduler_settings: GreedySchedulerSettings,
         updated_files: Optional[List[str]] = None,
     ):
-        logger.info(f"host: {platform.node()}")
-
         from snakemake.shell import shell
+
+        logger.info(
+            "Workflow has started!",
+            extra=dict(
+                event=LogEvent.WORKFLOW_STARTED,
+                **self.info_header,
+                quietness=Quietness.HOST,
+            ),
+        )
 
         assert self.deployment_settings is not None
         assert self.execution_settings is not None
@@ -1373,8 +1414,13 @@ class Workflow(WorkflowExecutorInterface):
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
+                        nodes_str = (
+                            "unlimited"
+                            if self.nodes == sys.maxsize
+                            else str(self.nodes)
+                        )
                         logger.info(
-                            f"Provided remote nodes: {self.nodes}",
+                            f"Provided remote nodes: {nodes_str}",
                             extra=dict(event=LogEvent.RESOURCES_INFO, nodes=self.nodes),
                         )
                     else:
@@ -1580,7 +1626,9 @@ class Workflow(WorkflowExecutorInterface):
             # calling file known as SourceFile
             calling_file = self._included[calling_file]
             path = self._get_basedir(calling_file).join(rel_path)
-            orig_path = path.get_path_or_uri(secret_free=False)
+            # the orig path will only be displayed in the log and error messages
+            # thus it should not contain secrets
+            orig_path = path.get_path_or_uri(secret_free=True)
             return sourcecache_entry(self.sourcecache.get_path(path), orig_path)
         else:
             # heuristically determine path

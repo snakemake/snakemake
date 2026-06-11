@@ -152,18 +152,37 @@ class DefaultFormatter(logging.Formatter):
             LogEvent.RUN_INFO: self.format_run_info,
             LogEvent.DEBUG_DAG: self.format_dag_debug,
             LogEvent.PROGRESS: self.format_progress,
+            LogEvent.WORKFLOW_STARTED: self.format_workflow_started,
         }
 
         formatter = formatters.get(event, default_formatter)
         return formatter(record_dict)
 
+    def format_workflow_started(self, msg: dict[str, Any]):
+        """Format the workflow_started log messages."""
+
+        return """
+SNAKEMAKE
+=========
+  Date: {datetime}
+  Workflow ID: {workflow_id}
+  Platform: {platform}
+  Host: {host}
+  User: {user}
+  Snakemake version: {snakemake_version}
+  Python version: {python_version}
+  Command: {cmd}
+  Snakefile: {snakefile_main}
+  Base directory: {basedir}
+  Run directory: {rundir}
+  Working directory: {cwd}
+  Config file(s): {configfiles}
+  Config MD5: {config_md5}
+""".format(**msg)
+
     def format_run_info(self, msg: dict[str, Any]):
         """Format the run_info log messages."""
         return msg["msg"]  # Log the message directly
-
-    def format_host(self, msg: dict[str, Any]):
-        """Format for host log."""
-        return f"host: {platform.node()}"
 
     def format_job_info(self, msg: dict[str, Any]):
         """Format for job_info log."""
@@ -401,8 +420,6 @@ class DefaultFilter:
 
         # Handle dag_debug specifically
         if event == LogEvent.DEBUG_DAG and not self.debug_dag:
-            return False
-        if event == LogEvent.WORKFLOW_STARTED:
             return False
 
         return True

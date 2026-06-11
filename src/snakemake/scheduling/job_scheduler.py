@@ -354,7 +354,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 f"{', '.join(j.name for j in local_runjobs)}."
                             )
                         else:
-                            if not self.dryrun and not self.workflow.subprocess_exec:
+                            if (
+                                not (self.dryrun or self.touch)
+                                and not self.workflow.subprocess_exec
+                            ):
                                 # retrieve storage inputs for local jobs
                                 self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
