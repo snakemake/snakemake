@@ -78,12 +78,16 @@ class RuntimeDependencyManager:
         }
 
     def update_workflow_prefix(self) -> None:
-        self._prefixes[PackageType.WORKFLOW] = Path.cwd() / ".snakemake" / "workflow_dependencies"
+        self._prefixes[PackageType.WORKFLOW] = (
+            Path.cwd() / ".snakemake" / "workflow_dependencies"
+        )
 
     def infer_plugin_packages_from_args(self, args) -> None:
         """Infers the required plugin packages from the given command line arguments."""
+
         def add_plugin(name: str, plugin_type: str) -> str:
             self.add_plugin_package(f"snakemake-{plugin_type}-plugin-{name}")
+
         if args.executor not in ("local", "dryrun", "touch"):
             add_plugin(args.executor, "executor")
         if args.reporter != "html":
@@ -124,11 +128,15 @@ class RuntimeDependencyManager:
 
         # get all packages and versions installed under the plugin package prefix
         # (including other packages installed there before)
-        prior_plugin_packages = set(get_packages_in_prefix(self._prefixes[PackageType.PLUGIN]))
+        prior_plugin_packages = set(
+            get_packages_in_prefix(self._prefixes[PackageType.PLUGIN])
+        )
 
         # deploy auxiliary packages, considering the plugin packages as additional
         # prior packages to ensure compatibility
-        self._deploy_packages_per_type(PackageType.WORKFLOW, prior_env_packages, prior_plugin_packages)
+        self._deploy_packages_per_type(
+            PackageType.WORKFLOW, prior_env_packages, prior_plugin_packages
+        )
 
     def _add_package(
         self, package_type: PackageType, name: str, version: Optional[str] = None

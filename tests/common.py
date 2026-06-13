@@ -370,8 +370,8 @@ def run(
                     cwd=path if no_tmpdir else tmpdir,
                     check=True,
                     shell=True,
-                    #stderr=subprocess.STDOUT,
-                    #stdout=subprocess.PIPE,
+                    # stderr=subprocess.STDOUT,
+                    # stdout=subprocess.PIPE,
                 )
                 print(res.stdout.decode())
                 success = True
