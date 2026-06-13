@@ -61,6 +61,7 @@ def test_list_software_envs():
 def test_cache_or_deploy_software_envs():
     tmpdir = run(
         dpath("test_conda"),
+        deployment_method={"conda"},
         cache_or_deploy_software_envs=True,
         check_results=False,
         cleanup=False,
