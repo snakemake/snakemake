@@ -71,7 +71,7 @@ def test_cache_or_deploy_software_envs():
     env_dir = next(
         (
             p
-            for p in Path(tmpdir, ".snakemake", "software", "conda").iterdir()
+            for p in Path(tmpdir, ".snakemake", "deployments", "conda").iterdir()
             if p.is_dir()
         ),
         None,
