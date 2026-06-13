@@ -21,5 +21,5 @@ rule a:
         custom_path=custom_path
     shell:
         "(test -e {params.custom_path} || "
-        "(echo not found {params.custom_path} >&2 && exit 1) && "
+        "(echo not found {params.custom_path} >&2 && exit 1)) && "
         "snakemake --version > {output}"
