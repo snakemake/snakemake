@@ -3,9 +3,9 @@ shell.executable("bash")
 
 
 if platform.system() == "Windows":
-    custom_path = "custom/*/Scripts/snakemake.exe"
+    custom_path = ".snakemake/custom/conda/*/Scripts/snakemake.exe"
 else:
-    custom_path = "custom/*/bin/snakemake"
+    custom_path = ".snakemake/custom/conda/*/bin/snakemake"
 
 
 rule all:
@@ -20,5 +20,6 @@ rule a:
     params:
         custom_path=custom_path
     shell:
-        "test -e {params.custom_path} && "
+        "(test -e {params.custom_path} || "
+        "(echo not found {params.custom_path} >&2 && exit 1) && "
         "snakemake --version > {output}"
