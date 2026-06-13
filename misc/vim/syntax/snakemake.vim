@@ -121,6 +121,7 @@ syn keyword pythonBuiltinFunc
       \ expand
       \ exists
       \ multiext
+      \ optional
       \ pipe
       \ protected
       \ read_job_properties
