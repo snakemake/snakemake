@@ -360,7 +360,7 @@ class PluginArgCollectorBase(ABC):
 
     def fmt_value(
         self, value: Any, unparse: Callable, plugin_name: str, tag: Optional[str] = None
-    ) -> str:
+    ) -> Any:
         if callable(value):
             raise WorkflowError(
                 f"Invalid setting for plugin {plugin_name}. Unable "
@@ -370,11 +370,11 @@ class PluginArgCollectorBase(ABC):
         if tag is not None:
             return f"{tag}:{value}"
         else:
-            return f"{value}"
+            return value
 
     def get_field_values(
         self, name: str, settings: Dict, plugin_name: str, unparse: Callable
-    ) -> List[str]:
+    ) -> List[Any]:
         values = getattr(settings, name)
         if values is not None:
             if isinstance(values, Iterable) and not isinstance(values, str):
