@@ -222,7 +222,7 @@ def notebook(
                 language = None
                 draft = True
                 path = f"file://{local_path.absolute()}"
-                suffixes = path.suffixes
+                suffixes = local_path.suffixes
                 if suffixes[-2:] == [".py", ".ipynb"]:
                     language = "jupyter_python"
                 elif suffixes[-2:] == [".r", ".ipynb"]:
@@ -253,10 +253,6 @@ def notebook(
         path = infer_source_file(path)
 
     exec_class = get_exec_class(language)
-    if exec_class is None:
-        raise ValueError(
-            "Unsupported notebook: Has to be either an R (.r.ipynb) or Python (.py.ipynb) notebook."
-        )
 
     executor = exec_class(
         path,

@@ -2260,6 +2260,7 @@ def test_github_issue1882():
 
 
 def test_github_issue3213():
+    tmpdir = None
     try:
         import linecache
 
@@ -2302,7 +2303,8 @@ def test_github_issue3213():
         assert ts_a2 != ts_a3
         assert ts_b2 != ts_b3
     finally:
-        shutil.rmtree(tmpdir)
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir)
 
 
 @skip_on_windows  # not platform dependent

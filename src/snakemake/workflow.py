@@ -1152,8 +1152,8 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        self.async_run(self.software_deployment_manager.cache_envs(self.dag))
-        self.async_run(self.software_deployment_manager.deploy_envs(self.dag))
+        self.async_run(self.software_deployment_manager.cache_envs(self.dag.jobs))
+        self.async_run(self.software_deployment_manager.deploy_envs(self.dag.jobs))
 
     def cleanup_software_envs(self) -> None:
         assert self.dag_settings is not None
@@ -1164,7 +1164,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        self.software_deployment_manager.cleanup_envs(self.dag)
+        self.async_run(self.software_deployment_manager.cleanup_envs(self.dag))
 
     def log_rulegraph(self):
         def simple_rulegraph():

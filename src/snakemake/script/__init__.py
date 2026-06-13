@@ -864,11 +864,11 @@ class RMarkdown(RScript):
         fd.write(code[pos:].encode())
 
     def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
-        if len(self.output) != 1:
+        if len(self.run_args.output) != 1:
             raise WorkflowError(
                 "RMarkdown scripts (.Rmd) may only have a single output file."
             )
-        out = os.path.abspath(self.output[0])
+        out = os.path.abspath(self.run_args.output[0])
         self._execute_cmd(
             'Rscript --vanilla -e \'rmarkdown::render("{fname}", output_file="{out}", quiet=TRUE, knit_root_dir = "{workdir}", params = list(rmd="{fname}"))\'',
             fname=fname,
@@ -881,7 +881,7 @@ class JuliaScript(ScriptBase):
     def get_preamble(self):
         resources = {
             name: value
-            for name, value in self.resources.items()
+            for name, value in self.run_args.resources.items()
             if name != "_cores" and name != "_nodes"
         }
         return textwrap.dedent(f"""
@@ -937,7 +937,7 @@ class RustScript(ScriptBase):
             )
 
         snakemake = dict(
-            input=encode_namedlist(self.run_args.input_._plainstrings()._allitems()),
+            input=encode_namedlist(self.run_args.input._plainstrings()._allitems()),
             output=encode_namedlist(self.run_args.output._plainstrings()._allitems()),
             params=encode_namedlist(self.run_args.params.items()),
             wildcards=encode_namedlist(self.run_args.wildcards.items()),
@@ -1193,7 +1193,7 @@ class BashScript(ScriptBase):
             log=self.run_args.log,
             config=self.config,
             rulename=self.run_args.job_rule.name,
-            basedir=self.path.get_basedir().get_path_or_uri(secret_free=True),
+            scriptdir=self.path.get_basedir().get_path_or_uri(secret_free=True),
             bench_iteration=self.run_args.bench_iteration,
         )
 

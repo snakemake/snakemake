@@ -61,6 +61,7 @@ def test_list_software_envs():
 def test_cache_or_deploy_software_envs():
     tmpdir = run(
         dpath("test_conda"),
+        deployment_method={"conda"},
         cache_or_deploy_software_envs=True,
         check_results=False,
         cleanup=False,
@@ -70,7 +71,7 @@ def test_cache_or_deploy_software_envs():
     env_dir = next(
         (
             p
-            for p in Path(tmpdir, ".snakemake", "software", "conda").iterdir()
+            for p in Path(tmpdir, ".snakemake", "deployments", "conda").iterdir()
             if p.is_dir()
         ),
         None,
@@ -110,7 +111,7 @@ def test_custom_software_deployment_prefix():
     run(
         dpath("test_conda_custom_prefix"),
         deployment_method={"conda"},
-        software_deployment_prefix="custom",
+        deployment_prefix=".snakemake/custom",
         set_pythonpath=False,
     )
 

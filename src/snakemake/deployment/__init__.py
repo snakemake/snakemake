@@ -1,3 +1,4 @@
+from typing import Set
 from snakemake.logging import logger
 from snakemake.settings.enums import Quietness
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
@@ -45,17 +46,21 @@ class SoftwareDeploymentManager:
         )
         self.registry = SoftwareDeploymentPluginRegistry()
         self.plugins = {}
+        self.selected_plugin_kinds: Set[str] = set()
         for plugin_name, plugin in self.registry.plugins.items():
-            if plugin_name not in self.workflow.deployment_settings.deployment_methods:
-                continue
             kind = plugin.common_settings.provides
-            if kind not in self.plugins:
-                self.plugins[kind] = plugin
-            else:
-                raise WorkflowError(
-                    "Multiple plugins for the same kind are not allowed. "
-                    f"Choose one of {plugin_name} and {self.plugins[kind].name}."
-                )
+
+            if plugin_name in self.workflow.deployment_settings.deployment_methods:
+                if kind in self.selected_plugin_kinds:
+                    raise WorkflowError(
+                        f"Multiple plugins providing the same kind of software deployment "
+                        f"are activated ({plugin_name} and another plugin providing {kind}). "
+                        "Please choose only one plugin for each kind of software deployment."
+                    )
+                else:
+                    self.selected_plugin_kinds.add(kind)
+
+            self.plugins[kind] = plugin
 
     def collect_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         shared_envs = (
@@ -152,12 +157,14 @@ class SoftwareDeploymentManager:
                 env.managed_remove()
 
     def get_env(
-        self, env_spec: EnvSpecBase, mountpoints: List[Path] = []
+        self, env_spec: EnvSpecBase, mountpoints: Optional[List[Path]] = None
     ) -> Optional[EnvBase]:
+        if mountpoints is None:
+            mountpoints = []
         if env_spec in self.specs_to_envs:
             return self.specs_to_envs[env_spec]
 
-        if env_spec.kind not in self.plugins:
+        if env_spec.kind not in self.selected_plugin_kinds:
             if env_spec.fallback is not None:
                 return self.get_env(env_spec.fallback)
             else:

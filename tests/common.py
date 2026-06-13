@@ -413,7 +413,11 @@ def run(
                         cache=cache,
                     ),
                     deployment_settings=settings.DeploymentSettings(
-                        deployment_prefix=deployment_prefix,
+                        deployment_prefix=(
+                            Path(deployment_prefix)
+                            if deployment_prefix is not None
+                            else None
+                        ),
                         deployment_methods=deployment_method,
                     ),
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
