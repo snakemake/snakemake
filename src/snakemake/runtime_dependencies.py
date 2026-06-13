@@ -80,6 +80,19 @@ class RuntimeDependencyManager:
     def update_workflow_prefix(self) -> None:
         self._prefixes[PackageType.WORKFLOW] = Path.cwd() / ".snakemake" / "workflow_dependencies"
 
+    def infer_plugin_packages_from_args(self, args) -> None:
+        """Infers the required plugin packages from the given command line arguments."""
+        def add_plugin(name: str, plugin_type: str) -> str:
+            self.add_plugin_package(f"snakemake-{plugin_type}-plugin-{name}")
+        if args.executor not in ("local", "dryrun", "touch"):
+            add_plugin(args.executor, "executor")
+        if args.reporter != "html":
+            add_plugin(args.reporter, "report")
+        if args.default_storage_provider:
+            add_plugin(args.default_storage_provider, "storage")
+        for logger in args.logger:
+            add_plugin(logger, "logger")
+
     def add_plugin_package(self, name: str) -> None:
         self._add_package(PackageType.PLUGIN, name)
 

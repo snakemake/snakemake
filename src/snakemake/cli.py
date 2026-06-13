@@ -1,3 +1,4 @@
+from snakemake.runtime_dependencies import RuntimeDependencyManager
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -14,7 +15,7 @@ from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
+from snakemake_interface_executor_plugins.utils import maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
@@ -1901,6 +1902,14 @@ def generate_parser_metadata(parser, args):
 
 def parse_args(argv):
     parser = get_argument_parser()
+
+    # first try, parse only known args and infer plugin packages
+    known_args = parser.parse_known_args(argv)
+    runtime_dep_manager = RuntimeDependencyManager()
+    runtime_dep_manager.infer_plugin_packages_from_args(known_args)
+    runtime_dep_manager.deploy_plugin_packages()
+
+    # now all plugins are available for parsing their args
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
