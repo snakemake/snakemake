@@ -2,6 +2,7 @@
 Execution and Scheduling
 ========================
 
+.. _snakefiles-local-rules:
 
 Local Rules
 -----------
