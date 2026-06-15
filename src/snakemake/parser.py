@@ -704,7 +704,7 @@ class TemplateEngine(Script):
     end_func = "render_template"
 
 
-class CWL(Script):
+class CWL(AbstractCmd):
     start_func = "@workflow.cwl"
     end_func = "cwl"
 

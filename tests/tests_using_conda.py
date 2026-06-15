@@ -1,3 +1,5 @@
+from snakemake.settings.types import DeploymentSettings
+
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -71,7 +73,9 @@ def test_cache_or_deploy_software_envs():
     env_dir = next(
         (
             p
-            for p in Path(tmpdir, ".snakemake", "deployments", "conda").iterdir()
+            for p in (
+                Path(tmpdir) / DeploymentSettings().deployment_prefix / "conda"
+            ).iterdir()
             if p.is_dir()
         ),
         None,

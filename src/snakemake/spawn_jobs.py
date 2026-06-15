@@ -194,7 +194,9 @@ class SpawnedJobArgsFactory:
         ):
             archive = self.workflow.source_archive
             default_storage_provider_args = self.get_default_storage_provider_args()
-            storage_provider_args = " ".join(self.get_storage_provider_args())
+            storage_provider_args = " ".join(
+                self.storage_plugin_arg_collector.get_cli_args()
+            )
             precommand.append(
                 f"{python_executable} -m snakemake --deploy-sources "
                 f"{archive.query} {archive.checksum} {default_storage_provider_args} "
