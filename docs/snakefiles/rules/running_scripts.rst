@@ -1,7 +1,8 @@
+==================
+Running Scripts
+==================
+
 .. _snakefiles-plain-python-rules:
-==================
-Executing Code
-==================
 
 Plain python rules
 ------------------
@@ -481,7 +482,7 @@ Bash Example 2
 
     rule align:
         input:
-            reads=["{sample}_R1.fq", "{sample}_R2.fq]"],
+            reads=["{sample}_R1.fq", "{sample}_R2.fq"],
             reference="ref.fa",
         output:
             "{sample}.sam"

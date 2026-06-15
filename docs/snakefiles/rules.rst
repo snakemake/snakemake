@@ -10,7 +10,7 @@ Snakefiles and Rules
    :hidden:
 
    rules/wildcards
-   rules/executing_code
+   rules/running_scripts
    rules/input_output
    rules/dependencies
    rules/reuse_composition
