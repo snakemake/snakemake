@@ -459,7 +459,9 @@ def test_stop_closes_handlers():
         assert (
             handler.flush_called
         ), f"{desc} handler was not flushed by LoggerManager.stop()"
-        assert handler.close_called, f"{desc} handler was not closed by LoggerManager.stop()"
+        assert (
+            handler.close_called
+        ), f"{desc} handler was not closed by LoggerManager.stop()"
         assert (
             len(handler.records) == 1
         ), f"Expected 1 record delivered to {desc} handler, got {len(handler.records)}"
