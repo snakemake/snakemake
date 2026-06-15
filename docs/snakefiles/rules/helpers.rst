@@ -130,6 +130,83 @@ Additionally, if additional input/output statements are given, multiext should b
 Semantic Helpers
 ----------------
 
+.. _snakefiles-branch-function:
+
+``branch()``
+^^^^^^^^^^^^
+
+The ``branch`` function allows to choose different input files based on a given conditional.
+It has the signature
+
+.. code-block:: python
+
+    branch(
+        condition: Union[Callable, bool],
+        then: Optional[Union[str, list[str], Callable]] = None,
+        otherwise: Optional[Union[str, list[str], Callable]] = None,
+        cases: Optional[Mapping] = None
+    )
+
+The ``condition`` argument has to be either a function or an expression that can be evaluated as a ``bool`` (which is virtually everything in Python).
+If it is a function, it has to take wildcards as its only parameter.
+Similarly, ``then``, ``otherwise`` and the values of the ``cases`` mapping (e.g. a python ``dict``) can be such functions.
+
+If any such function is given to any of those arguments, this function returns a derived
+input function that will be evaluated once the wildcards are known (e.g. when used in the context of an input definition) (see :ref:`snakefiles-input_functions`).
+
+If ``then`` and optionally ``otherwise`` are specified, it does the following:
+If the ``condition`` is (or evaluates to) ``True``, return the value
+of the ``then`` parameter. Otherwise, return the value of the ``otherwise`` parameter.
+
+If ``cases`` is specified, it does the following:
+Retrieve the value of the cases mapping using the return value of the condition
+(if it is a function), or the condition value itself as a key.
+
+An example of using ``branch`` in combination with ``lookup`` from a ``config`` dictionary can look as follows:
+
+.. code-block:: python
+
+    branch(
+        lookup(dpath="tools/sometool", within=config),
+        then="results/sometool/{dataset}.txt",
+        otherwise="results/someresult/{dataset}.txt"
+    )
+
+Here, the semantic is as follows:
+If the lookup returns ``True``, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
+
+Given that ``condition`` can be a function, if this is used in the context of a rule definition and the usage of the tool ``sometool`` depends on some wildcard values,
+one can also pass a function name instead of a boolean value to the branch function (using it as an input function).
+
+.. code-block:: python
+
+    def use_sometool(wildcards):
+        # determine whether the tool shall be used based on the wildcard values.
+        ...
+
+    rule a:
+        input:
+            branch(
+                use_sometool,
+                then="results/sometool/{dataset}.txt",
+                otherwise="results/someresult/{dataset}.txt"
+            )
+
+Above, the semantic is as follows:
+If ``use_sometool`` returns ``True`` for the given wildcard values, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
+
+An example for using the cases argument could look as follows:
+
+.. code-block:: python
+
+    branch(
+        lookup(dpath="tool/to/use", within=config),
+        cases={
+            "sometool": "results/sometool/{dataset}.txt",
+            "someothertool": "results/someothertool/{dataset}.txt"
+        }
+    )
+
 ``collect()``
 ^^^^^^^^^^^^^
 
@@ -238,82 +315,7 @@ to auxiliary namespace arguments given to the lookup function, e.g.
 
 This way, one can e.g. pass additional variables or chain lookups into more complex queries.
 
-.. _snakefiles-branch-function:
 
-``branch()``
-^^^^^^^^^^^^
-
-The ``branch`` function allows to choose different input files based on a given conditional.
-It has the signature
-
-.. code-block:: python
-
-    branch(
-        condition: Union[Callable, bool],
-        then: Optional[Union[str, list[str], Callable]] = None,
-        otherwise: Optional[Union[str, list[str], Callable]] = None,
-        cases: Optional[Mapping] = None
-    )
-
-The ``condition`` argument has to be either a function or an expression that can be evaluated as a ``bool`` (which is virtually everything in Python).
-If it is a function, it has to take wildcards as its only parameter.
-Similarly, ``then``, ``otherwise`` and the values of the ``cases`` mapping (e.g. a python ``dict``) can be such functions.
-
-If any such function is given to any of those arguments, this function returns a derived
-input function that will be evaluated once the wildcards are known (e.g. when used in the context of an input definition) (see :ref:`snakefiles-input_functions`).
-
-If ``then`` and optionally ``otherwise`` are specified, it does the following:
-If the ``condition`` is (or evaluates to) ``True``, return the value
-of the ``then`` parameter. Otherwise, return the value of the ``otherwise`` parameter.
-
-If ``cases`` is specified, it does the following:
-Retrieve the value of the cases mapping using the return value of the condition
-(if it is a function), or the condition value itself as a key.
-
-An example of using ``branch`` in combination with ``lookup`` from a ``config`` dictionary can look as follows:
-
-.. code-block:: python
-
-    branch(
-        lookup(dpath="tools/sometool", within=config),
-        then="results/sometool/{dataset}.txt",
-        otherwise="results/someresult/{dataset}.txt"
-    )
-
-Here, the semantic is as follows:
-If the lookup returns ``True``, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
-
-Given that ``condition`` can be a function, if this is used in the context of a rule definition and the usage of the tool ``sometool`` depends on some wildcard values,
-one can also pass a function name instead of a boolean value to the branch function (using it as an input function).
-
-.. code-block:: python
-
-    def use_sometool(wildcards):
-        # determine whether the tool shall be used based on the wildcard values.
-        ...
-
-    rule a:
-        input:
-            branch(
-                use_sometool,
-                then="results/sometool/{dataset}.txt",
-                otherwise="results/someresult/{dataset}.txt"
-            )
-
-Above, the semantic is as follows:
-If ``use_sometool`` returns ``True`` for the given wildcard values, the input is ``results/sometool/{dataset}.txt``, otherwise it is ``results/someresult/{dataset}.txt``.
-
-An example for using the cases argument could look as follows:
-
-.. code-block:: python
-
-    branch(
-        lookup(dpath="tool/to/use", within=config),
-        cases={
-            "sometool": "results/sometool/{dataset}.txt",
-            "someothertool": "results/someothertool/{dataset}.txt"
-        }
-    )
 
 ``evaluate()``
 ^^^^^^^^^^^^^^
@@ -363,6 +365,28 @@ It can for example be used to condition some behavior in the workflow on the exi
         shell:
             "cp {input} {output}"
 
+.. _snakefiles-semantic-helpers-extract-checksum:
+
+``extract_checksum()``
+^^^^^^^^^^^^^^^^^^^^^^
+
+The ``extract_checksum`` function parses an input file and returns the checksum of the given file.
+It has the signature ``extract_checksum(infile, file)``, with ``infile`` being the input file, and ``file`` the filename to search for.
+The function will return the checksum of ``file`` present in ``infile``.
+
+.. code-block:: python
+
+    rule a:
+	input:
+	    checksum="samples.md5",
+        output:
+            tsv="{a}.tsv",
+        params:
+            checksum=parse_input(input.checksum, parser=extract_checksum, file=output.tsv)
+        shell:
+            "echo {params.checksum} > {output}"
+
+
 .. _snakefiles-semantic-helpers-parse-input:
 
 ``parse_input()``
@@ -385,26 +409,6 @@ The function will return the extracted value and this can, for example, be used 
             "echo {params.id} > {output}"
 
 
-.. _snakefiles-semantic-helpers-extract-checksum:
-
-``extract_checksum()``
-^^^^^^^^^^^^^^^^^^^^^^
-
-The ``extract_checksum`` function parses an input file and returns the checksum of the given file.
-It has the signature ``extract_checksum(infile, file)``, with ``infile`` being the input file, and ``file`` the filename to search for.
-The function will return the checksum of ``file`` present in ``infile``.
-
-.. code-block:: python
-
-    rule a:
-	input:
-	    checksum="samples.md5",
-        output:
-            tsv="{a}.tsv",
-        params:
-            checksum=parse_input(input.checksum, parser=extract_checksum, file=output.tsv)
-        shell:
-            "echo {params.checksum} > {output}"
 
 .. _snakefiles-rule-item-access:
 
@@ -439,6 +443,20 @@ For example, we could write
             directory=subpath(input.foo, parent=True)
         shell:
             "somecommand {params.directory} {output}"
+
+.. _snakefiles-flatten:
+
+``flatten()``
+^^^^^^^^^^^^^
+
+When selecting input files, sometimes you might end up with an irregular list of lists. To flatten in, you can use:
+
+.. code-block:: python
+
+    flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
+
+
+
 
 .. _snakefiles-subpath:
 
@@ -491,18 +509,6 @@ The ``subpath`` function can be very handy in combination with :ref:`Snakemake's
             outdir=subpath(output.foo, parent=True)
         shell:
             "somecommand {input} --name {params.basename} --outdir {params.outdir}"
-
-
-.. _snakefiles-flatten:
-
-``flatten()``
-^^^^^^^^^^^^^
-
-When selecting input files, sometimes you might end up with an irregular list of lists. To flatten in, you can use:
-
-.. code-block:: python
-
-    flatten([1, "a", [2,"b"], ["c","d",["e", 3]]]) # returns ["1", "a", "2", "b", "c", "d", "e", "3"]
 
 
 
