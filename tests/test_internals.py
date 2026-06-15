@@ -4,6 +4,8 @@ from snakemake.profiles import ProfileConfigFileParser
 import textwrap
 import pytest
 
+import snakemake.common as common
+from snakemake.common import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import Wildcards, InputFiles
@@ -27,6 +29,27 @@ def test_subpath():
     assert subpath("results/foo/test.txt", ancestor=1) == "results/foo"
     assert subpath("results/foo/test.txt", ancestor=2) == "results"
     assert subpath("results/foo/test.txt", ancestor=3) == "."
+
+
+def test_is_local_file_detects_local_paths():
+    assert is_local_file("Snakefile")
+    assert is_local_file("/tmp/Snakefile")
+    assert is_local_file("file:///tmp/Snakefile")
+    assert is_local_file("file:Snakefile")
+
+
+def test_is_local_file_detects_windows_drive_paths(monkeypatch):
+    monkeypatch.setattr(common, "ON_WINDOWS", True)
+
+    assert is_local_file("C:/workflow/Snakefile")
+    assert is_local_file("C:\\workflow\\Snakefile")
+
+
+def test_is_local_file_rejects_remote_and_shorthand_uris():
+    assert not is_local_file("https://example.com/workflow/Snakefile")
+    assert not is_local_file("gh:owner/repo@main")
+    assert not is_local_file("gl:group/project@main")
+    assert not is_local_file("s3://bucket/workflow/Snakefile")
 
 
 def test_pathvars_missing():
