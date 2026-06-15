@@ -109,8 +109,8 @@ It's also possible to get named input/output files in the following way:
         input:
             ...
         output:
-            multiext("some/plot", out1=".pdf", out2=".svg")
-            "some_other_output"
+            multiext("some/plot", out1=".pdf", out2=".svg"),
+            "some_other_output",
             named_output="another_output"
         shell:
             """

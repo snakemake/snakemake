@@ -191,7 +191,7 @@ All unmodified properties are inherited from the parent rule.
             outstep="something2",
             per="{sample}"
 
-    use rule transform_something_else as something5_to_something6 with:
+    use rule transform_something as something5_to_something6 with:
         pathvars:
             instep="something5",
             outstep="something6",

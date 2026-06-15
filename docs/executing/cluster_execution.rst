@@ -26,7 +26,7 @@ The following shows an example job submission wrapper:
     job_properties = read_job_properties(jobscript)
 
     # do something useful with the threads
-    threads = job_properties[threads]
+    threads = job_properties["threads"]
 
     # access property defined in the cluster configuration file (Snakemake >=3.6.0)
     job_properties["cluster"]["time"]

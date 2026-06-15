@@ -68,4 +68,4 @@ Finally, you can also define global wildcard constraints that apply for all rule
     rule b:
         ...
 
-See the `Python documentation on regular expressions <https://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
+See the `Python documentation on regular expressions <https://docs.python.org/3/library/re.html>`_ for detailed information on regular expression syntax.
