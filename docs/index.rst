@@ -186,6 +186,7 @@ Resources
   executing/monitoring
   executing/provenance
   executing/cluster_execution
+  executing/resource_management
 
 
 .. toctree::
