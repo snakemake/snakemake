@@ -3484,3 +3484,6 @@ def test_github_issue_4039_runtime_no_override():
         cleanup=False,
     )
     shutil.rmtree(tmpdir)
+
+def test_shell_wrapper():
+    run(dpath("test_shell_wrapper"))

@@ -1007,6 +1007,46 @@ Further, it is possible to set global prefixes and suffixes for all shell comman
 anywhere in your snakefile (preferably at the beginning for clarity).
 This can sometimes be useful for debugging, but is not recommended for production workflows and releases because it might hamper reproducibility and readability.
 
+Shell wrapper
+~~~~~~~~~~~~~~
+
+It is also possible to define more complex wrappers that will be context-aware, by registering a custom wrapper function. 
+This function will receive the command and the rule context : logs, wildcards, inputs, outputs... and should return a string
+
+.. code-block:: python 
+
+    def shell_wrapper(shell_script, context) : 
+        return f"""
+        (
+            echo [wildcards] {context['wildcards']}
+            echo [inputs] {context['input']}
+            echo [outputs] {context['output']}
+            set -x
+            {shell_script}
+        ) > {context['log']} >2&1
+        """"
+
+    shell.add_wrapper(shell_wrapper)
+
+
+Using this, it is possible to define some usefull generalisations, such as : 
+
+* putting your multi-line shell statements into a sub-shell capturing all stderr/stdout that is not explicitely redirected
+* auto-generating a log path from rule name and wildcards : 
+
+.. code-block:: python
+
+    wildcards_strs = "_".join([f"{k}={v}" for k, v in context['wildcards'].items()])
+    log_path = f"log/{context["rule"]}/{wildcards_strs}.log"
+
+* enforcing the definiton of log files :
+
+.. code-block:: python
+
+    if context.get("log", []) == [] : 
+        raise RuleException(f"No log file defined for rule {context['rule']}")
+
+
 .. _snakefiles-threads:
 
 Threads
