@@ -1,5 +1,6 @@
 
 .. _snakefiles-wildcards:
+
 =========
 Wildcards
 =========

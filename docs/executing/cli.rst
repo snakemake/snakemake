@@ -92,7 +92,7 @@ Re-run can be automated by invoking Snakemake as follows:
 
     $ snakemake -R `snakemake --list-code-changes`
 
-
+---------------------------------
 Dealing with very large workflows
 ---------------------------------
 

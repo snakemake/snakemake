@@ -41,7 +41,7 @@ Alternatively, you can also use the rule directive `localrule`:
         ...
 
 
-        .. _snakefiles-grouping:
+.. _snakefiles-grouping:
 
 Defining groups for execution
 -----------------------------
@@ -102,7 +102,7 @@ For execution on the cloud using Google Life Science API and preemptible instanc
 .. _snakefiles_group-local:
 
 Group-local jobs
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 From Snakemake 7.0 on, it is further possible to ensure that jobs from a certain rule are executed separately within each :ref:`job group <job_grouping>`.
 For this purpose we use :ref:`input functions <snakefiles-input_functions>`, which, in addition to the ``wildcards`` argument can expect a ``groupid`` argument.

@@ -7,7 +7,7 @@ Directives
 .. _snakefiles-threads:
 
 ``threads``
-^^^^^^^^^^
+^^^^^^^^^^^
 
 Further, a rule can be given a number of threads to use, i.e.
 
@@ -312,7 +312,7 @@ Note that this is currently implemented for the Google Life Sciences API.
 .. _snakefiles-log:
 
 ``log``
-^^^^^^
+^^^^^^^
 
 Each rule can specify a log file where information about the execution is written to:
 
