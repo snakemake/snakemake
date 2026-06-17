@@ -145,6 +145,102 @@ Note that the second use statement has to use the original rule name, not the on
 
 Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
+
+.. _snakefiles-modules-pathvars:
+
+Pathvars
+~~~~~~~~
+
+It is possible to define :ref:`pathvars <snakefiles-pathvars>` on a per-module base as follows:
+
+.. code-block:: python
+
+    module other_workflow:
+        snakefile:
+            # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
+            "other_workflow/Snakefile"
+        pathvars:
+            results="results/other_workflow"
+
+All rules in the module that make use of the defined pathvars will use whatever new values are defined there.
+The given values will override eventual pathvar definitions inside of the module.
+
+If further a config is passed to the module, any pathvar definitions in the config take precedence over pathvar definitions in the module definition, e.g.:
+
+.. code-block:: python
+
+    module other_workflow:
+        snakefile:
+            # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
+            "other_workflow/Snakefile"
+        pathvars:
+            results="results/other_workflow"
+        config: config["other-workflow"]
+
+Here, if ``config["other-workflow"]`` contains a ``pathvars`` section, those definitions will extend (and overwrite if also containing ``"results"``) the ``results`` pathvar defined in the module statement.
+Concretely, consider the following two cases.
+First, if the config contains the following:
+
+.. code-block:: yaml
+
+    pathvars:
+        resources: "custom/path/to/resources"
+
+Then inside of the module the two considered pathvars will be ``results="results/other_workflow"`` and ``resources="custom/path/to/resources"``.
+If instead the config contains:
+.. code-block:: yaml
+
+    pathvars:
+        results: "custom/results"
+        resources: "custom/path/to/resources"
+
+Then inside of the module the two considered pathvars will be ``results="custom/results"`` and ``resources="custom/path/to/resources"``.
+
+Note that defining pathvars in the config should be considered a rare, discouraged and advanced use case, since the users has to know about the internal pathvar expectations of the module.
+Workflow authors can explicitly forbid the modification of particular pathvars via :ref:`config file schemas and validation <snakefiles_config_validation>`.
+
+
+.. _snakefiles-dynamic-modules:
+
+Dynamic Modules
+~~~~~~~~~~~~~~~
+
+With Snakemake 9.0 and later, it is possible to load modules dynamically by providing the ``name`` keyword inside the module definition.
+For example, by reading the module name from a config file or by iterating over several modules in a loop.
+For this, the module name is not specified directly after the ``module`` keyword, but by specifying the ``name`` parameter.
+
+
+.. code-block:: python
+
+    for module_name in ['module1', 'module2']:
+        module:
+            name: module_name
+            snakefile: f"{module_name}/Snakefile"
+            config: config[module_name]
+
+        use rule * from module_name as module_name*
+
+.. note::
+    It is not allowed to specify the module name both after the ``module`` keyword and inside the module definition after the ``name`` parameter.
+
+In the ``use rule`` statement, it is first checked if the module name (here, ``'module_name'``) corresponds to a loaded module. If yes, the rules are imported from the loaded module and an arbitrary alias can be provided after the ``as`` keyword.
+
+If ``module_name`` was not registered as a module (as in the example above), the module name is resolved dynamically by searching the name in the current python variable scope. In the example, it resolves to ``'module1'`` and ``'module2'``.
+Note that this means that if ``use rule`` is used with the optional ``as`` keyword inside the loop, the alias after ``as`` must be specified using a variable to ensure a one-to-one mapping between module names and their aliases. This can either be the same name variable (as in the above example) or a second variable (as in the example below).
+
+In particular, it is not possible to modify the alias name in the ``use rule`` statement (e.g., writing directly ``use rule * from module as module_*`` is not allowed for dynamic modules).
+
+.. code-block:: python
+
+    for module_name, alias in zip(['module1', 'module2'], ['module1_', 'module2_']):
+        module:
+            name: module_name
+            snakefile: f"{module_name}/Snakefile"
+            config: config[module_name]
+
+        use rule * from module_name as alias*
+
+
 .. _snakefiles-rule-inheritance:
 
 Rule Inheritance
