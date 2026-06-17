@@ -37,6 +37,9 @@ from snakemake_interface_executor_plugins.settings import (
     SharedFSUsage,
 )
 
+from snakemake_software_deployment_plugin_container import Settings as ContainerDeploymentSettings
+from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
+
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
@@ -774,14 +777,12 @@ def test_profile():
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_singularity():
     run(dpath("test_singularity"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_singularity_cluster():
     run(
@@ -792,7 +793,6 @@ def test_singularity_cluster():
 
 
 @skip_on_windows
-@apptainer
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -803,7 +803,6 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
-@apptainer
 def test_singularity_module_invalid():
     run(
         dpath("test_singularity_module"),
@@ -814,21 +813,22 @@ def test_singularity_module_invalid():
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_singularity_none():
     run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_singularity_global():
-    run(dpath("test_singularity_global"), deployment_method={"container"})
+    run(dpath("test_singularity_global"), deployment_method={"container"}, software_deployment_provider_settings={
+                        "container": ContainerDeploymentSettings(
+                            runtime=ContainerRuntime.APPTAINER,
+                        )
+                    })
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_singularity_source_cache():
     run(
@@ -854,7 +854,6 @@ def test_log_input():
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_cwl_singularity():
     run(dpath("test_cwl"), deployment_method={"container"})
@@ -1524,7 +1523,6 @@ def test_issue1085():
 
 
 @skip_on_windows
-@apptainer
 def test_issue1083():
     run(dpath("test_issue1083"), deployment_method={"container"})
 
@@ -1639,7 +1637,6 @@ def test_github_issue52():
 
 
 @skip_on_windows
-@apptainer
 def test_github_issue78():
     run(dpath("test_github_issue78"), deployment_method={"container"})
 
@@ -1732,14 +1729,12 @@ def test_env_modules():
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_container():
     run(dpath("test_container"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 def test_dynamic_container():
     run(dpath("test_dynamic_container"), deployment_method={"container"})
 
@@ -2581,7 +2576,6 @@ def test_update_flag_fail_cleanup():
 
 
 @skip_on_windows
-@apptainer
 def test_shell_exec_singularity():
     run(dpath("test_shell_exec"), deployment_method={"container"})
 
@@ -2682,7 +2676,6 @@ def test_github_issue_3374():
 
 
 @skip_on_windows  # OS agnostic
-@apptainer
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),

@@ -170,7 +170,6 @@ def test_wrapper_local_git_prefix():
 
 
 @skip_on_windows
-@apptainer
 @connected
 @conda
 def test_singularity_conda():
@@ -229,7 +228,6 @@ def test_jupyter_notebook_draft():
 # The conda env hash has been improved but changed due to that.
 # We have to update the containerization test container with the new hashes!
 # @skip_on_windows
-# @apptainer
 # @conda
 # def test_containerized():
 #     run(
@@ -353,7 +351,6 @@ def test_issue_3192():
 
 # Test that container and conda can be run independently using sdm
 @skip_on_windows
-@apptainer
 @connected
 @conda
 def test_issue_3202():

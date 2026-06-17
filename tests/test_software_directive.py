@@ -280,7 +280,6 @@ def test_software_directive_callable():
 
 
 @skip_on_windows
-@apptainer
 @connected
 @conda
 def test_software_directive_within():

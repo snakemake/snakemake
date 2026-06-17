@@ -56,7 +56,7 @@ dependencies = [
   "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
   "snakemake-software-deployment-plugin-conda >=0.5.2,<1.0.0",
-  "snakemake-software-deployment-plugin-container >=0.6.1,<1.0.0",
+  "snakemake-software-deployment-plugin-container >=0.6.2,<1.0.0",
   "snakemake-software-deployment-plugin-envmodules >=0.2.0,<1.0.0",
   "tabulate",
   "throttler",

@@ -226,6 +226,7 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     tmpdir: StrPath | None = None,
+    software_deployment_provider_settings=None,
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -420,6 +421,7 @@ def run(
                         ),
                         deployment_methods=deployment_method,
                     ),
+                    software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),
                 )
