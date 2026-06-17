@@ -118,7 +118,7 @@ def test_issue4063():
     handler.setFormatter(formatter)
 
     log_filter = DefaultFilter(
-        quiet=set(), debug_dag=False, dryrun=False, printshellcmds=True
+        quiet=set(), debug_dag=False, verbose=False, dryrun=False, printshellcmds=True
     )
     handler.addFilter(log_filter)
 
@@ -394,8 +394,11 @@ def test_plugin(
     )
 
 
-def test_stop_closes_plugin_handlers():
-    """Test that LoggerManager.stop() closes plugin handlers managed by the QueueListener.
+def test_stop_closes_handlers():
+    """Test that LoggerManager.stop() closes and flushes all logging handlers.
+
+    This includes plugin handlers managed by the QueueListener as well as those attached to the
+    global logger instance.
 
     Regression test for https://github.com/snakemake/snakemake/issues/4136.
     Plugin handlers are attached to the QueueListener, not the logger itself, so they
@@ -430,14 +433,18 @@ def test_stop_closes_plugin_handlers():
 
     # Simulate a plugin handler by manually wiring up a QueueListener.
     # This mirrors what _setup_plugins() does in production.
-    handler = TrackingHandler()
+    plugin_handler = TrackingHandler()
     queue: Queue[logging.LogRecord] = Queue(-1)
     manager.queue_listener = logging.handlers.QueueListener(
-        queue, handler, respect_handler_level=True
+        queue, plugin_handler, respect_handler_level=True
     )
     manager.queue_listener.start()
-    manager.plugin_handlers = [handler]
+    manager.plugin_handlers = [plugin_handler]
     test_logger.addHandler(logging.handlers.QueueHandler(queue))
+
+    # Also add a handler directly to the logger instance, similar to the default stream handler.
+    global_handler = TrackingHandler()
+    test_logger.addHandler(global_handler)
 
     try:
         test_logger.info("test message")
@@ -448,10 +455,13 @@ def test_stop_closes_plugin_handlers():
         if manager.queue_listener._thread is not None:
             manager.queue_listener.stop()
 
-    assert (
-        handler.flush_called
-    ), "Plugin handler was not flushed by LoggerManager.stop()"
-    assert handler.close_called, "Plugin handler was not closed by LoggerManager.stop()"
-    assert (
-        len(handler.records) == 1
-    ), f"Expected 1 record delivered to plugin handler, got {len(handler.records)}"
+    for handler, desc in [(plugin_handler, "plugin"), (global_handler, "global")]:
+        assert (
+            handler.flush_called
+        ), f"{desc} handler was not flushed by LoggerManager.stop()"
+        assert (
+            handler.close_called
+        ), f"{desc} handler was not closed by LoggerManager.stop()"
+        assert (
+            len(handler.records) == 1
+        ), f"Expected 1 record delivered to {desc} handler, got {len(handler.records)}"
