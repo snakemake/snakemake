@@ -87,5 +87,4 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
 
                     result[key] = value
 
-        print(result, parsed_obj)
         return result
