@@ -37,7 +37,9 @@ from snakemake_interface_executor_plugins.settings import (
     SharedFSUsage,
 )
 
-from snakemake_software_deployment_plugin_container import Settings as ContainerDeploymentSettings
+from snakemake_software_deployment_plugin_container import (
+    Settings as ContainerDeploymentSettings,
+)
 from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 
 
@@ -821,11 +823,15 @@ def test_singularity_none():
 @skip_on_windows
 @connected
 def test_singularity_global():
-    run(dpath("test_singularity_global"), deployment_method={"container"}, software_deployment_provider_settings={
-                        "container": ContainerDeploymentSettings(
-                            runtime=ContainerRuntime.APPTAINER,
-                        )
-                    })
+    run(
+        dpath("test_singularity_global"),
+        deployment_method={"container"},
+        software_deployment_provider_settings={
+            "container": ContainerDeploymentSettings(
+                runtime=ContainerRuntime.APPTAINER,
+            )
+        },
+    )
 
 
 @skip_on_windows
