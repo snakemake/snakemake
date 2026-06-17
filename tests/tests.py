@@ -3486,6 +3486,7 @@ def test_github_issue_4039_runtime_no_override():
     shutil.rmtree(tmpdir)
 
 
+@skip_on_windows
 def test_delete_temp_fs():
     outdir = run(
         dpath("test_delete_temp_fs"),
