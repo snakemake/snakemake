@@ -3496,4 +3496,4 @@ def test_delete_temp_fs():
     assert not os.path.exists(
         temp_file
     ), "temp file was not removed in main working directory"
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(outdir)
