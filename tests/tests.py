@@ -3484,3 +3484,13 @@ def test_github_issue_4039_runtime_no_override():
         cleanup=False,
     )
     shutil.rmtree(tmpdir)
+
+
+def test_delete_temp_fs():
+    outdir = run(
+        dpath("test_delete_temp_fs"),
+        shellcmd="snakemake -c1 --default-storage-provider fs",
+        cleanup=False,
+    )
+    temp_file = os.path.join(outdir, "a")
+    assert not os.path.exists(temp_file), "temp file was not removed in main working directory"
