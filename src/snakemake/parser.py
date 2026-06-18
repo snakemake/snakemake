@@ -146,7 +146,12 @@ class TokenAutomaton:
                 break
         # trim those around the f-string
         s = "".join(lines[i] for i in sorted(lines))
-        t = s[token.start[1] : t1.end[1] - len(t1.line)]
+        if t1.line.endswith("\n"):
+            end = t1.end[1] - len(t1.line)
+        else:
+            # in case the f-string is the last line in a file that doesn't end in a newline
+            end = t1.end[1] - len(t1.line) - 1
+        t = s[token.start[1] : end]
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
