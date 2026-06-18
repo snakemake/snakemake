@@ -2302,20 +2302,20 @@ def args_to_api(args, parser):
                     elif args.delete_temp_output:
                         dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
                     else:
-                        # Determine the execution executor override for
+                        # Determine the pseudo-executor override for
                         # dryrun/touch. The intended executor (args.executor)
                         # is used for validation, while the override is used
                         # for the actual (non-)execution.
                         if args.dryrun:
-                            execution_executor = "dryrun"
+                            pseudo_executor = "dryrun"
                         elif args.touch:
-                            execution_executor = "touch"
+                            pseudo_executor = "touch"
                         else:
-                            execution_executor = None
+                            pseudo_executor = None
 
                         dag_api.execute_workflow(
                             executor=args.executor,
-                            execution_executor=execution_executor,
+                            pseudo_executor=pseudo_executor,
                             execution_settings=ExecutionSettings(
                                 keep_going=args.keep_going,
                                 debug=args.debug,

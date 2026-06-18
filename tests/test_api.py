@@ -241,7 +241,7 @@ def test_gui_register_keeps_remote_snakefile():
 class TestDryrunExecutorValidation:
     """Regression tests for issue #3973.
 
-    When ``--dry-run`` or ``--touch`` is used, the ``execution_executor``
+    When ``--dry-run`` or ``--touch`` is used, the ``pseudo_executor``
     parameter is set to ``"dryrun"`` or ``"touch"`` to control *how* jobs are
     executed (i.e. not at all, or by just touching outputs). However,
     workflow validation must still run against the *intended* executor
@@ -297,7 +297,7 @@ class TestDryrunExecutorValidation:
             ) as mock_execute:
                 dag_api.execute_workflow(
                     executor="fake_remote",
-                    execution_executor="dryrun",
+                    pseudo_executor="dryrun",
                 )
                 mock_execute.assert_called_once()
 
@@ -329,19 +329,20 @@ class TestDryrunExecutorValidation:
             ) as mock_execute:
                 dag_api.execute_workflow(
                     executor="fake_remote",
-                    execution_executor="touch",
+                    pseudo_executor="touch",
                 )
                 mock_execute.assert_called_once()
 
-    def test_dryrun_without_execution_executor_rejects_no_shared_fs(self):
-        """When the dryrun executor is passed as executor= without an
-        execution_executor override, its own CommonSettings govern validation.
+    def test_dryrun_without_pseudo_executor_rejects_no_shared_fs(self):
+        """When the dryrun executor is passed as executor= without a
+        pseudo_executor override, its own CommonSettings govern validation.
         Because the dryrun executor has can_transfer_local_files=False,
         shared_fs_usage=frozenset() must still be rejected.
 
-        This also verifies the greedy-scheduler fix: because execution_executor
-        defaults to executor when not supplied, the scheduler optimisation fires
-        correctly for direct executor="dryrun" API calls too.
+        This also verifies the greedy-scheduler fix: because the execution
+        executor falls back to executor when no pseudo_executor is supplied, the
+        scheduler optimisation fires correctly for direct executor="dryrun" API
+        calls too.
         """
         with api.SnakemakeApi(
             settings.OutputSettings(verbose=True, show_failed_logs=True),
@@ -356,3 +357,22 @@ class TestDryrunExecutorValidation:
             dag_api = workflow_api.dag()
             with pytest.raises(ApiError, match="default storage provider"):
                 dag_api.execute_workflow(executor="dryrun")
+
+    def test_invalid_pseudo_executor_rejected(self):
+        """pseudo_executor only accepts None, "dryrun", or "touch"; any other
+        value is rejected with an ApiError before validation/execution begins.
+        """
+        with api.SnakemakeApi(
+            settings.OutputSettings(verbose=True, show_failed_logs=True),
+        ) as snakemake_api:
+            workflow_api = snakemake_api.workflow(
+                resource_settings=settings.ResourceSettings(cores=1),
+                storage_settings=settings.StorageSettings(),
+                snakefile=self._snakefile(),
+            )
+            dag_api = workflow_api.dag()
+            with pytest.raises(ApiError, match="pseudo_executor must be one of"):
+                dag_api.execute_workflow(
+                    executor="local",
+                    pseudo_executor="htcondor",
+                )

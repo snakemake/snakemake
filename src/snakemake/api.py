@@ -471,7 +471,7 @@ class DAGApi(ApiBase):
     def execute_workflow(
         self,
         executor: str = "local",
-        execution_executor: Optional[str] = None,
+        pseudo_executor: Optional[str] = None,
         execution_settings: Optional[ExecutionSettings] = None,
         remote_execution_settings: Optional[RemoteExecutionSettings] = None,
         scheduling_settings: Optional[SchedulingSettings] = None,
@@ -487,18 +487,25 @@ class DAGApi(ApiBase):
         ---------
         executor: str -- The executor to use for workflow/args validation, e.g. whatever a workflow
             passes via '--executor'.
-        execution_executor: Optional[str] -- The executor to use for actual workflow execution.
-            This may be different from the validation executor when running with options
-            like "touch" or "dryrun", which need to execute the jobs themselves. Validation
-            is always performed against the intended executor so that dry-run and touch
-            accurately reflect the real execution environment.
-            If None, takes the value of 'executor'.
+        pseudo_executor: Optional[str] -- An optional pseudo-executor that overrides the
+            actual execution while validation is still performed against the intended
+            'executor'. This is used for "dryrun" and "touch", which need to execute the
+            jobs themselves (i.e. not at all, or by merely touching outputs) rather than
+            via the intended executor. Validating against 'executor' ensures that dry-run
+            and touch accurately reflect the real execution environment. Must be one of
+            None, "dryrun", or "touch". If None, execution uses 'executor'.
         execution_settings: ExecutionSettings -- The execution settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
+
+        if pseudo_executor is not None and pseudo_executor not in ("dryrun", "touch"):
+            raise ApiError(
+                "pseudo_executor must be one of None, 'dryrun', or 'touch', "
+                f"got {pseudo_executor!r}."
+            )
 
         if execution_settings is None:
             execution_settings = ExecutionSettings()
@@ -517,14 +524,13 @@ class DAGApi(ApiBase):
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
 
-        # Resolve execution_executor: when not explicitly overridden it equals
-        # the validation executor.  This ensures that direct API calls using
-        # executor="dryrun" or executor="touch" (without setting
-        # execution_executor) still trigger the greedy-scheduler optimisation
-        # below, matching the documented behaviour "If None, takes the value of
-        # 'executor'".
-        if execution_executor is None:
-            execution_executor = executor
+        # Resolve the executor used for actual (non-)execution. A pseudo-executor
+        # ("dryrun"/"touch") overrides the intended executor; otherwise execution
+        # uses the intended executor itself. Falling back to 'executor' ensures
+        # that direct API calls using executor="dryrun" or executor="touch"
+        # (without a pseudo_executor) still trigger the greedy-scheduler
+        # optimisation below.
+        execution_executor = pseudo_executor or executor
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
@@ -667,7 +673,7 @@ class DAGApi(ApiBase):
         workflow.scheduling_settings = scheduling_settings
         workflow.group_settings = group_settings
         # If the execution executor differs from the validation executor (e.g.
-        # the caller passed executor="htcondor" + execution_executor="dryrun"),
+        # the caller passed executor="htcondor" + pseudo_executor="dryrun"),
         # swap to the execution plugin for actual execution. All validation
         # above was performed against the intended executor so that dry-run
         # and touch accurately reflect the real execution environment.
