@@ -300,6 +300,18 @@ class TestDryrunExecutorValidation:
                     pseudo_executor="dryrun",
                 )
                 mock_execute.assert_called_once()
+                # Validation and execution use different executors by design:
+                # validation runs against the intended executor (fake_remote:
+                # non-local, can_transfer_local_files=True), while the actual
+                # (non-)execution is handed the dryrun stand-in. Assert on the
+                # call that execution received the dryrun plugin and none of the
+                # validation executor's settings.
+                run_kwargs = mock_execute.call_args.kwargs
+                assert run_kwargs["executor_plugin"].common_settings.dryrun_exec
+                assert run_kwargs["executor_plugin"].common_settings.local_exec
+                # executor_settings belong to the validation executor and must
+                # not be carried over to the swapped execution plugin.
+                assert run_kwargs["executor_settings"] is None
 
     def test_touch_with_remote_executor_no_shared_fs(
         self, patch_registry_with_fake_remote
@@ -332,6 +344,12 @@ class TestDryrunExecutorValidation:
                     pseudo_executor="touch",
                 )
                 mock_execute.assert_called_once()
+                # As in the dry-run case, execution must be handed the touch
+                # stand-in rather than the fake_remote validation plugin.
+                run_kwargs = mock_execute.call_args.kwargs
+                assert run_kwargs["executor_plugin"].common_settings.touch_exec
+                assert run_kwargs["executor_plugin"].common_settings.local_exec
+                assert run_kwargs["executor_settings"] is None
 
     def test_dryrun_without_pseudo_executor_rejects_no_shared_fs(self):
         """When the dryrun executor is passed as executor= without a
