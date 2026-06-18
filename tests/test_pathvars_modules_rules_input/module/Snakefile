@@ -15,3 +15,4 @@ rule c:
 rule final:
     input:
         final_output,
+    default_target: True

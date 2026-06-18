@@ -27,12 +27,6 @@ module foo3:
 
 use rule * from foo3 as foo3_*
 
-module module_2:
-    snakefile:
-        "module_2/Snakefile"
-
-use rule * from module_2
-
 rule all:
     default_target: True
     input:
@@ -40,8 +34,6 @@ rule all:
         "<results>/foo/text.txt",
         "<results>/foo2/text.txt",
         "<results>/custom/text.txt",
-        rules.final.input,
-
 
 rule a:
     output:
