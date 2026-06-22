@@ -55,7 +55,7 @@ dependencies = [
   "snakemake-interface-software-deployment-plugins >=0.18.2,<1.0",
   "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
-  "snakemake-software-deployment-plugin-conda >=0.5.2,<1.0.0",
+  "snakemake-software-deployment-plugin-conda >=0.5.3,<1.0.0",
   "snakemake-software-deployment-plugin-container >=0.6.2,<1.0.0",
   "snakemake-software-deployment-plugin-envmodules >=0.2.0,<1.0.0",
   "tabulate",
@@ -220,6 +220,7 @@ polars = ">=1.24.0,<2"
 requests-mock = ">=1.12.1,<2"
 docutils = ">=0.20.1,<0.22"
 packaging = ">=24.0,<26"
+conda = ">=26.5.3,<27"
 
 [tool.pixi.feature.test.pypi-dependencies]
 snakemake-executor-plugin-cluster-generic = "*"
