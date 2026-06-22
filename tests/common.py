@@ -25,6 +25,10 @@ from typing import TypeAlias
 
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_software_deployment_plugin_container import (
+    Settings as ContainerDeploymentSettings,
+)
+from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 
 from snakemake import api
 from snakemake.common import ON_WINDOWS
@@ -359,6 +363,13 @@ def run(
             shared_fs_usage = SharedFSUsage.all()
 
         success = True
+
+        if software_deployment_provider_settings is None:
+            software_deployment_provider_settings = {
+                "container": ContainerDeploymentSettings(
+                    runtime=ContainerRuntime.APPTAINER,
+                )
+            }
 
         with api.SnakemakeApi(
             settings.OutputSettings(
