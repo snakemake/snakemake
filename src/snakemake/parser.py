@@ -596,7 +596,6 @@ class Run(RuleKeywordState):
                 rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
-        yield "\n"
 
     def end(self):
         yield ""
