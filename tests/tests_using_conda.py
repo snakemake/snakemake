@@ -339,14 +339,15 @@ def test_conda_run():
 
 @conda
 def test_issue_3192():
-    assert (
-        sp.run(
-            "conda create -c conda-forge -n test_issue3192 python",
-            shell=True,
-        ).returncode
-        == 0
-    )
-    run(dpath("test_issue3192"), deployment_method={"conda"})
+    with tempfile.TemporaryDirectory() as tmpdir:
+        assert (
+            sp.run(
+                f"conda create -c conda-forge --prefix {tmpdir} python",
+                shell=True,
+            ).returncode
+            == 0
+        )
+        run(dpath("test_issue3192"), deployment_method={"conda"}, config={"env_path": tmpdir})
 
 
 # Test that container and conda can be run independently using sdm
