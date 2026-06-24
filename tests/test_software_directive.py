@@ -5,6 +5,8 @@ __license__ = "MIT"
 import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,7 +17,8 @@ from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 from snakemake_software_deployment_plugin_container import EnvSpec as ContainerEnvSpec
 from snakemake_software_deployment_plugin_envmodules import EnvSpec as EnvModuleEnvSpec
 
-from snakemake.deployment import EnvSpecs
+from snakemake.deployment import EnvSpecs, SoftwareDeploymentManager
+from snakemake.sourcecache import _replace_suffix
 
 
 def _make_conda_spec(path: str = "env.yaml") -> CondaEnvSpec:
@@ -248,6 +251,96 @@ class TestEnvSpecComposition:
         conda_spec = _make_conda_spec("env.yaml")
         conda_spec.within = container_spec
         assert conda_spec.has_source_paths()
+
+
+def _make_deployment_manager(*selected_methods: str) -> SoftwareDeploymentManager:
+    """Build a SoftwareDeploymentManager with a stub workflow.
+
+    The constructor only reads ``deployment_settings.deployment_methods``; the
+    real plugin registry auto-discovers the installed conda/container/envmodules
+    plugins. This lets us unit-test the ``selected_plugin_kinds`` gating in
+    ``get_env`` (deployment/__init__.py) without spinning up a full workflow or
+    performing any real deployment.
+    """
+    stub_workflow = SimpleNamespace(
+        deployment_settings=SimpleNamespace(deployment_methods=set(selected_methods))
+    )
+    return SoftwareDeploymentManager(stub_workflow)
+
+
+class TestSuffixReplacement:
+    """Tests for the suffix-replacement mechanism (interface PR #54) that backs
+    ``within=`` composition: a source file's suffix is swapped (e.g. to derive a
+    manifest from a template). Covers the ``_replace_suffix`` helper that
+    ``rules.py`` relies on, plus the ``EnvSpecSourceFile.suffix_replacement``
+    field contract."""
+
+    def test_replace_suffix_yaml(self):
+        assert _replace_suffix("env.yaml", [".yaml", ".yml"], ".lock") == "env.lock"
+
+    def test_replace_suffix_yml(self):
+        assert _replace_suffix("env.yml", [".yaml", ".yml"], ".lock") == "env.lock"
+
+    def test_replace_suffix_no_match_returns_none(self):
+        assert _replace_suffix("env.txt", [".yaml", ".yml"], ".lock") is None
+
+    def test_replace_suffix_multi_part_suffix(self):
+        # multi-part suffixes like .tar.gz must match as a whole token
+        assert _replace_suffix("pkg.tar.gz", [".tar.gz", ".zip"], ".tar.xz") == (
+            "pkg.tar.xz"
+        )
+
+    def test_replace_suffix_first_match_wins(self):
+        # candidate suffixes are tried in list order
+        assert _replace_suffix("env.yaml", [".yml", ".yaml"], ".lock") == "env.lock"
+
+    def test_envspecsourcefile_exposes_suffix_replacement_field(self):
+        # the interface dataclass carries a suffix_replacement slot (PR #54);
+        # it defaults to None so specs that do not use it are unaffected
+        source_file = EnvSpecSourceFile("env.yaml")
+        assert hasattr(source_file, "suffix_replacement")
+        assert source_file.suffix_replacement is None
+
+
+class TestCrossKindFallback:
+    """Tests for ``SoftwareDeploymentManager.get_env`` cross-kind fallback, which
+    gates env resolution on ``selected_plugin_kinds`` (the redesign in
+    deployment/__init__.py). When a spec's kind is not among the activated
+    plugins, resolution falls through to the spec's fallback (if any); this is
+    what makes ``container(...) or conda(...)`` work when only one kind is
+    enabled."""
+
+    def test_cross_kind_fallback_to_selected(self):
+        # only conda activated; container is loaded but not selected
+        manager = _make_deployment_manager("conda")
+        assert manager.selected_plugin_kinds == {"conda"}
+
+        conda_spec = _make_conda_spec("env.yaml")
+        container_spec = _make_container_spec("ubuntu:22.04")
+        container_spec.fallback = conda_spec
+
+        cached = MagicMock(name="cached_conda_env")
+        manager.specs_to_envs[conda_spec] = cached
+
+        # container not selected -> falls back to conda (cached) without deploying
+        assert manager.get_env(container_spec) is cached
+
+    def test_not_selected_without_fallback_returns_none(self):
+        manager = _make_deployment_manager("conda")
+        container_spec = _make_container_spec("alpine:3")  # no fallback
+        assert manager.get_env(container_spec) is None
+
+    def test_selected_kind_returns_cache_directly(self):
+        manager = _make_deployment_manager("conda")
+        conda_spec = _make_conda_spec("env.yaml")
+        cached = MagicMock(name="cached_conda_env")
+        manager.specs_to_envs[conda_spec] = cached
+        # kind selected and already cached -> returns cache, no deploy attempt
+        assert manager.get_env(conda_spec) is cached
+
+    def test_multiple_kinds_can_be_activated(self):
+        manager = _make_deployment_manager("conda", "container")
+        assert manager.selected_plugin_kinds == {"conda", "container"}
 
 
 # ---------------------------------------------------------------------------
