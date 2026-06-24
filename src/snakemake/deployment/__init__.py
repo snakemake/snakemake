@@ -223,7 +223,7 @@ class SoftwareDeploymentManager:
         for kind, plugin in self.plugins.items():
 
             def make_factory(plugin_val, kind_val):
-                def factory(*args, within: EnvSpecBase, **kwargs):
+                def factory(*args, within: Optional[EnvSpecBase] = None, **kwargs):
                     if args:
                         raise WorkflowError(
                             "Positional arguments are not allowed in "
