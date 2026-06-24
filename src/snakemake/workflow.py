@@ -1164,7 +1164,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        self.async_run(self.software_deployment_manager.cleanup_envs(self.dag))
+        self.async_run(self.software_deployment_manager.cleanup_envs(self.dag.jobs))
 
     def log_rulegraph(self):
         def simple_rulegraph():
