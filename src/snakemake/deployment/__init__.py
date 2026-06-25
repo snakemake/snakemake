@@ -231,7 +231,9 @@ class SoftwareDeploymentManager:
                         )
 
                     for attr in plugin_val.env_spec_cls.source_path_attributes():
-                        kwargs[attr] = EnvSpecSourceFile(kwargs[attr])
+                        value = kwargs.get(attr)
+                        if value is not None:
+                            kwargs[attr] = EnvSpecSourceFile(value)
 
                     env_spec = plugin_val.env_spec_cls(*args, **kwargs)
                     env_spec.technical_init()
