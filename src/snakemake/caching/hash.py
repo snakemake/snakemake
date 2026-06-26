@@ -129,7 +129,10 @@ class ProvenanceHashMap:
             h.update(file_hash.encode())
 
         # Hash used containers or conda environments.
-        if cache_mode != "omit-software" and job.software_env:
+        if (
+            not (job.rule.cache and job.rule.cache.omit_software)
+            and job.software_env is not None
+        ):
             h.update(job.software_env.hash().encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).
