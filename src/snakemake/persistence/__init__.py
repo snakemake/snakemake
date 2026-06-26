@@ -1,3 +1,4 @@
+from snakemake.common import is_serializable
 import asyncio
 import hashlib
 import os
@@ -19,11 +20,9 @@ from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_common.exceptions import WorkflowError
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field
 
-from snakemake.common.tbdstring import TBDString
 from snakemake.io import get_flag_value, is_flagged, _IOFile, IOCache
 from snakemake.settings.types import DeploymentMethod
 from snakemake.logging import logger
@@ -41,9 +40,8 @@ class MetadataRecord(SQLModel):
     params: list[Any] | None = Field(default=None, sa_column=Column(JSON))
     code: str | None = None
     record_format_version: int = 0
-    conda_env: str | None = None
-    container_img_url: str | None = None
     software_stack_hash: str | None = None
+    software: list[str] | None = Field(default=None, sa_column=Column(JSON))
     job_hash: int | None = None
     starttime: float | None = None
     endtime: float | None = None
@@ -133,63 +131,6 @@ class EnvironmentMaintenanceMixin:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
-    def cleanup_containers(self) -> None:
-        from humanfriendly import format_size
-
-        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
-        img_dir = Path(self.container_img_path)
-        total_size_cleaned_up = 0
-        num_containers_removed = 0
-        for pulled_img in img_dir.glob("*.simg"):
-            if pulled_img in required_imgs:
-                continue
-            size_bytes = pulled_img.stat().st_size
-            total_size_cleaned_up += size_bytes
-            filesize = format_size(size_bytes)
-            pulled_img.unlink()
-            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
-            num_containers_removed += 1
-
-        if num_containers_removed == 0:
-            logger.info("No containers require cleaning up")
-        else:
-            logger.info(
-                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
-            )
-
-    def conda_cleanup_envs(self) -> None:
-        # cleanup envs
-        for address in set(
-            env.address
-            for env in self.dag.conda_envs.values()
-            if not env.is_externally_managed
-        ):
-            removed = False
-            if os.path.exists(address):
-                try:
-                    shutil.rmtree(address)
-                except Exception as e:
-                    raise WorkflowError(
-                        f"Failed to remove conda env {address}: {e}"
-                    ) from e
-                removed = True
-            yaml_path = Path(address).with_suffix(".yaml")
-            if yaml_path.exists():
-                try:
-                    yaml_path.unlink()
-                except Exception as e:
-                    raise WorkflowError(
-                        f"Failed to remove conda env yaml {yaml_path}: {e}"
-                    ) from e
-                removed = True
-            if removed:
-                logger.info(f"Removed conda env {address}")
-
-        in_use = set(env.content_hash for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_archive_path):
-            if d not in in_use:
-                shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
-
 
 class FileBackupMixin:
     """Handles backing up and restoring output files locally."""
@@ -248,8 +189,6 @@ class PersistenceBase(
         self,
         nolock=False,
         dag=None,
-        conda_prefix=None,
-        singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
@@ -262,21 +201,10 @@ class PersistenceBase(
 
         self.dag = dag
 
-        self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
         self.source_cache = os.path.join(self.path, "source_cache")
         self.iocache_path = os.path.join(self.path, "iocache")
         self._aux_path = os.path.join(self.path, "auxiliary")
-
-        if conda_prefix is None:
-            self.conda_env_path = os.path.join(self.path, "conda")
-        else:
-            self.conda_env_path = os.path.abspath(conda_prefix)
-
-        if singularity_prefix is None:
-            self.container_img_path = os.path.join(self.path, "singularity")
-        else:
-            self.container_img_path = os.path.abspath(singularity_prefix)
 
         if shadow_prefix is None:
             self.shadow_path = os.path.join(self.path, "shadow")
@@ -285,9 +213,6 @@ class PersistenceBase(
 
         for d in (
             self.shadow_path,
-            self.conda_env_archive_path,
-            self.conda_env_path,
-            self.container_img_path,
             self.aux_path,
             self.iocache_path,
         ):
@@ -471,8 +396,6 @@ class PersistenceBase(
             log = self._log(job)
             params = self._params(job)
             shellcmd = job.shellcmd
-            conda_env = self._conda_env(job)
-            software_stack_hash = self._software_stack_hash(job)
             fallback_time = time.time()
             job_hash_val = hash(job)
 
@@ -505,10 +428,17 @@ class PersistenceBase(
                 record.shellcmd = shellcmd
                 record.endtime = endtime
                 record.job_hash = job_hash_val
-                record.conda_env = conda_env
-                record.software_stack_hash = software_stack_hash
-                record.container_img_url = job.container_img_url
                 record.input_checksums = checksums
+                record.software = (
+                    [
+                        f"{software.name} {software.version}"
+                        for software in job.software_env.report_software() 
+                        if not software.is_secondary
+                    ] if job.software_env is not None else None
+                )
+                record.software_stack_hash = (
+                    job.software_env.hash() if job.software_env else None
+                )
 
                 self._write_record(key, record)
 
@@ -668,7 +598,8 @@ class PersistenceBase(
             # and aux deploy files of conda envs as well as env modules)
             return False
         recorded = self.software_stack_hash(file)
-        return recorded is not None and recorded != self._software_stack_hash(job)
+        current = job.software_env.hash() if job.software_env is not None else None
+        return recorded is not None and recorded != current
 
     def params_changed(self, job: Any, file=None) -> bool | ParamsChange:
         files = [file] if file is not None else job.output
@@ -703,11 +634,6 @@ class PersistenceBase(
         return None
 
     @lru_cache()
-    def _conda_env(self, job) -> str | None:
-        if job.conda_env:
-            return b64encode(job.conda_env.content).decode()
-
-    @lru_cache()
     def _input(self, job) -> list[str]:
         def get_paths():
             for f in job.input:
@@ -732,28 +658,7 @@ class PersistenceBase(
         return sorted(job.log)
 
     def _serialize_param_builtin(self, value: Any) -> str | object:
-        if (
-            value is None
-            or isinstance(
-                value,
-                (
-                    int,
-                    float,
-                    bool,
-                    str,
-                    complex,
-                    range,
-                    list,
-                    tuple,
-                    dict,
-                    set,
-                    frozenset,
-                    bytes,
-                    bytearray,
-                ),
-            )
-            and value is not TBDString
-        ):
+        if is_serializable(value):
             return repr(value)
         else:
             return UNREPRESENTABLE

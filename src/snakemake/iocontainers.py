@@ -1,3 +1,4 @@
+from typing import Self
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -53,13 +54,13 @@ class ReportHref:
         )
         self._anchor = anchor
 
-    def child_path(self, path: Union[str, Path]):
+    def child_path(self, path: Union[str, Path]) -> Self:
         return self.__class__(path, parent=self)
 
-    def url_args(self, **args: str):
+    def url_args(self, **args: str) -> Self:
         return self.__class__(path=self._path, parent=self._parent, url_args=args)
 
-    def anchor(self, anchor: str):
+    def anchor(self, anchor: str) -> Self:
         return self.__class__(
             path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
         )
