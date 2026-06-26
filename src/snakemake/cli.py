@@ -1905,7 +1905,7 @@ def parse_args(argv):
     parser = get_argument_parser()
 
     # first try, parse only known args and infer plugin packages
-    known_args = parser.parse_known_args(argv)
+    known_args, _ = parser.parse_known_args(argv)
     runtime_dep_manager = RuntimeDependencyManager()
     runtime_dep_manager.infer_plugin_packages_from_args(known_args)
     runtime_dep_manager.deploy_plugin_packages()
