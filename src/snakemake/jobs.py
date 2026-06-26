@@ -143,12 +143,18 @@ class JobFactory:
 
         async def new():
             if update:
-                new_job = partial(Job, 
-                    rule, dag, wildcards_dict, format_wildcards, targetfile, groupid
+                new_job = partial(
+                    Job,
+                    rule,
+                    dag,
+                    wildcards_dict,
+                    format_wildcards,
+                    targetfile,
+                    groupid,
                 )
             else:
-                new_job = partial(Job,
-                    rule, dag, wildcards_dict, format_wildcards, targetfile
+                new_job = partial(
+                    Job, rule, dag, wildcards_dict, format_wildcards, targetfile
                 )
             obj = None
             missing_iofiles = set()

@@ -394,7 +394,11 @@ def test_issue_3192():
             ).returncode
             == 0
         )
-        run(dpath("test_issue3192"), deployment_method={"conda"}, config={"env_path": tmpdir})
+        run(
+            dpath("test_issue3192"),
+            deployment_method={"conda"},
+            config={"env_path": tmpdir},
+        )
 
 
 # Test that container and conda can be run independently using sdm

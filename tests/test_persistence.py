@@ -14,7 +14,6 @@ from snakemake.persistence import RECORD_FORMAT_VERSION, ParamsChange
 
 from snakemake.persistence.file import FilePersistence
 
-
 """Tests for snakemake.persistence — backup/restore, code caching,
 locking, and record format."""
 

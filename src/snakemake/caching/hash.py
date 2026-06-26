@@ -129,29 +129,8 @@ class ProvenanceHashMap:
             h.update(file_hash.encode())
 
         # Hash used containers or conda environments.
-<<<<<<< HEAD
         if cache_mode != "omit-software" and job.software_env:
             h.update(job.software_env.hash().encode())
-=======
-        if not (job.rule.cache and job.rule.cache.omit_software):
-            if (
-                DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
-                and job.conda_env
-            ):
-                if (
-                    DeploymentMethod.APPTAINER
-                    in workflow.deployment_settings.deployment_method
-                    and job.conda_env.container_img_url
-                ):
-                    h.update(job.conda_env.container_img_url.encode())
-                h.update(job.conda_env.content)
-            elif (
-                DeploymentMethod.APPTAINER
-                in workflow.deployment_settings.deployment_method
-                and job.container_img_url
-            ):
-                h.update(job.container_img_url.encode())
->>>>>>> main
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).
         hashes = await asyncio.gather(

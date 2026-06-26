@@ -432,9 +432,11 @@ class PersistenceBase(
                 record.software = (
                     [
                         f"{software.name} {software.version}"
-                        for software in job.software_env.report_software() 
+                        for software in job.software_env.report_software()
                         if not software.is_secondary
-                    ] if job.software_env is not None else None
+                    ]
+                    if job.software_env is not None
+                    else None
                 )
                 record.software_stack_hash = (
                     job.software_env.hash() if job.software_env else None
