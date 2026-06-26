@@ -1,3 +1,5 @@
+from snakemake.settings.types import DeploymentSettings
+
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -61,6 +63,7 @@ def test_list_software_envs():
 def test_cache_or_deploy_software_envs():
     tmpdir = run(
         dpath("test_conda"),
+        deployment_method={"conda"},
         cache_or_deploy_software_envs=True,
         check_results=False,
         cleanup=False,
@@ -70,7 +73,9 @@ def test_cache_or_deploy_software_envs():
     env_dir = next(
         (
             p
-            for p in Path(tmpdir, ".snakemake", "software", "conda").iterdir()
+            for p in (
+                Path(tmpdir) / DeploymentSettings().deployment_prefix / "conda"
+            ).iterdir()
             if p.is_dir()
         ),
         None,
@@ -110,7 +115,7 @@ def test_custom_software_deployment_prefix():
     run(
         dpath("test_conda_custom_prefix"),
         deployment_method={"conda"},
-        software_deployment_prefix="custom",
+        deployment_prefix=".snakemake/custom",
         set_pythonpath=False,
     )
 
@@ -165,7 +170,6 @@ def test_wrapper_local_git_prefix():
 
 
 @skip_on_windows
-@apptainer
 @connected
 @conda
 def test_singularity_conda():
@@ -224,7 +228,6 @@ def test_jupyter_notebook_draft():
 # The conda env hash has been improved but changed due to that.
 # We have to update the containerization test container with the new hashes!
 # @skip_on_windows
-# @apptainer
 # @conda
 # def test_containerized():
 #     run(
@@ -336,19 +339,19 @@ def test_conda_run():
 
 @conda
 def test_issue_3192():
-    assert (
-        sp.run(
-            "conda create -c conda-forge -n test_issue3192 python",
-            shell=True,
-        ).returncode
-        == 0
-    )
-    run(dpath("test_issue3192"), deployment_method={"conda"})
+    with tempfile.TemporaryDirectory() as tmpdir:
+        assert (
+            sp.run(
+                f"conda create -c conda-forge --prefix {tmpdir} python",
+                shell=True,
+            ).returncode
+            == 0
+        )
+        run(dpath("test_issue3192"), deployment_method={"conda"}, config={"env_path": tmpdir})
 
 
 # Test that container and conda can be run independently using sdm
 @skip_on_windows
-@apptainer
 @connected
 @conda
 def test_issue_3202():

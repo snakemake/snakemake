@@ -25,6 +25,10 @@ from typing import TypeAlias
 
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_software_deployment_plugin_container import (
+    Settings as ContainerDeploymentSettings,
+)
+from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 
 from snakemake import api
 from snakemake.common import ON_WINDOWS
@@ -226,6 +230,7 @@ def run(
     shared_fs_usage=None,
     benchmark_extended=False,
     tmpdir: StrPath | None = None,
+    software_deployment_provider_settings=None,
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -359,6 +364,13 @@ def run(
 
         success = True
 
+        if software_deployment_provider_settings is None:
+            software_deployment_provider_settings = {
+                "container": ContainerDeploymentSettings(
+                    runtime=ContainerRuntime.APPTAINER,
+                )
+            }
+
         with api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
@@ -413,9 +425,14 @@ def run(
                         cache=cache,
                     ),
                     deployment_settings=settings.DeploymentSettings(
-                        deployment_prefix=deployment_prefix,
+                        deployment_prefix=(
+                            Path(deployment_prefix)
+                            if deployment_prefix is not None
+                            else None
+                        ),
                         deployment_methods=deployment_method,
                     ),
+                    software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),
                 )

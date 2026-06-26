@@ -259,13 +259,13 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         not_block_search_path_envvars: bool = False,
     ) -> None:
         super().__init__()
-        self.deployment_methods = deployment_methods
-        self.deployment_prefix = deployment_prefix or Path(
+        self.deployment_methods: AnySet[str] = deployment_methods
+        self.deployment_prefix: Path = deployment_prefix or Path(
             ".snakemake/software/deployments"
         )
-        self.cache_prefix = cache_prefix or Path(".snakemake/software/cache")
-        self.pinfile_prefix = pinfile_prefix or Path(".snakemake/software/pins")
-        self.not_block_search_path_envvars = not_block_search_path_envvars
+        self.cache_prefix: Path = cache_prefix or Path(".snakemake/software/cache")
+        self.pinfile_prefix: Path = pinfile_prefix or Path(".snakemake/software/pins")
+        self.not_block_search_path_envvars: bool = not_block_search_path_envvars
 
     def deployment_method(self) -> AnySet[str]:
         return self.deployment_methods

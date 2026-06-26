@@ -1227,11 +1227,20 @@ class Rule(RuleInterface):
                 source_file = self.basedir.join(path)
             else:
                 source_file = infer_source_file(path)
+
+            if env_spec_source_file.suffix_replacement is not None:
+                source_file = source_file.replace_suffix(
+                    env_spec_source_file.suffix_replacement.old_suffixes,
+                    env_spec_source_file.suffix_replacement.new_suffix,
+                )
+                path = source_file.get_path_or_uri(secret_free=True)
+
             cached_path = self.workflow.sourcecache.cache_entry(source_file)
             try:
                 self.workflow.sourcecache.cache(source_file)
             except Exception:
                 # ignore exception, we still want the path to be returned
+                # the plugin has to check for its existence
                 pass
             return EnvSpecSourceFile(path_or_uri=path, cached=cached_path)
 

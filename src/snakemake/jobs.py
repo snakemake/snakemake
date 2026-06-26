@@ -1099,13 +1099,13 @@ class Job(
             if (
                 SharedFSUsage.SOFTWARE_DEPLOYMENT
                 in self.dag.workflow.storage_settings.shared_fs_usage
-                and self.software_env.is_deployable
+                and self.software_env.is_deployable()
             ):
                 wait_for_files.append(self.software_env.deployment_path)
             elif (
                 SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
                 in self.dag.workflow.storage_settings.shared_fs_usage
-                and self.software_env.is_cacheable
+                and self.software_env.is_cacheable()
             ):
                 wait_for_files.append(self.software_env.cache_path)
 
