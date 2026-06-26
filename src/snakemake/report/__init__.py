@@ -8,11 +8,10 @@ from dataclasses import InitVar, dataclass, field
 import os
 import sys
 import mimetypes
-import base64
 import textwrap
 import datetime
 import io
-from typing import Any, Dict, List, Mapping, Optional, Type, Union
+from typing import Dict, List, Mapping, Optional, Union
 import uuid
 import itertools
 from collections import defaultdict
@@ -21,13 +20,11 @@ from pathlib import Path
 import numbers
 from yte import process_yaml
 
-
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 from humanfriendly import format_size
 
-import snakemake
 from snakemake import script, wrapper, notebook
 from snakemake.io.fmt import fmt_iofile
 from snakemake.jobs import Job
@@ -40,12 +37,12 @@ from snakemake.io import (
     is_flagged,
     get_flag_value,
     glob_wildcards,
-    Wildcards,
     apply_wildcards,
     contains_wildcard,
 )
+from snakemake.iocontainers import Wildcards
 from snakemake.exceptions import InputFunctionException, WorkflowError
-from snakemake.script import Snakemake, FILE_HASH_PREFIX_LEN
+from snakemake.iocontainers import Snakemake, FILE_HASH_PREFIX_LEN
 from snakemake.common import (
     get_input_function_aux_params,
 )
@@ -60,9 +57,7 @@ from snakemake_interface_report_plugins.interfaces import (
     JobRecordInterface,
     FileRecordInterface,
 )
-from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
 from snakemake_interface_software_deployment_plugins import SoftwareReport
-from snakemake.common import get_report_id
 
 
 class EmbeddedMixin(object):
@@ -244,8 +239,8 @@ def render_iofile(iofile):
 
 @dataclass(slots=True)
 class RuleRecord(RuleRecordInterface):
-    job: InitVar
-    job_rec: InitVar
+    job: InitVar[Job]
+    job_rec: InitVar["JobRecord"]
     name: str = field(init=False)
     software: List[SoftwareReport] = field(init=False)
     n_jobs: int = field(init=False)
@@ -319,7 +314,7 @@ class RuleRecord(RuleRecordInterface):
 
 @dataclass(slots=True)
 class ConfigfileRecord(ConfigFileRecordInterface):
-    configfile: InitVar
+    configfile: InitVar[Path]
     path: Path = field(init=False)
     source: str = field(init=False)
 
@@ -358,6 +353,8 @@ class FileRecord(FileRecordInterface):
     target: str = field(init=False)
 
     def __post_init__(self):
+        from snakemake.common import get_report_id
+
         self.target = str(self.path.name)
         self.size = os.path.getsize(self.path)
         logger.info(f"Adding {self.name} ({format_size(self.size)}).")

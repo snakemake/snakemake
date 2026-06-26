@@ -17,7 +17,13 @@ import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import run, dpath, apptainer, conda, connected
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
+from .conftest import (
+    skip_on_macos_arm,
+    skip_on_windows,
+    only_on_windows,
+    ON_LINUX,
+    ON_WINDOWS,
+)
 
 xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
@@ -25,6 +31,7 @@ xfail_permissionerror_on_win = (
 
 
 @skip_on_windows
+@skip_on_macos_arm
 @conda
 def test_script():
     run(
@@ -242,6 +249,44 @@ def test_containerize():
     run(dpath("test_conda"), containerize=True, check_results=False)
 
 
+@skip_on_windows
+@conda
+def test_containerize_wrapper_apptainer():
+    tmpdir = None
+    try:
+        tmpdir = run(
+            dpath("test_wrapper"),
+            shellcmd="snakemake --containerize apptainer > apptainer.def",
+            check_results=False,
+            cleanup=False,
+            deployment_method={DeploymentMethod.CONDA},
+        )
+        tmpdir = Path(tmpdir)
+
+        apptainer_def_path = tmpdir / "apptainer.def"
+        assert apptainer_def_path.exists(), "apptainer.def was not generated."
+
+        with open(apptainer_def_path) as f:
+            apptainer_def_content = f.read()
+
+        assert (
+            "#   source: https://raw.githubusercontent.com/snakemake/snakemake-wrappers/v8.1.1/bio/bgzip/environment.yaml"
+            in apptainer_def_content
+        )
+
+        # check that wrapper rule detected
+        assert "    apt-get update" in apptainer_def_content
+        assert (
+            "    apt-get install -y --no-install-recommends curl"
+            in apptainer_def_content
+        )
+        assert "    rm -rf /var/lib/apt/lists/*" in apptainer_def_content
+
+    finally:
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)
+
+
 @conda
 def test_converting_path_for_r_script():
     run(
@@ -268,7 +313,7 @@ def test_conda_named():
 #     )
 
 
-@skip_on_windows  # the testcase only has a linux-64 pin file
+@pytest.mark.skipif(not ON_LINUX, reason="This testcase only has a linux-64 pin file")
 @conda
 def test_conda_pin_file():
     run(dpath("test_conda_pin_file"), deployment_method={"conda"})
@@ -279,6 +324,7 @@ def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={"conda"})
 
 
+@skip_on_macos_arm
 @conda
 def test_conda_python_3_7_script():
     run(
@@ -306,6 +352,7 @@ def test_conda_global():
     )
 
 
+@skip_on_macos_arm
 @conda
 def test_script_pre_py39():
     run(dpath("test_script_pre_py39"), deployment_method={"conda"})
@@ -423,3 +470,21 @@ def test_containerize_checkpoint():
     finally:
         if tmpdir and os.path.exists(tmpdir):
             shutil.rmtree(tmpdir)
+
+
+@conda
+def test_issue_1266():
+    run(
+        dpath("test_github_issue1266"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
+
+
+@skip_on_windows
+@conda
+def test_github_issue2213():
+    run(
+        dpath("test_github_issue2213"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_results=False,
+    )

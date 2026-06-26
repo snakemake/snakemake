@@ -1,0 +1,21 @@
+configfile: "config.yaml"  # does not exist, but this statement should be ignored on module import
+
+rule a:
+    input:
+        storage.http("https://raw.githubusercontent.com/snakemake/snakemake/main/LICENSE.md"),
+    output:
+        "results/test.out",
+    shell:
+        "echo {config[test]} > {output[0]}"
+
+onstart:
+    with open("onstart_module2.log", "w") as f:
+        f.write("This is the module2 onstart\n")
+    
+onsuccess:
+    with open("onsuccess_module2.log", "w") as f:
+        f.write("This is the module2 onsuccess\n")
+
+onerror:
+    with open("onerror_module2.log", "w") as f:
+        f.write("This is the module2 onerror\n")

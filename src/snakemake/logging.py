@@ -60,7 +60,7 @@ def show_logs(logs):
 
 
 def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
-    from snakemake.io import Namedlist
+    from snakemake.iocontainers import Namedlist
 
     omit_keys = omit_keys or []
     omit_values = omit_values or []
@@ -152,18 +152,37 @@ class DefaultFormatter(logging.Formatter):
             LogEvent.RUN_INFO: self.format_run_info,
             LogEvent.DEBUG_DAG: self.format_dag_debug,
             LogEvent.PROGRESS: self.format_progress,
+            LogEvent.WORKFLOW_STARTED: self.format_workflow_started,
         }
 
         formatter = formatters.get(event, default_formatter)
         return formatter(record_dict)
 
+    def format_workflow_started(self, msg: dict[str, Any]):
+        """Format the workflow_started log messages."""
+
+        return """
+SNAKEMAKE
+=========
+  Date: {datetime}
+  Workflow ID: {workflow_id}
+  Platform: {platform}
+  Host: {host}
+  User: {user}
+  Snakemake version: {snakemake_version}
+  Python version: {python_version}
+  Command: {cmd}
+  Snakefile: {snakefile_main}
+  Base directory: {basedir}
+  Run directory: {rundir}
+  Working directory: {cwd}
+  Config file(s): {configfiles}
+  Config MD5: {config_md5}
+""".format(**msg)
+
     def format_run_info(self, msg: dict[str, Any]):
         """Format the run_info log messages."""
         return msg["msg"]  # Log the message directly
-
-    def format_host(self, msg: dict[str, Any]):
-        """Format for host log."""
-        return f"host: {platform.node()}"
 
     def format_job_info(self, msg: dict[str, Any]):
         """Format for job_info log."""
@@ -216,7 +235,7 @@ class DefaultFormatter(logging.Formatter):
 
     def format_shellcmd(self, msg: dict[str, Any]):
         """Format for shellcmd log."""
-        return msg["msg"]
+        return msg.get("cmd") or msg.get("msg") or ""
 
     def format_dag_debug(self, msg: dict[str, Any]):
         """Format for dag_debug log."""
@@ -342,6 +361,8 @@ class DefaultFilter:
         Quietness values to filter out.
     debug_dag
         Whether to allow DEBUG_DAG events.
+    verbose
+        Whether full verbose (DEBUG) output is requested.
     dryrun
     printshellcmds
         Whether to allow SHELLCMD events.
@@ -349,6 +370,7 @@ class DefaultFilter:
 
     quiet: Collection["Quietness"]
     debug_dag: bool
+    verbose: bool
     dryrun: bool
     printshellcmds: bool
 
@@ -356,6 +378,7 @@ class DefaultFilter:
         self,
         quiet: Optional[Collection["Quietness"]],
         debug_dag: bool,
+        verbose: bool,
         dryrun: bool,
         printshellcmds: bool,
     ) -> None:
@@ -363,6 +386,7 @@ class DefaultFilter:
             quiet = set()
         self.quiet = quiet
         self.debug_dag = debug_dag
+        self.verbose = verbose
         self.dryrun = dryrun
         self.printshellcmds = printshellcmds
 
@@ -402,7 +426,16 @@ class DefaultFilter:
         # Handle dag_debug specifically
         if event == LogEvent.DEBUG_DAG and not self.debug_dag:
             return False
-        if event == LogEvent.WORKFLOW_STARTED:
+
+        # When debug_dag is enabled without full verbose, the logger level is
+        # raised to DEBUG only so that DEBUG_DAG events get through. Suppress all
+        # other DEBUG-level output so --debug-dag shows just the dag messages.
+        if (
+            self.debug_dag
+            and not self.verbose
+            and record.levelno == logging.DEBUG
+            and event != LogEvent.DEBUG_DAG
+        ):
             return False
 
         return True
@@ -496,7 +529,11 @@ class ColorizingTextHandler(logging.StreamHandler):
                     # Reset flag if the message is not a 'job_info'
                     self.last_msg_was_job_info = False
                 formatted_message = self.format(record)
-                if formatted_message == "None" or formatted_message == "":
+                if (
+                    formatted_message is None
+                    or formatted_message == "None"
+                    or formatted_message == ""
+                ):
                     return
                 # Apply color to the formatted message
                 self.stream.write(self.decorate(record, formatted_message))
@@ -584,7 +621,11 @@ class LoggerManager:
         if settings.log_level_override is not None:
             self.logger.setLevel(settings.log_level_override)
         else:
-            self.logger.setLevel(logging.DEBUG if settings.verbose else logging.INFO)
+            self.logger.setLevel(
+                logging.DEBUG
+                if (settings.verbose or settings.debug_dag)
+                else logging.INFO
+            )
 
         self.initialized = True
 
@@ -658,6 +699,7 @@ class LoggerManager:
         return DefaultFilter(
             self.settings.quiet,
             self.settings.debug_dag,
+            self.settings.verbose,
             self.settings.dryrun,
             self.settings.printshellcmds,
         )
@@ -673,7 +715,9 @@ class LoggerManager:
         logfile_handler.setFormatter(self._default_formatter())
         logfile_handler.addFilter(self._default_filter())
         logfile_handler.setLevel(
-            logging.DEBUG if self.settings.verbose else logging.INFO
+            logging.DEBUG
+            if (self.settings.verbose or self.settings.debug_dag)
+            else logging.INFO
         )
         logfile_handler.name = "DefaultLogFileHandler"
         return logfile_handler
@@ -734,15 +778,44 @@ class LoggerManager:
 
     def stop(self) -> None:
         """Shut down logging, removing and closing all log handlers."""
+
         # Stop the queue listener (if it exists) - this finishes processing the remaining records
         # and waits for the thread to exit.
         if self.queue_listener is not None and self.queue_listener._thread is not None:
             self.queue_listener.stop()
 
-        # Remove and close all handlers - this should mostly clean up the global logger instance.
+        # Flush and close plugin handlers managed by the QueueListener
+        # (not attached to the logger). Acquiring each handler's lock is not necessary, as the
+        # QueueListener was running in its own thread which has been stopped.
+        for handler in self.plugin_handlers:
+            try:
+                handler.flush()
+            except Exception:
+                pass
+            try:
+                handler.close()
+            except Exception:
+                pass
+
+        # Flush, remove and close all handlers - this should mostly clean up the global logger instance.
         for handler in list(self.logger.handlers):
-            self.logger.removeHandler(handler)
-            handler.close()
+            try:
+                handler.acquire()
+
+                try:
+                    handler.flush()
+                except Exception:
+                    pass
+
+                self.logger.removeHandler(handler)
+
+                try:
+                    handler.close()
+                except Exception:
+                    pass
+
+            finally:
+                handler.release()
 
 
 # Global logger instance

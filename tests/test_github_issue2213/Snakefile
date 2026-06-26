@@ -1,0 +1,17 @@
+rule all:
+    input:
+        "a.vcf.gz"
+
+rule some_rule:
+    input:
+        "test.vcf"
+    output:
+        "a.vcf"
+    shell:
+        "cp {input} {output}"
+
+module other_workflow:
+    snakefile:
+        "workflow2/Snakefile"
+
+use rule * from other_workflow

@@ -5,7 +5,7 @@ sphinx-autodoc-typehints
 docutils
 myst-parser
 configargparse
-appdirs
+platformdirs
 sphinxawesome-theme
 snakemake-interface-common
 snakemake-interface-executor-plugins

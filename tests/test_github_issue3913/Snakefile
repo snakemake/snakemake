@@ -1,0 +1,17 @@
+rule final:
+  input: "file1", "file2"
+
+
+rule prepare:
+  output: "common"
+  threads: 8
+  shell:
+    "echo Using {threads} threads; touch {output}"
+
+
+rule do_something:
+  output: "file{number}"
+  input: "common",
+  threads: 8
+  shell:
+    "echo Using {threads} threads; sleep 5; touch {output}"

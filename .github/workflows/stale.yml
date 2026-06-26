@@ -15,9 +15,28 @@ jobs:
           days-before-issue-stale: 180
           days-before-issue-close: 365
           stale-issue-label: "stale"
-          stale-issue-message: "This issue was marked as stale because it has been open for 6 months with no activity."
-          close-issue-message: "This issue was closed because it has been inactive for 1 year since being marked as stale. Feel free to re-open it if you have any further comments."
+          stale-issue-message: >-
+            This issue was marked as stale because it has been open for 6 months
+            with no activity. First, we apologize for not (yet) being active as 
+            human beings on this issue. If there is still interest in this issue, please
+            comment and remove the 'stale' label. Also note that this does not
+            mean that we do not value your contribution. We do, but development
+            on Snakemake is a community effort, and that means that we can always
+            miss something due to the sheer amount of activity.
+            Also consider contacting us via Discord (see the docs).
+          close-issue-message: >-
+            This issue was closed because it has been inactive for 1 year since
+            being marked as stale. Feel free to re-open it if you have any further
+            comments."
           days-before-pr-stale: 180
           days-before-pr-close: -1
-          stale-pr-message: "This PR was marked as stale because it has been open for 6 months with no activity."
+          stale-pr-message: >-
+            This issue was marked as stale because it has been open for 6 months
+            with no activity. First, we apologize for not (yet) being active as 
+            human beings on this issue. If there is still interest in this issue, please
+            comment and remove the 'stale' label. Also note that this does not
+            mean that we do not value your contribution. We do, but development
+            on Snakemake is a community effort, and that means that we can always
+            miss something due to the sheer amount of activity.
+            Also consider contacting us via Discord (see the docs).
           repo-token: ${{ secrets.GITHUB_TOKEN }}

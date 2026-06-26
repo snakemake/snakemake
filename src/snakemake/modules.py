@@ -257,6 +257,9 @@ class WorkflowModifier:
         self.default_input_flags: DefaultFlags = DefaultFlags()
         self.default_output_flags: DefaultFlags = DefaultFlags()
 
+    def is_main_snakefile(self):
+        return self.base_snakefile is None
+
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
             if child_modifier.local_rulename_modifier is not None:

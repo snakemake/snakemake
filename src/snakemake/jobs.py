@@ -1,3 +1,4 @@
+from functools import partial
 from snakemake.deployment.containerize import get_containerized_path
 from snakemake.deployment.containerize import containerize
 
@@ -142,11 +143,11 @@ class JobFactory:
 
         async def new():
             if update:
-                new_job = lambda: Job(
+                new_job = partial(Job, 
                     rule, dag, wildcards_dict, format_wildcards, targetfile, groupid
                 )
             else:
-                new_job = lambda: Job(
+                new_job = partial(Job,
                     rule, dag, wildcards_dict, format_wildcards, targetfile
                 )
             obj = None
@@ -596,35 +597,35 @@ class Job(
         return path
 
     @property
-    def is_shell(self):
+    def is_shell(self) -> bool:
         return self.rule.is_shell
 
     @property
-    def is_norun(self):
+    def is_norun(self) -> bool:
         return self.rule.norun
 
     @property
-    def is_script(self):
+    def is_script(self) -> bool:
         return self.rule.is_script
 
     @property
-    def is_notebook(self):
+    def is_notebook(self) -> bool:
         return self.rule.is_notebook
 
     @property
-    def is_wrapper(self):
+    def is_wrapper(self) -> bool:
         return self.rule.is_wrapper
 
     @property
-    def is_cwl(self):
+    def is_cwl(self) -> bool:
         return self.rule.is_cwl
 
     @property
-    def is_template_engine(self):
+    def is_template_engine(self) -> bool:
         return self.rule.is_template_engine
 
     @property
-    def is_run(self):
+    def is_run(self) -> bool:
         return not (
             self.is_shell
             or self.is_norun
@@ -1429,7 +1430,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         aux_logs = aux_logs or []
         logger.error(
             f"Error in group {self.groupid}",
-            dict(
+            extra=dict(
                 event=LogEvent.GROUP_ERROR,
                 groupid=self.groupid,
                 aux_logs=aux_logs,

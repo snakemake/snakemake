@@ -38,3 +38,8 @@ class StrictDagEvaluation(SettingsEnumBase):
 class PrintDag(SettingsEnumBase):
     DOT = 0
     MERMAID_JS = 1
+
+
+class PersistenceBackend(SettingsEnumBase):
+    FILE = 0
+    DB = 1

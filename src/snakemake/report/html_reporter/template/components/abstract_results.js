@@ -286,6 +286,7 @@ class AbstractResults extends React.Component {
         let state = this.state;
         let selectedEntryHighlightLeft = "";
         let selectedEntryHighlightRight = "";
+        let selectedEntryHighlightCenter = "";
 
 
         return data.entryLabelValues.map(function (entryLabels) {
@@ -295,9 +296,11 @@ class AbstractResults extends React.Component {
             if (entryPath === app.state.resultPath) {
                 selectedEntryHighlightLeft = "text-white whitespace-nowrap align-middle pl-2 rounded-l-lg bg-slate-700 min-w-fit";
                 selectedEntryHighlightRight = "text-white whitespace-nowrap align-middle rounded-r-lg bg-slate-700 min-w-fit";
+                selectedEntryHighlightCenter = "text-white whitespace-nowrap align-middle bg-slate-700 min-w-fit";
             } else {
                 selectedEntryHighlightLeft = "";
                 selectedEntryHighlightRight = "";
+                selectedEntryHighlightCenter = "";
             }
 
             let actions = e(
@@ -326,10 +329,12 @@ class AbstractResults extends React.Component {
                 e(
                     "tr",
                     { key: entryLabels.join(",") },
-                    entryLabels.map(function (labelValue) {
+                    entryLabels.map(function (labelValue, index) {
                         return e(
                             "td",
-                            { className: `p-1 pl-2 ${selectedEntryHighlightLeft}` },
+                          {
+                            className: `p-1 pl-2 ${index === 0 ? selectedEntryHighlightLeft : selectedEntryHighlightCenter}`
+                          },
                             labelValue
                         );
                     }),

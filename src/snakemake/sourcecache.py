@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from functools import partial
 from pathlib import Path
 import posixpath
 import re
@@ -17,7 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from snakemake import utils
 from snakemake.utils import format
@@ -148,6 +147,16 @@ class GenericSourceFile(SourceFile):
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         return self.path_or_uri
+
+    def get_cache_path(self):
+        scheme, sep, remainder = self.path_or_uri.partition("://")
+        if not sep:
+            return quote(self.path_or_uri, safe="")
+
+        # Encode URI components so host:port and similar segments remain
+        # filesystem-safe while preserving the original path structure.
+        parts = [quote(unquote(part), safe="") for part in remainder.split("/")]
+        return os.path.join(scheme, *parts)
 
     def get_filename(self) -> str:
         return os.path.basename(self.path_or_uri)
@@ -295,6 +304,8 @@ class LocalGitFile(SourceFile):
 
 
 class HostedGitRepo:
+    from tenacity import retry, stop_after_attempt, wait_exponential
+
     def __init__(
         self,
         repo: str,
@@ -367,10 +378,12 @@ class HostedGitRepo:
             return True
         except KeyError:
             return False
+        except IndexError:
+            return False
 
+    @retry(wait=wait_exponential(multiplier=2, min=3), stop=stop_after_attempt(3))
     def fetch(self) -> Optional[str]:
         import git
-        from reretry import retry_call
 
         if self._fetched:
             # up to date, nothing to do
@@ -380,14 +393,9 @@ class HostedGitRepo:
             f"Fetching latest changes of {self.host}/{self.repo_name} to {self.repo_clone}"
         )
         try:
-            retry_call(
-                # arg is needed in order to have a refspec, associated issue with
-                # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
-                partial(self.repo.remotes.origin.fetch, "+refs/heads/*:refs/heads/*"),
-                delay=3,
-                backoff=2,
-                tries=3,
-            )
+            # arg is needed in order to have a refspec, associated issue with
+            # workaround is here: https://github.com/gitpython-developers/GitPython/issues/296
+            self.repo.remotes.origin.fetch("+refs/heads/*:refs/heads/*")
         except git.GitCommandError as e:
             return str(e)
         self._fetched = True
@@ -401,7 +409,7 @@ class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
     valid_repo: ClassVar[re.Pattern] = re.compile("^.+/.+$")
-    _hosted_repos: ClassVar[Dict[str, HostedGitRepo]] = {}
+    _hosted_repos: ClassVar[Dict[tuple[type, str, str], HostedGitRepo]] = {}
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(
@@ -501,10 +509,11 @@ class HostingProviderFile(SourceFile):
 
     @property
     def hosted_repo(self) -> HostedGitRepo:
+        assert self.host is not None
+        cache_key = (self.__class__, self.host, self.repo)
         try:
-            return self._hosted_repos[self.repo]
+            return self._hosted_repos[cache_key]
         except KeyError:
-            assert self.host is not None
             if self.host.startswith("https://") or self.host.startswith("http://"):
                 raise WorkflowError(
                     "host must be given as domain name without protocol prefix "
@@ -514,17 +523,30 @@ class HostingProviderFile(SourceFile):
 
             # Ensure that multiple threads don't concurrently create the same instance
             with self._lock:
-                hosted_repo = HostedGitRepo(
-                    self.repo, self.cache_path, self.auth, self.host
-                )
-                self._hosted_repos[self.repo] = hosted_repo
-            return hosted_repo
+                hosted_repo = self._hosted_repos.get(cache_key)
+                if hosted_repo is None:
+                    hosted_repo = HostedGitRepo(
+                        self.repo, self.cache_path, self.auth, self.host
+                    )
+                    self._hosted_repos[cache_key] = hosted_repo
+                return hosted_repo
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
 
     def get_filename(self):
         return os.path.basename(self.path)
+
+    def get_cache_path(self):
+        assert self.host is not None
+        return os.path.join(
+            "hosted-git",
+            self.__class__.__name__.lower(),
+            self.host,
+            quote(self.repo, safe="/"),
+            quote(self.ref, safe=""),
+            quote(self.path, safe="/"),
+        )
 
     def fetch_if_required(self) -> Optional[str]:
         # always fetch if this points to a branch
@@ -550,8 +572,14 @@ class HostingProviderFile(SourceFile):
             )
             return last_commit.committed_date
         except git.GitCommandError as e:
+            msg = f"Failed to get mtime of git source file {self.ref}:{self.path}"
+            if fetch_error:
+                msg += f" Unable to fetch from remote: {fetch_error}."
+            raise WorkflowError(msg) from e
+        except StopIteration as e:
             msg = (
-                f"Failed to get mtime of cached git source file {self.ref}:{self.path}"
+                f"Failed to get mtime of git source file {self.ref}:{self.path}. "
+                "File does not occur in the repository."
             )
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
@@ -567,7 +595,7 @@ class HostingProviderFile(SourceFile):
                 self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
             )
         except git.GitCommandError as e:
-            msg = f"Failed to get cached git source file {self.repo}:{self.path}: {e}. "
+            msg = f"Failed to get git source file {self.repo}:{self.path}: {e}. "
             if fetch_error:
                 msg += f" Unable to fetch from remote: {fetch_error}."
             raise WorkflowError(msg) from e
@@ -627,9 +655,13 @@ class GithubFile(HostingProviderFile):
 
     def get_path_or_uri(self, secret_free: bool) -> str:
         auth = f":{self.token}@" if self.token and not secret_free else ""
-        # TODO find out how this URL looks like with Github enterprise server and support
-        # self.host being not none by removing the check in __post_init__
-        return f"https://{auth}raw.githubusercontent.com/{self.repo}/{self.ref}/{self.path}"
+        ref = quote(self.ref, safe="")
+        path = quote(self.path, safe="/")
+
+        if self.host == "github.com":
+            return f"https://{auth}raw.githubusercontent.com/{self.repo}/{ref}/{path}"
+
+        return f"https://{auth}{self.host}/{self.repo}/raw/{ref}/{path}"
 
 
 class GitlabFile(HostingProviderFile):
@@ -645,8 +677,6 @@ class GitlabFile(HostingProviderFile):
         return ""
 
     def get_path_or_uri(self, secret_free: bool) -> str:
-        from urllib.parse import quote
-
         auth = f"&private_token={self.token}" if self.token and not secret_free else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
             self.host,
@@ -655,6 +685,61 @@ class GitlabFile(HostingProviderFile):
             self.ref,
             auth,
         )
+
+
+def _infer_hosting_provider_file_shorthand(
+    path_or_uri: str,
+) -> Optional[HostingProviderFile]:
+    if "://" in path_or_uri:
+        return None
+
+    provider, sep, remainder = path_or_uri.partition(":")
+    if provider not in {"gh", "gl"} or not sep:
+        return None
+
+    # Check for optional host (before the first slash)
+    first_slash = remainder.find("/")
+    if first_slash == -1:
+        return None
+
+    first_colon = remainder.find(":")
+    if first_colon != -1 and first_colon < first_slash:
+        host = remainder[:first_colon]
+        if not host:
+            return None
+        remainder = remainder[first_colon + 1 :]
+    else:
+        host = None
+
+    # Now we have repo@ref[:path]
+    repo, sep, ref_path = remainder.partition("@")
+    if not sep or not repo or not ref_path:
+        return None
+
+    if "/" not in repo:
+        return None
+
+    # Check for optional path (after a colon)
+    # We use rpartition to stay consistent with the previous logic for ref vs path
+    ref_cand, sep, path_cand = ref_path.rpartition(":")
+    if not sep:
+        ref = ref_path
+        path = "workflow/Snakefile"
+    else:
+        ref = ref_cand
+        path = path_cand or "workflow/Snakefile"
+
+    if not ref:
+        return None
+
+    repo = unquote(repo)
+    ref = unquote(ref)
+    path = unquote(path)
+
+    if provider == "gh":
+        return GithubFile(repo=repo, path=path, branch=ref, host=host)
+    else:
+        return GitlabFile(repo=repo, path=path, branch=ref, host=host)
 
 
 def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> SourceFile:
@@ -669,6 +754,8 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
         raise SourceFileError(
             "must be given as Python string or one of the predefined source file marker types (see docs)"
         )
+    if hosting_provider_file := _infer_hosting_provider_file_shorthand(path_or_uri):
+        return hosting_provider_file
     if is_local_file(path_or_uri):
         # either local file or relative to some remote basedir
         for schema in ("file://", "file:"):
@@ -691,6 +778,9 @@ def infer_source_file(path_or_uri, basedir: Optional[SourceFile] = None) -> Sour
 
 
 class SourceCache:
+    import logging
+    from tenacity import retry, stop_after_attempt, wait_exponential, after_log
+
     cache_whitelist = [
         r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
@@ -717,16 +807,20 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self.cache(source_file)
-        return self._open_local_or_remote(
-            LocalSourceFile(cache_entry), mode, encoding="utf-8"
-        )
+        return self._open(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
-    def exists(self, source_file):
+    def exists(self, source_file) -> bool:
+        # TODO we should have a dedicated FileNotFound exception in the different source
+        # files in order to be able to distinguish the whether the item really does
+        # not exist or is just temporarily not readable.
         try:
             self.cache(source_file, retries=1)
         except Exception:
             return False
         return True
+
+    def try_access(self, source_file):
+        self.cache(source_file)
 
     def get_path(self, source_file):
         cache_entry = self.cache(source_file)
@@ -749,13 +843,13 @@ class SourceCache:
     def cache(self, source_file: SourceFile, retries: int = 3):
         cache_entry = self.cache_entry(source_file)
         if not cache_entry.exists():
-            self._do_cache(source_file, cache_entry, retries=retries)
+            self._do_cache(source_file, cache_entry)
         return cache_entry
 
-    def _do_cache(self, source_file, cache_entry: Path, retries: int = 3):
+    def _do_cache(self, source_file, cache_entry: Path):
         mtime = source_file.mtime()
         # open from origin
-        with self._open_local_or_remote(source_file, "rb", retries=retries) as source:
+        with self._open(source_file, "rb", encoding=None) as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
             with LockFreeWritableFile(cache_entry, binary=True) as entryfile:
                 entryfile.chmod(
@@ -769,23 +863,12 @@ class SourceCache:
                     entryfile.utime((mtime, mtime))
                 entryfile.write_from_fileobj(source)
 
-    def _open_local_or_remote(
-        self, source_file: SourceFile, mode, encoding=None, retries: int = 3
-    ):
-        from reretry.api import retry_call
-
-        if source_file.is_local:
-            return self._open(source_file, mode, encoding=encoding)
-        else:
-            return retry_call(
-                self._open,
-                [source_file, mode, encoding],
-                tries=retries,
-                delay=3,
-                backoff=2,
-                logger=logger,
-            )
-
+    @retry(
+        wait=wait_exponential(multiplier=2, min=3),
+        stop=stop_after_attempt(1),
+        after=after_log(logger, logging.DEBUG, sec_format="%0.1f"),
+        reraise=True,
+    )
     def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 

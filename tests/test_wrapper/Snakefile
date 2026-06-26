@@ -4,4 +4,4 @@ rule compress_vcf:
     output:
         "test.vcf.gz"
     wrapper:
-        "0.42.0/bio/vcf/compress"
+        "v8.1.1/bio/bgzip"

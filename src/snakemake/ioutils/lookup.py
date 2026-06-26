@@ -188,6 +188,8 @@ def lookup(
 
             if is_nrows is not None:
                 return is_nrows == len(res)
+            if len(res) == 0 and default is not NODEFAULT:
+                return default
             if cols is not None:
                 res = res[cols]
                 if not isinstance(cols, list):

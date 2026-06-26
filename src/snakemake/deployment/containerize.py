@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake.sourcecache import LocalSourceFile
 from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 
 # TODO convert to rattler or pixi?
@@ -79,6 +78,9 @@ class DockerFormat(ContainerFormat):
     def comment(self, text):
         print(f"# {text}")
 
+    def write_file(self, content, dest):
+        print(f"RUN cat > {dest} <<EOF\n{content}\nEOF")
+
     def copy_file(self, src, dest):
         print(f"COPY {src} {dest}")
 
@@ -117,6 +119,9 @@ class ApptainerFormat(ContainerFormat):
     def comment(self, text):
         # Comments in Apptainer use #, same as Docker
         print(f"# {text}")
+
+    def write_file(self, content, dest):
+        self._post.append(f"cat > {dest} <<EOF\n{content}\nEOF")
 
     def copy_file(self, src, dest):
         self._files.append((src, dest))
@@ -215,6 +220,7 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # Step 2: Retrieve conda environments (was lines 78-109)
     generate_env_cmds = []
     generated = set()
+
     for env in sorted_envs:
         if env.hash() in generated:
             # another conda env with the same content was generated before
@@ -222,9 +228,9 @@ def containerize(workflow, dag, fmt="dockerfile"):
         prefix = get_containerized_path(env)
         env_source_path = relfile(env.spec.envfile.path_or_uri)
         env_target_path = prefix / "environment.yaml"
-        with open(env_source_path, "r") as f:
+        with open(env.spec.envfile.cached, "r") as f:
             env_content = f.read()
-        formatter.comment(f"Conda environment:")
+        formatter.comment("Conda environment:")
         formatter.comment(f"  source: {env_source_path}")
         formatter.comment(f"  prefix: {prefix}")
         for line in env_content.strip().split("\n"):
@@ -232,9 +238,9 @@ def containerize(workflow, dag, fmt="dockerfile"):
         formatter.run_command(f"mkdir -p {prefix}")
 
         if is_local_file(env.spec.envfile.path_or_uri):
-            formatter.copy_file(env.spec.envfile.path_or_uri, env_target_path)
+            formatter.copy_file(env.spec.envfile.cached, env_target_path)
         else:
-            formatter.add_remote_file(env.spec.envfile.path_or_uri, env_target_path)
+            formatter.write_file(env.spec.envfile.cached, env_target_path)
 
         generate_env_cmds.append(
             f"conda env create --prefix {prefix} --file {env_target_path} &&"

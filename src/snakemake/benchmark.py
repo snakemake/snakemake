@@ -225,6 +225,7 @@ class BenchmarkRecord:
         return json.dumps(
             dict(zip(self.get_header(extended_fmt), self.get_benchmarks(extended_fmt))),
             sort_keys=True,
+            default=str,
         )
 
 
@@ -358,7 +359,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                     rss += meminfo.rss
                     vms += meminfo.vms
                     uss += meminfo.uss
-                    pss += meminfo.pss
+                    pss += getattr(meminfo, "pss", 0)
 
                     if check_io:
                         try:

@@ -2,26 +2,28 @@ __authors__ = ["Yun Jiang"]
 __copyright__ = "Copyright 2026, Yun Jiang"
 __license__ = "MIT"
 
-"""Tests for snakemake.persistence — backup/restore, code caching,
-locking, and record format."""
-
+import tempfile
 import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 sys.path.insert(0, os.path.dirname(__file__))
 
-from snakemake.persistence import Persistence, RECORD_FORMAT_VERSION, ParamsChange
+from snakemake.persistence import RECORD_FORMAT_VERSION, ParamsChange
+
+from snakemake.persistence.file import FilePersistence
+
+
+"""Tests for snakemake.persistence — backup/restore, code caching,
+locking, and record format."""
 
 
 def _make_persistence(tmp_path, nolock=False):
     mock_dag = MagicMock()
     mock_dag.workflow.dag_settings.max_checksum_file_size = 100000
     mock_dag.output_files = []
-    return Persistence(
+    return FilePersistence(
         nolock=nolock,
         dag=mock_dag,
         path=tmp_path / ".snakemake",
@@ -135,7 +137,7 @@ class TestLocking:
         mock_dag.jobs = []
         mock_dag.needrun_jobs = lambda: []
 
-        p = Persistence(
+        p = FilePersistence(
             dag=mock_dag,
             path=tmp_path / ".snakemake",
         )
@@ -161,7 +163,7 @@ class TestLocking:
         mock_dag.jobs = []
         mock_dag.needrun_jobs = lambda: []
 
-        p = Persistence(
+        p = FilePersistence(
             warn_only=True,
             dag=mock_dag,
             path=tmp_path / ".snakemake",
@@ -265,3 +267,32 @@ class TestDeactivateCache:
         # After deactivation, _read_record should be uncached
         assert p._read_record == p._read_record_uncached
         assert p._incomplete_cache is False
+
+
+class TestDropIOCache:
+    def test_drop_iocache_missing_file_is_noop(self):
+        """Regression for race when parallel workers concurrently drop the iocache.
+
+        The previous check-then-remove pattern raised FileNotFoundError if a
+        sibling worker deleted the file between os.path.exists() and os.remove().
+        drop_iocache() must tolerate the file already being gone.
+        """
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            persistence = FilePersistence(
+                dag=MagicMock(), path=Path(tmpdirname) / ".snakemake"
+            )
+            # iocache file does not exist; drop_iocache must not raise.
+            assert not Path(persistence._iocache_filename).exists()
+            persistence.drop_iocache()
+
+    def test_drop_iocache_removes_existing_file(self):
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            persistence = FilePersistence(
+                dag=MagicMock(), path=Path(tmpdirname) / ".snakemake"
+            )
+            iocache_file = Path(persistence._iocache_filename)
+            iocache_file.write_bytes(b"placeholder")
+            assert iocache_file.exists()
+
+            persistence.drop_iocache()
+            assert not iocache_file.exists()

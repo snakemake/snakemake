@@ -1,0 +1,38 @@
+shell.executable("bash")
+
+configfile: workflow.source_path("config/config.yaml")
+
+
+rule all:
+	input:
+		"foo/results/test.out",
+		"bar/results/test.out",
+
+module test1:
+    snakefile:
+        "module1/Snakefile"
+    config:
+        config
+    prefix:
+        "foo"
+
+
+module test2:
+    snakefile:
+        "module2/Snakefile"
+    config:
+        config
+    prefix:
+        "bar"
+
+
+use rule * from test1 as module1_*
+use rule * from test2 as module2_*
+
+onsuccess:
+    test1.onsuccess()
+    test2.onsuccess()
+
+onerror:
+    test1.onerror()
+    test2.onerror()
