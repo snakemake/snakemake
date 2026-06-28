@@ -15,7 +15,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from pathlib import Path
-from snakemake.io import Namedlist
+from snakemake.iocontainers import Namedlist
 from attr import dataclass, field
 import os
 import sys
