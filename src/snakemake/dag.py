@@ -30,7 +30,6 @@ from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
 from snakemake import script
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
@@ -3414,10 +3413,7 @@ class WrapperProcessor(DAGProcessorBase):
                     f"Wrapper {job.rule.wrapper} not accessible. "
                     "Please check the name of the wrapper and your wrapper prefix."
                 )
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
-            ):
+            if "conda" in self.dag.workflow.deployment_settings.deployment_methods:
                 env = wrapper.get_conda_env(
                     job.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
                 )

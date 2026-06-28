@@ -259,7 +259,7 @@ def test_containerize_wrapper_apptainer():
             shellcmd="snakemake --containerize apptainer > apptainer.def",
             check_results=False,
             cleanup=False,
-            deployment_method={DeploymentMethod.CONDA},
+            deployment_method={"conda"},
         )
         tmpdir = Path(tmpdir)
 
@@ -480,7 +480,7 @@ def test_containerize_checkpoint():
 def test_issue_1266():
     run(
         dpath("test_github_issue1266"),
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
     )
 
 
@@ -489,6 +489,6 @@ def test_issue_1266():
 def test_github_issue2213():
     run(
         dpath("test_github_issue2213"),
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
         check_results=False,
     )

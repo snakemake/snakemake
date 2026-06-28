@@ -24,7 +24,6 @@ from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field
 
 from snakemake.io import get_flag_value, is_flagged, _IOFile, IOCache
-from snakemake.settings.types import DeploymentMethod
 from snakemake.logging import logger
 import snakemake.exceptions
 
@@ -690,26 +689,6 @@ class PersistenceBase(
                 (self._serialize_param(value) for value in job.non_derived_params),
             )
         )
-
-    def _software_stack_hash(self, job) -> str:
-        # TODO move code for retrieval into software deployment plugin interface once
-        # available
-        md5hash = hashlib.md5(usedforsecurity=False)
-        if (
-            DeploymentMethod.CONDA
-            in self.dag.workflow.deployment_settings.deployment_method
-            and job.conda_env
-        ):
-            md5hash.update(job.conda_env.hash.encode())
-        if (
-            DeploymentMethod.APPTAINER
-            in self.dag.workflow.deployment_settings.deployment_method
-            and job.container_img_url
-        ):
-            md5hash.update(job.container_img_url.encode())
-        if job.env_modules:
-            md5hash.update(job.env_modules.hash.encode())
-        return md5hash.hexdigest()
 
     def all_outputfiles(self):
         from snakemake.jobs import jobfiles
