@@ -43,12 +43,11 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import (
     _IOFile,
     IOFile,
-    Wildcards,
     is_flagged,
     get_flag_value,
     wait_for_files,
 )
-from snakemake.iocontainers import ResourceList
+from snakemake.iocontainers import ResourceList, Wildcards
 from snakemake.settings.types import SharedFSUsage
 from snakemake.resources import GroupResources, Resources
 from snakemake.target_jobs import TargetSpec

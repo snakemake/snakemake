@@ -283,17 +283,13 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def info_header(self):
-        import os
         import sys
-        import shutil
         import getpass
         from datetime import datetime
         from snakemake.common import __version__
         import uuid
         import json
         import hashlib
-
-        conda_bin = shutil.which("conda")
 
         return {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -311,7 +307,9 @@ class Workflow(WorkflowExecutorInterface):
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
             "config_md5": hashlib.md5(
-                json.dumps(config, sort_keys=True).encode("utf-8")
+                json.dumps(self.globals.get("config", {}), sort_keys=True).encode(
+                    "utf-8"
+                )
             ).hexdigest(),
         }
 

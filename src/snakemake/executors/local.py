@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from snakemake.sourcecache import SourceFile
 from snakemake.settings.types import NotebookEditMode
 from itertools import chain
@@ -36,7 +37,6 @@ from snakemake_interface_executor_plugins.jobs import (
 from snakemake_interface_executor_plugins.settings import ExecMode, CommonSettings
 from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
 
-from snakemake.rules import Rule
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
@@ -45,6 +45,10 @@ from snakemake.exceptions import (
     SpawnedJobError,
     CacheMissException,
 )
+
+if TYPE_CHECKING:
+    from snakemake.rules import Rule
+
 
 common_settings = CommonSettings(
     non_local_exec=False,
@@ -275,7 +279,7 @@ class Executor(RealExecutor):
 
 @dataclass
 class RunArgs:
-    job_rule: Rule
+    job_rule: "Rule"
     input: Namedlist
     output: Namedlist
     params: Namedlist
