@@ -1,5 +1,3 @@
-from typing import Self
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -16,6 +14,7 @@ import urllib.parse
 from pathlib import Path
 
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     List,
@@ -31,6 +30,9 @@ from typing import (
 PathLike = Union[str, Path, os.PathLike]
 
 FILE_HASH_PREFIX_LEN = 16
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 class ReportHref:
@@ -55,13 +57,13 @@ class ReportHref:
         )
         self._anchor = anchor
 
-    def child_path(self, path: Union[str, Path]) -> Self:
+    def child_path(self, path: Union[str, Path]) -> "Self":
         return self.__class__(path, parent=self)
 
-    def url_args(self, **args: str) -> Self:
+    def url_args(self, **args: str) -> "Self":
         return self.__class__(path=self._path, parent=self._parent, url_args=args)
 
-    def anchor(self, anchor: str) -> Self:
+    def anchor(self, anchor: str) -> "Self":
         return self.__class__(
             path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
         )
