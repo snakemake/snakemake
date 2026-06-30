@@ -1,3 +1,4 @@
+from snakemake.common.typing import AnySet
 from typing import Set
 from snakemake.logging import logger
 from snakemake.settings.enums import Quietness
@@ -47,10 +48,17 @@ class SoftwareDeploymentManager:
         self.registry = SoftwareDeploymentPluginRegistry()
         self.plugins = {}
         self.selected_plugin_kinds: Set[str] = set()
+        self.update_registered_plugins(
+            self.workflow.deployment_settings.deployment_methods
+        )
+
+    def update_registered_plugins(self, selected_methods: AnySet[str]) -> None:
+        self.plugins.clear()
+        self.selected_plugin_kinds.clear()
         for plugin_name, plugin in self.registry.plugins.items():
             kind = plugin.common_settings.provides
 
-            if plugin_name in self.workflow.deployment_settings.deployment_methods:
+            if plugin_name in selected_methods:
                 if kind in self.selected_plugin_kinds:
                     raise WorkflowError(
                         f"Multiple plugins providing the same kind of software deployment "

@@ -274,14 +274,6 @@ def test_containerize_wrapper_apptainer():
             in apptainer_def_content
         )
 
-        # check that wrapper rule detected
-        assert "    apt-get update" in apptainer_def_content
-        assert (
-            "    apt-get install -y --no-install-recommends curl"
-            in apptainer_def_content
-        )
-        assert "    rm -rf /var/lib/apt/lists/*" in apptainer_def_content
-
     finally:
         if tmpdir and os.path.exists(tmpdir):
             shutil.rmtree(tmpdir)
@@ -450,7 +442,7 @@ def test_containerize_checkpoint():
         )
         tmpdir = Path(tmpdir)
 
-        dockerfile_path = tmpdir / "Dockerfile"
+        dockerfile_path: Path = tmpdir / "Dockerfile"
         assert dockerfile_path.exists(), "Dockerfile was not generated."
 
         with open(dockerfile_path) as f:

@@ -77,7 +77,6 @@ from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSett
 from snakemake.logging import LoggerManager, logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
-    CreateCondaEnvironmentException,
     MissingOutputFileCachePathException,
     ResourceDuplicationError,
     ResourceConversionError,
@@ -87,7 +86,6 @@ from snakemake.exceptions import (
     UnknownRuleException,
     NoRulesException,
     WorkflowError,
-    update_lineno,
 )
 from snakemake.dag import DAG, ChangeType
 from snakemake.scheduling.job_scheduler import JobScheduler
@@ -235,7 +233,6 @@ class Workflow(WorkflowExecutorInterface):
         self._storage_registry = StorageRegistry(self)
         self._source_archive = None
         self._checkpoints = Checkpoints()
-        self.software_deployment_manager = SoftwareDeploymentManager(self)
 
         self._async_runners = dict()
         self._async_executor = ThreadPoolExecutor()
@@ -271,6 +268,10 @@ class Workflow(WorkflowExecutorInterface):
         config = copy.deepcopy(self.config_settings.overwrite_config)
         self.globals["config"] = config
         self.pathvars.update(Pathvars.from_config(config))
+
+    @lazy_property
+    def software_deployment_manager(self) -> SoftwareDeploymentManager:
+        return SoftwareDeploymentManager(self)
 
     def async_run(self, coro):
         threadid = threading.get_ident()
@@ -1103,6 +1104,8 @@ class Workflow(WorkflowExecutorInterface):
 
     def containerize(self, fmt="dockerfile"):
         from snakemake.deployment.containerize import containerize
+
+        self.software_deployment_manager.update_registered_plugins({"conda"})
 
         assert self.dag_settings is not None
         self._prepare_dag(

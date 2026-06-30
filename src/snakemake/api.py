@@ -49,7 +49,6 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
@@ -63,8 +62,6 @@ from snakemake.exceptions import print_exception
 from snakemake.logging import LoggerManager, logger
 from snakemake.shell import shell
 from snakemake.common import (
-    MIN_PY_VERSION,
-    __version__,
     is_local_file,
 )
 from snakemake.resources import Resources

@@ -1,3 +1,4 @@
+from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
 from snakemake.sourcecache import infer_source_file
 from snakemake.common import is_local_file
 from pathlib import Path
@@ -184,12 +185,29 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # ── Everything below is the SAME as the original (lines 22–72) ──
 
     # collect envs from jobs from the initial DAG.
-    def is_conda_job(job):
-        return job.software_env_spec is not None and isinstance(
-            job.software_env_spec, CondaEnvSpec
-        )
+    def is_conda_env_spec(env_spec):
+        return env_spec is not None and isinstance(env_spec, CondaEnvSpec)
 
-    conda_envs = {job.software_env for job in dag.jobs if is_conda_job(job)}
+    conda_envs = {
+        job.software_env for job in dag.jobs if is_conda_env_spec(job.software_env_spec)
+    }
+    # now add envs from rules that are not part of the DAG (e.g. because of checkpoints)
+    dag_rules = {job.rule.name for job in dag.jobs}
+
+    for rule in workflow.rules:
+        if rule.name not in dag_rules:
+            try:
+                env_spec = rule.expand_software_env_specs()
+            except ExpandSoftwareEnvRequiresWildcardsError:
+                logger.warning(
+                    f"Rule {rule.name} defines software environment that cannot be "
+                    "considered for containerization because the rule is not part of "
+                    "the initial DAG as it depends on a checkpoint."
+                )
+                continue
+            if is_conda_env_spec(env_spec):
+                env = workflow.software_deployment_manager.get_env(env_spec)
+                conda_envs.add(env)
 
     for env in conda_envs:
         if env.spec.envfile is None:
@@ -205,12 +223,12 @@ def containerize(workflow, dag, fmt="dockerfile"):
         else:
             return infer_source_file(path_or_uri).get_path_or_uri(secret_free=True)
 
-    sorted_envs = sorted(conda_envs, key=lambda env: env.spec.envfile)
+    sorted_envs = sorted(conda_envs, key=lambda env: env.spec.envfile.path_or_uri)
     envhash = hashlib.sha256()
     for env in sorted_envs:
         logger.info(f"Hashing conda environment {env.spec}.")
         # build a hash of the environment contents
-        envhash.update(env.hash())
+        envhash.update(env.hash().encode())
 
     # ── From here, we use the formatter instead of hardcoded print() ──
 
@@ -237,10 +255,10 @@ def containerize(workflow, dag, fmt="dockerfile"):
             formatter.comment(f"  {line}")
         formatter.run_command(f"mkdir -p {prefix}")
 
-        if is_local_file(env.spec.envfile.path_or_uri):
-            formatter.copy_file(env.spec.envfile.cached, env_target_path)
+        if is_local_file(env_source_path):
+            formatter.copy_file(env_source_path, env_target_path)
         else:
-            formatter.write_file(env.spec.envfile.cached, env_target_path)
+            formatter.write_file(env_content, env_target_path)
 
         generate_env_cmds.append(
             f"conda env create --prefix {prefix} --file {env_target_path} &&"

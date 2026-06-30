@@ -1,3 +1,4 @@
+from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
 from snakemake.deployment import EnvSpecs
 from typing import Optional
 
@@ -1202,7 +1203,7 @@ class Rule(RuleInterface):
             return self.group
 
     def expand_software_env_specs(
-        self, wildcards, params=None, input=None
+        self, wildcards=None, params=None, input=None
     ) -> Optional[SoftwareEnvSpecBase]:
         if self._expanded_software_env_spec is not _NOT_CACHED:
             return self._expanded_software_env_spec
@@ -1213,6 +1214,8 @@ class Rule(RuleInterface):
         software_env_specs = self._software_env_specs
         if software_env_specs is not None:
             if software_env_specs.is_callable():
+                if wildcards is None:
+                    raise ExpandSoftwareEnvRequiresWildcardsError()
                 software_env_specs = software_env_specs.resolve_callables(
                     lambda spec: self.apply_input_function(
                         spec, wildcards=wildcards, params=params, input=input
@@ -1235,6 +1238,7 @@ class Rule(RuleInterface):
                 # Hence we adjust the path accordingly.
                 # This is not necessary in case of receiving a SourceFile.
                 source_file = self.basedir.join(path)
+                path = os.path.relpath(source_file.path)
             else:
                 source_file = infer_source_file(path)
 
@@ -1267,6 +1271,8 @@ class Rule(RuleInterface):
             if isinstance(value, str):
                 if contains_wildcard(value):
                     cacheable &= False
+                    if wildcards is None:
+                        raise ExpandSoftwareEnvRequiresWildcardsError()
                     value = apply_wildcards(value, wildcards)
 
             # transform back into original type
