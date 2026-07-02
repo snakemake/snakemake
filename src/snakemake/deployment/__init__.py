@@ -179,9 +179,12 @@ class SoftwareDeploymentManager:
                 # no method activated that can yield an env here
                 return None
 
+        # deployment_prefix should be absolute to ensure that eventually modified
+        # hardcoded paths in binaries or scripts will always work, regardless of
+        # the workdir upon invocation
         deployment_prefix = (
             self.workflow.deployment_settings.deployment_prefix / env_spec.kind
-        )
+        ).absolute()
         cache_prefix = self.workflow.deployment_settings.cache_prefix / env_spec.kind
         pinfile_prefix = (
             self.workflow.deployment_settings.pinfile_prefix / env_spec.kind
