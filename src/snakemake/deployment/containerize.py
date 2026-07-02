@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
 from snakemake.sourcecache import infer_source_file
 from snakemake.common import is_local_file
@@ -8,12 +9,14 @@ from abc import ABC, abstractmethod
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+
+if TYPE_CHECKING:
+    from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 
 # TODO convert to rattler or pixi?
 
 
-def get_containerized_path(env: CondaEnvSpec) -> Path:
+def get_containerized_path(env: "CondaEnvSpec") -> Path:
     return Path("/conda-envs") / env.hash()
 
 
@@ -186,7 +189,7 @@ def containerize(workflow, dag, fmt="dockerfile"):
 
     # collect envs from jobs from the initial DAG.
     def is_conda_env_spec(env_spec):
-        return env_spec is not None and isinstance(env_spec, CondaEnvSpec)
+        return env_spec is not None and is_conda_env_spec(env_spec)
 
     conda_envs = {
         job.software_env for job in dag.jobs if is_conda_env_spec(job.software_env_spec)

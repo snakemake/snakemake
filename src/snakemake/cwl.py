@@ -10,15 +10,13 @@ import json
 import shutil
 from itertools import chain
 
+from snakemake.common import is_conda_env_spec
 from snakemake.utils import format
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import get_container_image
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_software_deployment_plugins import EnvBase
-from snakemake_software_deployment_plugin_container import Settings as ContainerSettings
 from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
-from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 from snakemake.executors.local import RunArgs
 
 
@@ -81,6 +79,7 @@ def cwl(
 
 def job_to_cwl(job, dag, outputs, inputs):
     """Convert a job with its dependencies to a CWL workflow step."""
+
     for f in job.output:
         if os.path.isabs(f):
             raise WorkflowError(
@@ -98,7 +97,7 @@ def job_to_cwl(job, dag, outputs, inputs):
     files = [f for f in job.input if f not in dep_ids]
     if (
         job.software_env_spec is not None
-        and isinstance(job.software_env_spec, CondaEnvSpec)
+        and is_conda_env_spec(job.software_env_spec)
         and job.software_env_spec.envfile is not None
     ):
         files.append(os.path.relpath(job.software_env_spec.envfile))

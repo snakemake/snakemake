@@ -1,3 +1,4 @@
+from snakemake.common import is_conda_env
 from functools import partial
 from snakemake.deployment.containerize import get_containerized_path
 from snakemake.deployment.containerize import containerize
@@ -73,7 +74,6 @@ from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareE
 from snakemake_interface_software_deployment_plugins import (
     EnvSpecBase as SoftwareEnvSpecBase,
 )
-from snakemake_software_deployment_plugin_conda import Env as CondaEnv
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -525,11 +525,12 @@ class Job(
 
     @property
     def software_env(self) -> Optional[SoftwareEnvBase]:
+
         if self.software_env_spec:
             env = self.dag.workflow.software_deployment_manager.get_env(
                 self.software_env_spec
             )
-            if self.rule.is_containerized and isinstance(env, CondaEnv):
+            if self.rule.is_containerized and is_conda_env(env):
                 env.containerized_path = get_containerized_path(env)
             return env
         return None

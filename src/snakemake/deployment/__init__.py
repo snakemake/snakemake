@@ -28,9 +28,6 @@ from snakemake_interface_software_deployment_plugins import (
     ShellExecutable,
 )
 from snakemake.common import get_function_params, overwrite_function_params
-from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
-from snakemake_software_deployment_plugin_container import EnvSpec as ContainerEnvSpec
-from snakemake_software_deployment_plugin_envmodules import EnvSpec as EnvModuleEnvSpec
 
 
 class SoftwareDeploymentManager:
@@ -327,14 +324,21 @@ class EnvSpecs:
 
         # Otherwise, use the old specs as fallback, converting to a generic spec.
 
-        container_spec = (
-            ContainerEnvSpec(self.legacy_container_img)
-            if self.legacy_container_img is not None
-            else None
-        )
+        container_spec = None
+        if self.legacy_container_img is not None:
+            from snakemake_software_deployment_plugin_container import (
+                EnvSpec as ContainerEnvSpec,
+            )
+
+            container_spec = ContainerEnvSpec(self.legacy_container_img)
+
         conda_spec = None
         env_module_spec = None
         if self.legacy_conda_env is not None:
+            from snakemake_software_deployment_plugin_conda import (
+                EnvSpec as CondaEnvSpec,
+            )
+
             spec = self.legacy_conda_env
             if isinstance(spec, Path):
                 spec = str(spec)
@@ -355,6 +359,9 @@ class EnvSpecs:
             container_spec.technical_init()
 
         if self.legacy_env_modules is not None:
+            from snakemake_software_deployment_plugin_envmodules import (
+                EnvSpec as EnvModuleEnvSpec,
+            )
 
             env_module_spec = EnvModuleEnvSpec(*self.legacy_env_modules)
             env_module_spec.technical_init()

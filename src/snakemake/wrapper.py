@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -10,8 +12,10 @@ from snakemake.script import script
 from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 from snakemake.executors.local import RunArgs
 from snakemake.sourcecache import SourceFile
-from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 from snakemake_interface_software_deployment_plugins import EnvSpecSourceFile
+
+if TYPE_CHECKING:
+    from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 
@@ -92,7 +96,9 @@ def get_script(
     return find_extension(path, sourcecache)
 
 
-def get_conda_env(path, sourcecache: SourceCache, prefix=None) -> CondaEnvSpec:
+def get_conda_env(path, sourcecache: SourceCache, prefix=None) -> "CondaEnvSpec":
+    from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+
     path = get_path(path, prefix=prefix)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.

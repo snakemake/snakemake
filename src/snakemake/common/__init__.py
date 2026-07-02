@@ -1,3 +1,6 @@
+from ast import Import
+from snakemake_interface_software_deployment_plugins import EnvBase
+from snakemake_interface_software_deployment_plugins import EnvSpecBase
 from snakemake.common.tbdstring import TBDString
 
 __author__ = "Johannes Köster"
@@ -537,3 +540,21 @@ class LockFreeWritableFile:
 
     def utime(self, times: Tuple[float, float]) -> None:
         self._times = times
+
+
+def is_conda_env_spec(env_spec: EnvSpecBase) -> bool:
+    """Return True if given env_spec is a conda env spec"""
+    try:
+        from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+    except ModuleNotFoundError:
+        return False
+    return isinstance(env_spec, CondaEnvSpec)
+
+
+def is_conda_env(env: EnvBase) -> bool:
+    """Return True if given env is a conda env"""
+    try:
+        from snakemake_software_deployment_plugin_conda import Env as CondaEnv
+    except ModuleNotFoundError:
+        return False
+    return isinstance(env, CondaEnv)
