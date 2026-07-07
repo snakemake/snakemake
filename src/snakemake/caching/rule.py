@@ -90,11 +90,13 @@ class RuleCache:
                 "Rules without output files cannot be cached.", rule=rule
             )
         if len(rule.output) > 1:
-            if not all(out.is_multiext for out in rule.output):
+            if not all(out.is_multiext for out in rule.output) and not all(
+                name is not None for name, _ in rule.output._allitems()
+            ):
                 raise WorkflowError(
                     "Rule is marked for between workflow caching but has multiple output files. "
-                    "This is only allowed if multiext() is used to declare them (see docs on between "
-                    "workflow caching).",
+                    "This is only allowed if multiext() is used to declare them, or if all "
+                    "output files are named (see docs on between workflow caching).",
                     rule=rule,
                 )
         if rule.workflow.workflow_settings.cache is None:
