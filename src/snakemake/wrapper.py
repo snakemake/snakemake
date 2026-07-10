@@ -31,7 +31,7 @@ def is_script(source_file):
     )
 
 
-def get_path(path: str, prefix: Optional[str] = None):
+def get_path(path: str, prefix: Optional[str] = None, basedir=None):
     if not is_url(path):
         if prefix is not None and prefix.startswith("git+file"):
             parts = path.split("/")
@@ -49,7 +49,7 @@ def get_path(path: str, prefix: Optional[str] = None):
                 path = DEFAULT_WRAPPER_PREFIX + path
         else:
             path = prefix + path
-    return infer_source_file(path)
+    return infer_source_file(path, basedir)
 
 
 def is_url(path):
@@ -75,26 +75,25 @@ def find_extension(
         try:
             sourcecache.try_access(script)
             return script
+        except WorkflowError as e:
+            errors[script_name] = str(e)
         except Exception as e:
-            if isinstance(e, WorkflowError):
-                msg = str(e)
-            else:
-                msg = e.__class__.__name__
-                if str(e):
-                    msg += f": {str(e)}"
+            msg = e.__class__.__name__
+            if str(e):
+                msg += f": {e!s}"
             errors[script_name] = msg
     return errors
 
 
 def get_script(
-    path, sourcecache: SourceCache, prefix=None
+    path, sourcecache: SourceCache, prefix=None, basedir=None
 ) -> SourceFile | Dict[str, str]:
-    path = get_path(path, prefix=prefix)
+    path = get_path(path, prefix=prefix, basedir=basedir)
     return find_extension(path, sourcecache)
 
 
-def get_conda_env(path, prefix=None) -> SourceFile:
-    path = get_path(path, prefix=prefix)
+def get_conda_env(path, prefix=None, basedir=None) -> SourceFile:
+    path = get_path(path, prefix=prefix, basedir=basedir)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = path.get_basedir()
@@ -103,6 +102,7 @@ def get_conda_env(path, prefix=None) -> SourceFile:
 
 def wrapper(
     path,
+    basedir,
     input,
     output,
     params,
@@ -136,6 +136,7 @@ def wrapper(
         path,
         SourceCache(sourcecache_path, runtime_cache_path=runtime_sourcecache_path),
         prefix=prefix,
+        basedir=basedir,
     )
     if not isinstance(script_source, SourceFile):
         prefix = prefix or DEFAULT_WRAPPER_PREFIX

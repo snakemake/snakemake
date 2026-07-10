@@ -297,7 +297,7 @@ class Workflow(WorkflowExecutorInterface):
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
             "config_md5": hashlib.md5(
-                json.dumps(config, sort_keys=True).encode("utf-8")
+                json.dumps(self.config, sort_keys=True).encode("utf-8")
             ).hexdigest(),
         }
 
@@ -2032,7 +2032,9 @@ class Workflow(WorkflowExecutorInterface):
 
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.workflow_settings.wrapper_prefix
+                    ruleinfo.wrapper,
+                    prefix=self.workflow_settings.wrapper_prefix,
+                    basedir=self.current_basedir,
                 )
                 # TODO retrieve suitable singularity image
 
