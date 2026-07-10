@@ -1,13 +1,9 @@
-__author__ = "Johannes Köster"
-__copyright__ = "Copyright 2022, Johannes Köster"
-__email__ = "johannes.koester@uni-due.de"
-__license__ = "MIT"
-
-# Only modules from python standard library should be imported here (except for methods
+# compat: python 3.7 (script support)
+# Must be kept compatible to Python 3.7 because it is used in Snakemake's
+# Python script support.
+# Only modules from python standard library or other Snakemake modules that are
+# Python 3.7 compatible should be imported here (except for methods
 # that are only called by Snakemake itself)!
-# Further, the code here has to be kept compatible with Python 3.7.
-# THe reason is that objects from this module are unpickled in scripts that might still
-# run in older Python versions than Snakemake itself.
 
 import os
 import urllib.parse

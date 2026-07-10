@@ -527,7 +527,7 @@ async def auto_report(
                 job_rec.starttime = get_time(job_rec.starttime, meta["starttime"], min)
                 job_rec.endtime = get_time(job_rec.endtime, meta["endtime"], max)
                 job_rec.software = [
-                    SoftwareReport(**rec) for rec in meta.get("software", [])
+                    SoftwareReport(**rec) for rec in (meta.get("software") or [])
                 ]
                 job_rec.output.append(f)
             except KeyError as e:

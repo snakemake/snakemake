@@ -1,8 +1,3 @@
-from ast import Import
-from snakemake_interface_software_deployment_plugins import EnvBase
-from snakemake_interface_software_deployment_plugins import EnvSpecBase
-from snakemake.common.tbdstring import TBDString
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
@@ -27,6 +22,9 @@ from pathlib import Path, PureWindowsPath
 from typing import Union
 from urllib.parse import urlsplit
 
+from snakemake_interface_software_deployment_plugins import EnvBase
+from snakemake_interface_software_deployment_plugins import EnvSpecBase
+from snakemake.common.tbdstring import TBDString
 from snakemake import __version__
 from snakemake.exceptions import NestedCoroutineError
 

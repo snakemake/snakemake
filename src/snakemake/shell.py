@@ -1,10 +1,16 @@
-from typing import TYPE_CHECKING
+# compat: python 3.7 (script support)
+# Must be kept compatible to Python 3.7 because it is used in Snakemake's
+# Python script support.
+# Only modules from python standard library or other Snakemake modules that are
+# Python 3.7 compatible should be imported here (except for methods
+# that are only called by Snakemake itself)!
 
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import platform
 from typing import Optional
 from pathlib import Path
 import _io
@@ -16,15 +22,16 @@ import shutil
 import stat
 import tempfile
 import threading
+from typing import TYPE_CHECKING
 
-from snakemake.utils import format, argvquote, cmd_exe_quote
-from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
-from snakemake.logging import logger
-from snakemake_interface_logger_plugins.common import LogEvent
-from snakemake.exceptions import WorkflowError
+from snakemake.utils import argvquote, cmd_exe_quote
+from snakemake.utils.format import format
 
 if TYPE_CHECKING:
     from snakemake.executors.local import RunArgs
+
+
+ON_WINDOWS = platform.system() == "Windows"
 
 
 STDOUT = sys.stdout
@@ -40,6 +47,20 @@ if not isinstance(sys.stdout, _io.TextIOWrapper):
 # hardcoded in the kernel as 32 pages, or 128kB. On OSX it appears to be
 # close to `getconf ARG_MAX`, about 253kb.
 MAX_ARG_LEN = 16 * 4096 - 1
+
+
+def is_script():
+    context = inspect.currentframe().f_back.f_locals
+    return bool(context.get("is_script", False))
+
+
+def log_warning(msg):
+    if is_script():
+        from snakemake.logging import logger
+
+        logger.warning(msg)
+    else:
+        print(msg, file=sys.stderr)
 
 
 class shell:
@@ -61,13 +82,14 @@ class shell:
         if ON_WINDOWS and executable:
             win_prefix = cls._get_win_command_prefix()
             cmd = f'"{executable}" {win_prefix} {argvquote(cmd)}'
-            logger.debug(f"Executing: {cmd}")
             return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
         else:
             return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
 
     @classmethod
     def executable(cls, cmd):
+        from snakemake.exceptions import WorkflowError
+
         if isinstance(cmd, Path):
             cmd = str(cmd)
         if cmd and not os.path.isabs(cmd):
@@ -78,7 +100,6 @@ class shell:
                     f"Cannot set default shell {cmd} because it is not available in your PATH."
                 )
         cls._process_args["executable"] = cmd
-        logger.debug(f"Setting shell executable to {cmd}.")
 
     @classmethod
     def _get_process_prefix(cls, shell_exec=None):
@@ -104,6 +125,8 @@ class shell:
 
     @classmethod
     def _check_executable(cls, shell_exec=None):
+        from snakemake.exceptions import WorkflowError
+
         shell_exec = shell_exec or cls.get_executable()
         if shell_exec is not None:
             if ON_WINDOWS and shell_exec == r"C:\Windows\System32\bash.exe":
@@ -188,17 +211,18 @@ class shell:
 
         stdout = sp.PIPE if iterable or read else STDOUT
 
-        close_fds = sys.platform != "win32"
+        close_fds = not ON_WINDOWS
+        context = dict()
 
-        func_context = inspect.currentframe().f_back.f_locals
+        if not is_script():
+            from snakemake.common import RULEFUNC_CONTEXT_MARKER
 
-        if func_context.get(RULEFUNC_CONTEXT_MARKER):
-            # If this comes from a rule, we expect certain information to be passed
-            # implicitly via the rule func context, which is added here.
-            context = func_context
-        else:
-            # Otherwise, context is just filled via kwargs.
-            context = dict()
+            func_context = inspect.currentframe().f_back.f_locals
+
+            if func_context.get(RULEFUNC_CONTEXT_MARKER):
+                # If this comes from a rule, we expect certain information to be passed
+                # implicitly via the rule func context, which is added here.
+                context = func_context
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
 
@@ -224,7 +248,10 @@ class shell:
             tmpdir_resource = None
             shell_executable = None
 
-        if not is_shell and jobid is not None:
+        if not is_shell and jobid is not None and not is_script():
+            from snakemake_interface_logger_plugins.common import LogEvent
+            from snakemake.logging import logger
+
             logger.info(None, extra=dict(event=LogEvent.SHELLCMD, cmd=cmd))
 
         if shell_executable is not None:
@@ -276,7 +303,7 @@ class shell:
             if not isinstance(env, dict) or not all(
                 isinstance(v, str) for v in env.values()
             ):
-                raise WorkflowError(
+                raise ValueError(
                     "Given environment variables for shell command have to be a dict of strings, "
                     "but the following was provided instead:\n{}".format(env)
                 )
@@ -361,12 +388,12 @@ class shell:
 # set bash as default shell on posix compatible OS
 if os.name == "posix":
     if not shutil.which("bash"):
-        logger.warning(
+        log_warning(
             "Cannot set bash as default shell because it is not "
             "available in your PATH. Falling back to sh."
         )
         if not shutil.which("sh"):
-            logger.warning(
+            log_warning(
                 "Cannot fall back to sh since it seems to be not "
                 "available on this system. Using whatever is "
                 "defined as default."

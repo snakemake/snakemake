@@ -436,12 +436,11 @@ class PythonScript(ScriptBase):
         )
 
         preamble = f"""
-            import sys;
+            import sys, pickle;
             sys.path.extend({repr(list(map(str, searchpaths)))});
-            import pickle;
             snakemake = pickle.loads({snakemake});
-            from snakemake.logging import logger;
             from snakemake.iocontainers import Snakemake;
+            is_script = True;
             {shell_exec_stmt}
             {self.preamble_addendum()}
             """
