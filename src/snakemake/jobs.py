@@ -1,8 +1,3 @@
-from snakemake.common import is_conda_env
-from functools import partial
-from snakemake.deployment.containerize import get_containerized_path
-from snakemake.deployment.containerize import containerize
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -26,6 +21,8 @@ from abc import abstractmethod
 from snakemake import wrapper
 from snakemake.rules import Rule
 
+from snakemake.common.misc import is_conda_env
+from snakemake.deployment.containerize import get_containerized_path
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
@@ -63,10 +60,10 @@ from snakemake.exceptions import (
 )
 
 from snakemake.logging import logger
-from snakemake.common import (
+from snakemake.common.misc import (
     get_uuid,
-    IO_PROP_LIMIT,
 )
+from snakemake.common.constants import IO_PROP_LIMIT
 from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
@@ -142,7 +139,7 @@ class JobFactory:
 
         async def new():
             if update:
-                new_job = partial(
+                new_job = functools.partial(
                     Job,
                     rule,
                     dag,
@@ -152,7 +149,7 @@ class JobFactory:
                     groupid,
                 )
             else:
-                new_job = partial(
+                new_job = functools.partial(
                     Job, rule, dag, wildcards_dict, format_wildcards, targetfile
                 )
             obj = None

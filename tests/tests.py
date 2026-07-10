@@ -978,6 +978,7 @@ def test_singularity_none():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_singularity_global():
     run(
         dpath("test_singularity_global"),
@@ -987,6 +988,7 @@ def test_singularity_global():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_singularity_source_cache():
     run(
         dpath("test_singularity_source_cache"),
@@ -2952,7 +2954,7 @@ def test_github_issue_3374():
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
-        shellcmd="snakemake --sdm apptainer --cores 1",
+        shellcmd="snakemake --sdm container --cores 1",
         targets=["all"],
     )
 
@@ -2999,7 +3001,7 @@ def test_default_resource_quoting_profile():
 def test_issue3361_fail():
     run(
         dpath("test_issue3361_fail"),
-        shellcmd="snakemake --sdm apptainer",
+        shellcmd="snakemake --sdm container",
         targets=["all"],
         shouldfail=True,
     )
@@ -3246,7 +3248,7 @@ def test_cyclic_dependency_single():
 def test_issue3958():
     run(
         dpath("test_issue3958"),
-        shellcmd="snakemake --sdm apptainer --cores 1",
+        shellcmd="snakemake --sdm container --cores 1",
         targets=["all"],
     )
 

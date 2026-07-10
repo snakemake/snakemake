@@ -28,10 +28,10 @@ from urllib.error import URLError
 
 from snakemake import iocontainers
 from snakemake.iocontainers import Snakemake
-from snakemake.common import (
+from snakemake.common.misc import get_snakemake_searchpaths
+from snakemake.common.constants import (
     MIN_PY_VERSION,
     ON_WINDOWS,
-    get_snakemake_searchpaths,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger

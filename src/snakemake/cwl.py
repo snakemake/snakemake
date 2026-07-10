@@ -10,11 +10,10 @@ import json
 import shutil
 from itertools import chain
 
-from snakemake.common import is_conda_env_spec
+from snakemake.common.misc import is_conda_env_spec, get_container_image
 from snakemake.utils import format
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import get_container_image
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 from snakemake.executors.local import RunArgs

@@ -8,7 +8,7 @@ import multiprocessing
 import sys
 
 from snakemake.iocontainers import Namedlist
-from snakemake.common import ON_WINDOWS
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 from snakemake.utils.format import format
 

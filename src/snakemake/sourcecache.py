@@ -20,7 +20,7 @@ from urllib.parse import quote, unquote
 
 from snakemake import utils
 from snakemake.utils import format
-from snakemake.common import (
+from snakemake.common.misc import (
     ON_WINDOWS,
     LockFreeWritableFile,
     is_local_file,

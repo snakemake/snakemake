@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING
-from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
-from snakemake.sourcecache import infer_source_file
-from snakemake.common import is_local_file
 from pathlib import Path
 import hashlib
 import os
 from abc import ABC, abstractmethod
+
+from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
+from snakemake.sourcecache import infer_source_file
+from snakemake.common.misc import is_local_file, is_conda_env_spec
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
@@ -188,11 +189,13 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # ── Everything below is the SAME as the original (lines 22–72) ──
 
     # collect envs from jobs from the initial DAG.
-    def is_conda_env_spec(env_spec):
+    def _is_conda_env_spec(env_spec):
         return env_spec is not None and is_conda_env_spec(env_spec)
 
     conda_envs = {
-        job.software_env for job in dag.jobs if is_conda_env_spec(job.software_env_spec)
+        job.software_env
+        for job in dag.jobs
+        if _is_conda_env_spec(job.software_env_spec)
     }
     # now add envs from rules that are not part of the DAG (e.g. because of checkpoints)
     dag_rules = {job.rule.name for job in dag.jobs}
@@ -208,7 +211,7 @@ def containerize(workflow, dag, fmt="dockerfile"):
                     "the initial DAG as it depends on a checkpoint."
                 )
                 continue
-            if is_conda_env_spec(env_spec):
+            if _is_conda_env_spec(env_spec):
                 env = workflow.software_deployment_manager.get_env(env_spec)
                 conda_envs.add(env)
 

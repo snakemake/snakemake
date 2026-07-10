@@ -14,7 +14,8 @@ import sys
 from typing import Dict, List, Mapping, Optional
 import os
 import tarfile
-from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
+from snakemake.common.constants import MIN_PY_VERSION, SNAKEFILE_CHOICES
+from snakemake.common.misc import async_run
 from snakemake.settings.types import (
     GroupSettings,
     SchedulingSettings,
@@ -61,7 +62,7 @@ from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import LoggerManager, logger
 from snakemake.shell import shell
-from snakemake.common import (
+from snakemake.common.misc import (
     is_local_file,
 )
 from snakemake.resources import Resources

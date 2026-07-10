@@ -113,8 +113,9 @@ def test_deploy_hashing():
         deployment_method={"conda"},
         cleanup=False,
     )
+    deployment_prefix = DeploymentSettings().deployment_prefix
     assert tmpdir is not None
-    assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
+    assert len(next(os.walk(os.path.join(tmpdir, deployment_prefix / "conda")))[1]) == 2
 
 
 @conda

@@ -593,7 +593,7 @@ class Run(RuleKeywordState):
                     else self.snakefile.rulecount
                 ),
                 run_args=RunArgs.rulefunc_args_signature(),
-                rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
+                rule_func_marker=common.constants.RULEFUNC_CONTEXT_MARKER,
             )
         )
 

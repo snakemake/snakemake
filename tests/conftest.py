@@ -4,7 +4,7 @@ import sys
 import pytest
 from contextlib import suppress
 
-from snakemake.common import ON_WINDOWS
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.utils import find_bash_on_windows
 from snakemake.shell import shell
 

@@ -43,7 +43,7 @@ from snakemake.io import (
 from snakemake.iocontainers import Wildcards
 from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.iocontainers import Snakemake, FILE_HASH_PREFIX_LEN
-from snakemake.common import (
+from snakemake.common.misc import (
     get_input_function_aux_params,
 )
 from snakemake import logging
@@ -353,7 +353,7 @@ class FileRecord(FileRecordInterface):
     target: str = field(init=False)
 
     def __post_init__(self):
-        from snakemake.common import get_report_id
+        from snakemake.common.misc import get_report_id
 
         self.target = str(self.path.name)
         self.size = os.path.getsize(self.path)

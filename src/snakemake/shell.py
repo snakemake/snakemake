@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 
 from snakemake.utils import argvquote, cmd_exe_quote
 from snakemake.utils.format import format
+from snakemake.common.constants import RULEFUNC_CONTEXT_MARKER
 
 if TYPE_CHECKING:
     from snakemake.executors.local import RunArgs
@@ -215,8 +216,6 @@ class shell:
         context = dict()
 
         if not is_script():
-            from snakemake.common import RULEFUNC_CONTEXT_MARKER
-
             func_context = inspect.currentframe().f_back.f_locals
 
             if func_context.get(RULEFUNC_CONTEXT_MARKER):

@@ -23,7 +23,7 @@ from snakemake_interface_logger_plugins.settings import (
     OutputSettingsLoggerInterface,
 )
 
-from snakemake.common import (
+from snakemake.common.misc import (
     dict_to_key_value_args,
     get_container_image,
 )

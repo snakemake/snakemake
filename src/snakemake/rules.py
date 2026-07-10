@@ -80,7 +80,7 @@ from snakemake.exceptions import (
     is_file_not_found_error,
 )
 from snakemake.logging import logger
-from snakemake.common import (
+from snakemake.common.misc import (
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,

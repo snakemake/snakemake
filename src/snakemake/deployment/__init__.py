@@ -1,22 +1,20 @@
-from snakemake.common.typing import AnySet
 from typing import Set
 from snakemake.logging import logger
 from snakemake.settings.enums import Quietness
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
-from snakemake.common import is_local_file
 from copy import copy
 from typing import List
 from typing import Callable
 from typing import Union
 from typing import Optional
 from dataclasses import dataclass
-from snakemake.common import get_snakemake_searchpaths
 from pathlib import Path
 import tempfile
 from typing import Any, Dict, Iterable
 import os
 
 import snakemake
+from snakemake.common.typing import AnySet
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
@@ -27,7 +25,12 @@ from snakemake_interface_software_deployment_plugins import (
     EnvSpecSourceFile,
     ShellExecutable,
 )
-from snakemake.common import get_function_params, overwrite_function_params
+from snakemake.common.misc import (
+    get_function_params,
+    overwrite_function_params,
+    is_local_file,
+    get_snakemake_searchpaths,
+)
 
 
 class SoftwareDeploymentManager:

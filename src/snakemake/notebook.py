@@ -5,7 +5,6 @@ from typing import Dict
 from abc import abstractmethod
 import os
 from pathlib import Path
-import subprocess as sp
 import shutil
 import tempfile
 import re
@@ -13,8 +12,8 @@ import re
 from snakemake.exceptions import WorkflowError
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
-from snakemake.common import is_local_file
-from snakemake.common import ON_WINDOWS
+from snakemake.common.misc import is_local_file
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.sourcecache import SourceCache, infer_source_file
 from snakemake.utils import format
 

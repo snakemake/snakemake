@@ -1,4 +1,4 @@
-from snakemake.common import is_serializable
+from snakemake.common.misc import is_serializable
 import asyncio
 import os
 import shutil

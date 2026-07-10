@@ -1,4 +1,4 @@
-from snakemake.common import is_serializable
+from snakemake.common.misc import is_serializable
 
 __author__ = "Manuel Holtgrewe"
 __copyright__ = "Copyright 2022, Manuel Holtgrewe"
@@ -366,7 +366,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                             ioinfo = proc.io_counters()
                             io_in += ioinfo.read_bytes
                             io_out += ioinfo.write_bytes
-                        except NotImplementedError as nie:
+                        except NotImplementedError:
                             # OS doesn't track IO
                             check_io = False
 

@@ -124,8 +124,8 @@ from snakemake.template_rendering import render_template
 from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
-from snakemake.common import (
-    ON_WINDOWS,
+from snakemake.common.constants import ON_WINDOWS, NOTHING_TO_BE_DONE_MSG
+from snakemake.common.misc import (
     async_runner,
     get_appdirs,
     is_local_file,
@@ -133,7 +133,6 @@ from snakemake.common import (
     Scatter,
     Gather,
     smart_join,
-    NOTHING_TO_BE_DONE_MSG,
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
@@ -550,7 +549,7 @@ class Workflow(WorkflowExecutorInterface):
         return self._envvars
 
     @property
-    def sourcecache(self):
+    def sourcecache(self) -> SourceCache:
         return self._sourcecache
 
     @property
@@ -1987,7 +1986,7 @@ class Workflow(WorkflowExecutorInterface):
                 # because that overwrites the one from here.
                 env_specs.software_spec = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper,
-                    self.sourcecache,
+                    sourcecache=self.sourcecache,
                     prefix=self.workflow_settings.wrapper_prefix,
                 )
 

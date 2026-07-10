@@ -35,7 +35,7 @@ from snakemake_software_deployment_plugin_container import (
 from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 
 from snakemake import api
-from snakemake.common import ON_WINDOWS
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes, Resources
 from snakemake.scheduling.milp import SchedulerSettings

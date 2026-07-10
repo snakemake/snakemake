@@ -40,7 +40,7 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.settings.enums import Quietness
 
 from snakemake import workflow as _workflow
-from snakemake.common import (
+from snakemake.common.misc import (
     ON_WINDOWS,
     func_true,
     group_into_chunks,
@@ -3415,7 +3415,9 @@ class WrapperProcessor(DAGProcessorBase):
                 )
             if "conda" in self.dag.workflow.deployment_settings.deployment_methods:
                 env = wrapper.get_conda_env(
-                    job.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
+                    job.rule.wrapper,
+                    sourcecache=self.dag.workflow.sourcecache,
+                    prefix=self.dag.workflow.workflow_settings.wrapper_prefix,
                 )
                 if not self.dag.workflow.sourcecache.exists(env):
                     raise WorkflowError(

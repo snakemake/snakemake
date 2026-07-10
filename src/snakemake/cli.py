@@ -8,13 +8,12 @@ import os
 import re
 import sys
 import logging
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
+from snakemake_interface_executor_plugins.utils import maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
@@ -29,7 +28,7 @@ from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
 )
-from snakemake.common import (
+from snakemake.common.misc import (
     SNAKEFILE_CHOICES,
     __version__,
     async_run,

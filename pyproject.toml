@@ -238,6 +238,7 @@ snakemake-storage-plugin-fs = "*"
 snakemake-software-deployment-plugin-conda = ">=0.5.3,<1.0.0"
 snakemake-software-deployment-plugin-container = ">=0.6.2,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
+yappi = "*"
 
 [tool.pixi.feature.test.dependencies]
 conda = ">=26.5.3,<27"
