@@ -284,7 +284,7 @@ class Workflow(WorkflowExecutorInterface):
             config_md5 = hashlib.md5(
                 json.dumps(self.config, sort_keys=True).encode("utf-8")
             ).hexdigest()
-        except TypeError:
+        except (TypeError, ValueError):
             config_md5 = "unavailable"
 
         return {
