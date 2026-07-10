@@ -282,7 +282,7 @@ class Workflow(WorkflowExecutorInterface):
         conda_bin = shutil.which("conda")
         try:
             config_md5 = hashlib.md5(
-                json.dumps(config, sort_keys=True).encode("utf-8")
+                json.dumps(self.config, sort_keys=True).encode("utf-8")
             ).hexdigest()
         except TypeError:
             config_md5 = "unavailable"
