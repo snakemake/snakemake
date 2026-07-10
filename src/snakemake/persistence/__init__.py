@@ -1,11 +1,9 @@
 from snakemake.common import is_serializable
 import asyncio
-import hashlib
 import os
 import shutil
 import time
 from abc import abstractmethod
-from base64 import b64encode
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -27,7 +25,7 @@ from snakemake.io import get_flag_value, is_flagged, _IOFile, IOCache
 from snakemake.logging import logger
 import snakemake.exceptions
 
-RECORD_FORMAT_VERSION = 6
+RECORD_FORMAT_VERSION = 7
 UNREPRESENTABLE = object()
 
 
