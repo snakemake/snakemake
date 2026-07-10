@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.23.2](https://github.com/snakemake/snakemake/compare/v9.23.1...v9.23.2) (2026-07-10)
+
+
+### Bug Fixes
+
+* avoid config hash crash for non-serializable values ([#4241](https://github.com/snakemake/snakemake/issues/4241)) ([1a27746](https://github.com/snakemake/snakemake/commit/1a2774645a599d6c7d0589a048b64023b360c7d3))
+
 ## [9.23.1](https://github.com/snakemake/snakemake/compare/v9.23.0...v9.23.1) (2026-06-17)
 
 
