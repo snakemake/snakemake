@@ -23,6 +23,8 @@ from typing import (
     Optional,
 )
 
+from snakemake.common.report import get_report_id
+
 PathLike = Union[str, Path, os.PathLike]
 
 FILE_HASH_PREFIX_LEN = 16
@@ -39,8 +41,6 @@ class ReportHref:
         url_args: Optional[Dict[str, str]] = None,
         anchor: Optional[str] = None,
     ):
-        from snakemake.common import get_report_id
-
         self._parent = parent
         if parent is None:
             self._id = get_report_id(path)
@@ -289,7 +289,7 @@ class Namedlist(list, Generic[_TNamedList]):
 
 class InputFiles(Namedlist):
     def _predicated_size_files(self, predicate: Callable) -> List[int]:
-        from snakemake.common import async_run as async_run_fallback
+        from snakemake.common.misc import async_run as async_run_fallback
 
         async def sizes() -> List[int]:
             import asyncio

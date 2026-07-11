@@ -28,9 +28,9 @@ from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
 )
+from snakemake.common.constants import SNAKEFILE_CHOICES
+from snakemake import __version__
 from snakemake.common.misc import (
-    SNAKEFILE_CHOICES,
-    __version__,
     async_run,
     get_appdirs,
     get_container_image,

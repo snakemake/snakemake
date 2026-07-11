@@ -50,6 +50,7 @@ from snakemake import logging
 from snakemake_interface_report_plugins.registry.plugin import Plugin as ReportPlugin
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake.settings.types import GlobalReportSettings
+from snakemake.common.report import get_report_id
 from snakemake_interface_report_plugins.interfaces import (
     CategoryInterface,
     RuleRecordInterface,
@@ -353,8 +354,6 @@ class FileRecord(FileRecordInterface):
     target: str = field(init=False)
 
     def __post_init__(self):
-        from snakemake.common.misc import get_report_id
-
         self.target = str(self.path.name)
         self.size = os.path.getsize(self.path)
         logger.info(f"Adding {self.name} ({format_size(self.size)}).")

@@ -190,7 +190,7 @@ def read_job_properties(
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
     from packaging.version import parse
-    from snakemake.common import __version__
+    from snakemake import __version__
 
     if parse(__version__) < parse(version):
         raise WorkflowError(

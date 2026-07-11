@@ -1208,7 +1208,7 @@ class Rule(RuleInterface):
         if self._expanded_software_env_spec is not _NOT_CACHED:
             return self._expanded_software_env_spec
 
-        from snakemake.common import is_local_file
+        from snakemake.common.misc import is_local_file
         from snakemake.sourcecache import infer_source_file
 
         software_env_specs = self._software_env_specs

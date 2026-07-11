@@ -45,13 +45,6 @@ def get_snakemake_searchpaths() -> List[Path]:
     return list(map(Path, unique_justseen(paths)))
 
 
-def get_report_id(path: Union[str, Path]) -> str:
-    h = hashlib.sha256()
-    h.update(str(path).encode())
-
-    return h.hexdigest()
-
-
 def mb_to_mib(mb: int):
     return int(math.ceil(mb * 0.95367431640625))
 
@@ -267,12 +260,8 @@ def num_if_possible(s):
             return s
 
 
-def get_last_stable_version():
-    return __version__
-
-
 def get_container_image():
-    return f"snakemake/snakemake:v{get_last_stable_version()}"
+    return f"snakemake/snakemake:v{__version__}"
 
 
 def get_uuid(name):

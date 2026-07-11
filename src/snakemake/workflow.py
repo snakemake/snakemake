@@ -286,7 +286,7 @@ class Workflow(WorkflowExecutorInterface):
         import sys
         import getpass
         from datetime import datetime
-        from snakemake.common import __version__
+        from snakemake import __version__
         import uuid
         import json
         import hashlib
