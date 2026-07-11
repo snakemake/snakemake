@@ -503,6 +503,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_config_non_json_serializable():
+    run(dpath("test_config"), config={"path_value": Path("data")})
+
+
 def test_update_config():
     run(dpath("test_update_config"))
 
