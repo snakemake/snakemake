@@ -291,7 +291,6 @@ class Workflow(WorkflowExecutorInterface):
         import json
         import hashlib
 
-        conda_bin = shutil.which("conda")
         try:
             config_md5 = hashlib.md5(
                 json.dumps(self.config, sort_keys=True).encode("utf-8")
