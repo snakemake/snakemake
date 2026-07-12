@@ -440,17 +440,14 @@ def expand_vars_and_user(value):
         return os.path.expanduser(os.path.expandvars(value))
 
 
-# Taken from https://stackoverflow.com/a/2166841/7070491
-# Thanks to Alex Martelli.
-def is_namedtuple_instance(x):
-    t = type(x)
-    b = t.__bases__
-    if len(b) != 1 or b[0] is tuple:
-        return False
-    f = getattr(t, "_fields", None)
-    if not isinstance(f, tuple):
-        return False
-    return all(type(n) is str for n in f)
+# Taken from https://stackoverflow.com/a/62692640
+# Thanks to techkuz.
+def is_namedtuple_instance(obj: Any) -> bool:
+    return (
+            isinstance(obj, tuple) and
+            hasattr(obj, '_asdict') and
+            hasattr(obj, '_fields')
+    )
 
 
 def copy_permission_safe(src: str, dst: str):

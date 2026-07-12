@@ -1906,11 +1906,13 @@ def test_env_modules():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_container():
     run(dpath("test_container"), deployment_method={"container"})
 
 
 @skip_on_windows
+@apptainer
 def test_dynamic_container():
     run(dpath("test_dynamic_container"), deployment_method={"container"})
 
