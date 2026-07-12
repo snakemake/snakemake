@@ -702,6 +702,10 @@ class TemplateEngine(Script):
     start_func = "@workflow.template_engine"
     end_func = "render_template"
 
+    def args(self):
+        # pass the global config variable
+        yield "config=config, "
+
 
 class CWL(AbstractCmd):
     start_func = "@workflow.cwl"

@@ -3413,17 +3413,6 @@ class WrapperProcessor(DAGProcessorBase):
                     f"Wrapper {job.rule.wrapper} not accessible. "
                     "Please check the name of the wrapper and your wrapper prefix."
                 )
-            if "conda" in self.dag.workflow.deployment_settings.deployment_methods:
-                env = wrapper.get_conda_env(
-                    job.rule.wrapper,
-                    sourcecache=self.dag.workflow.sourcecache,
-                    prefix=self.dag.workflow.workflow_settings.wrapper_prefix,
-                )
-                if not self.dag.workflow.sourcecache.exists(env):
-                    raise WorkflowError(
-                        f"Conda environment for wrapper {job.rule.wrapper} not accessible. "
-                        "Please check the name of the wrapper and your wrapper prefix."
-                    )
 
 
 class ScriptProcessor(DAGProcessorBase):

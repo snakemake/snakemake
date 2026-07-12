@@ -115,7 +115,13 @@ def test_deploy_hashing():
     )
     deployment_prefix = DeploymentSettings().deployment_prefix
     assert tmpdir is not None
-    assert len(next(os.walk(os.path.join(tmpdir, deployment_prefix / "conda")))[1]) == 2
+
+    deployed_envs = [
+        path
+        for path in (Path(tmpdir) / deployment_prefix / "conda").iterdir()
+        if path.is_dir()
+    ]
+    assert len(deployed_envs) == 1
 
 
 @conda

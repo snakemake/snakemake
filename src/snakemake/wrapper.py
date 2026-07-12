@@ -104,6 +104,11 @@ def get_conda_env(path, sourcecache: SourceCache, prefix=None) -> "CondaEnvSpec"
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = path.get_basedir()
     path = path.join("environment.yaml")
+    if not sourcecache.exists(path):
+        raise WorkflowError(
+            f"Conda environment {path.get_path_or_uri(secret_free=True)} not "
+            "accessible. Please check the name of the wrapper and your wrapper prefix."
+        )
     cached_path = sourcecache.cache(path)
     spec = CondaEnvSpec(
         envfile=EnvSpecSourceFile(
