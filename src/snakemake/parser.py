@@ -6,7 +6,7 @@ __license__ = "MIT"
 import sys
 import textwrap
 import tokenize
-from typing import Any, Callable, Dict, Generator, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
 
 from snakemake import common
 
@@ -146,7 +146,12 @@ class TokenAutomaton:
                 break
         # trim those around the f-string
         s = "".join(lines[i] for i in sorted(lines))
-        t = s[token.start[1] : t1.end[1] - len(t1.line)]
+        if t1.line.endswith("\n"):
+            end = t1.end[1] - len(t1.line)
+        else:
+            # in case the f-string is the last line in a file that doesn't end in a newline
+            end = t1.end[1] - len(t1.line) - 1
+        t = s[token.start[1] : end]
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
@@ -179,9 +184,9 @@ class TokenAutomaton:
 
     def subautomaton(self, automaton, *args, token=None, **kwargs):
         if automaton in self.deprecated:
-            assert (
-                token is not None
-            ), "bug: deprecation encountered but subautomaton not called with a token"
+            assert token is not None, (
+                "bug: deprecation encountered but subautomaton not called with a token"
+            )
             self.error(
                 f"Keyword {automaton} is deprecated. {self.deprecated[automaton]}",
                 token,
@@ -373,10 +378,7 @@ class Storage(GlobalKeywordState):
 
 
 class ResourceScope(GlobalKeywordState):
-    err_msg = (
-        "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
-        "'global'"
-    )
+    err_msg = "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or 'global'"
     current_resource = ""
 
     def block_content(self, token):
@@ -401,8 +403,7 @@ class Ruleorder(GlobalKeywordState):
             yield repr(token.string), token
         else:
             self.error(
-                "Expected a descending order of rule names, "
-                "e.g. rule1 > rule2 > rule3 ...",
+                "Expected a descending order of rule names, e.g. rule1 > rule2 > rule3 ...",
                 token,
             )
 
@@ -457,8 +458,7 @@ class Localrules(GlobalKeywordState):
             yield repr(token.string), token
         else:
             self.error(
-                "Expected a comma separated list of rules that shall "
-                "not be executed by the cluster command.",
+                "Expected a comma separated list of rules that shall not be executed by the cluster command.",
                 token,
             )
 
@@ -793,8 +793,7 @@ class Rule(GlobalKeywordState):
 
     def start(self, aux=""):
         yield (
-            f"@workflow.rule(name={self.rulename!r}, lineno={self.lineno}, "
-            f"snakefile={self.snakefile.path!r}{aux})"
+            f"@workflow.rule(name={self.rulename!r}, lineno={self.lineno}, snakefile={self.snakefile.path!r}{aux})"
         )
 
     def end(self):
@@ -864,8 +863,7 @@ class Rule(GlobalKeywordState):
             yield f"@workflow.docstring({token.string})", token
         else:
             self.error(
-                "Expecting rule keyword, comment or docstrings "
-                "inside a rule definition.",
+                "Expecting rule keyword, comment or docstrings inside a rule definition.",
                 token,
             )
 
@@ -1029,8 +1027,7 @@ class Module(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in "
-                    "module definition".format(token.string),
+                    "Unexpected keyword {} in module definition".format(token.string),
                     token,
                 )
             except StopAutomaton as e:
@@ -1045,8 +1042,7 @@ class Module(GlobalKeywordState):
             pass
         else:
             self.error(
-                "Expecting module keyword, comment or docstrings "
-                "inside a module definition.",
+                "Expecting module keyword, comment or docstrings inside a module definition.",
                 token,
             )
 
@@ -1287,8 +1283,7 @@ class UseRule(GlobalKeywordState):
             )
         else:
             self.error(
-                "Expecting rule keyword, comment or docstrings "
-                "inside a 'use rule ... with:' statement.",
+                "Expecting rule keyword, comment or docstrings inside a 'use rule ... with:' statement.",
                 token,
             )
 
