@@ -1465,8 +1465,6 @@ class RuleProxy:
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
 
-            modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
-
             if (
                 self.rule.workflow.storage_settings.default_storage_provider is not None
                 and f.startswith(prefix)
@@ -1479,8 +1477,10 @@ class RuleProxy:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
                 cleaned.clone_storage_object(f)
 
-            if modified_by is not None:
-                cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
+            for flags in [PATH_MODIFIER_FLAG, "typed"]:
+                modified_by = get_flag_value(f, flags)
+                if modified_by is not None:
+                    cleaned.flags[flags] = modified_by
 
             return cleaned
 
