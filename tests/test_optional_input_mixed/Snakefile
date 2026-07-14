@@ -1,0 +1,45 @@
+"""
+Required + optional inputs
+
+Scenario:
+- merge rule has one required count file and two optional count files
+- required file exists (counts_required.json)
+- one optional exists (counts_opt_001.json)
+- one optional is missing (counts_opt_002.json)
+- all upstream jobs successful (files are pre-placed)
+
+Expected:
+- succeeds
+- merge runs with existing files only
+- output contains merged required + existing optional input
+"""
+
+rule all:
+    input:
+        "letter_counts.json"
+
+
+rule merge_counts:
+    input:
+        required="counts_required.json",
+        optional_counts=optional(["counts_opt_001.json", "counts_opt_002.json"])
+    output:
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+
+        # Required file always present
+        data = json.loads(Path(input.required).read_text())
+        for key, value in data.items():
+            merged[key] = merged.get(key, 0) + value
+
+        # Optional files: only existing ones after filtering
+        for counts_file in input.optional_counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))

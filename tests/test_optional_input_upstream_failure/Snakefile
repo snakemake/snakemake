@@ -1,0 +1,53 @@
+"""
+Optional input does not hide actual upstream failure.
+
+Scenario:
+- 3 chunks
+- count_letters for chunk 002 exits with code 1 (raises exception)
+- counts_002.json is missing
+- merge_counts marks inputs as optional
+
+Expected:
+- fails
+- letter_counts.json is not created
+- failed job is reported as failure
+"""
+
+chunks = ["000", "001", "002"]
+
+
+rule all:
+    input:
+        "letter_counts.json"
+
+
+rule count_letters:
+    output:
+        "counts_{chunk}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.chunk == "002":
+            raise Exception("Simulated failure for chunk 002 (exit code 1)")
+
+        data = {"000": {"a": 2}, "001": {"b": 3}}.get(wildcards.chunk, {})
+        Path(output[0]).write_text(json.dumps(data))
+
+
+rule merge_counts:
+    input:
+        counts=optional(expand("counts_{chunk}.json", chunk=chunks))
+    output:
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for counts_file in input.counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
