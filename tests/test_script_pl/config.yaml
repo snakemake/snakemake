@@ -1,0 +1,7 @@
+test: true
+testint: 123
+testfloat: 7.65432
+foodict:
+  key0: "val0"
+  key1: "val1"
+"foo' bar": "let's go" # test quote escaping in key and value

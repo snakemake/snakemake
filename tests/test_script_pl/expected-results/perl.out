@@ -1,0 +1,4 @@
+Read line: 1 2 3
+Running rule: 'perl' with 1 thread(s)
+Input: test.in
+Output: perl.out
