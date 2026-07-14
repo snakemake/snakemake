@@ -262,9 +262,15 @@ class WorkflowModifier:
 
     def inherit_rule_proxies(self, child_modifier: "WorkflowModifier"):
         for name, rule in child_modifier.rule_proxies._rules.items():
+            if child_modifier.avail_rulename(name) is None:
+                continue
             if child_modifier.local_rulename_modifier is not None:
                 name = child_modifier.local_rulename_modifier(name)
             self.rule_proxies._register_rule(name, rule)
+        for name, checkpoint in child_modifier.globals["checkpoints"]._rules.items():
+            if child_modifier.local_rulename_modifier is not None:
+                name = child_modifier.local_rulename_modifier(name)
+            self.globals["checkpoints"]._register(checkpoint.rule, name)
 
     def avail_rulename(self, rulename):
         if (
