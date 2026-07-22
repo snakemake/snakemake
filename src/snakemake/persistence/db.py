@@ -217,6 +217,7 @@ class DbPersistence(PersistenceBase):
             ) or MetadataRecordORM(namespace=self.namespace, target=key)
             record.incomplete = True
             record.external_jobid = external_jobid
+            record.starttime = None
             session.add(record)
             session.commit()
 
