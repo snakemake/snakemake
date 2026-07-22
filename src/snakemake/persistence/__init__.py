@@ -364,6 +364,17 @@ class PersistenceBase(
         ...
 
     @abstractmethod
+    def _get_recorded_starttime(self, key: str) -> float | None:
+        """
+        Return the starttime recorded when the incomplete marker was created,
+        or None if no marker exists.
+
+        Args:
+            key (str): The unique string identifier for the output file.
+        """
+        ...
+
+    @abstractmethod
     def _unmark_incomplete(self, key: str) -> None:
         """
         Remove the incomplete marker for a given file key.
@@ -492,8 +503,7 @@ class PersistenceBase(
 
                 record = self._read_record(key) or MetadataRecord()
 
-                if record.starttime is None:
-                    record.starttime = fallback_time
+                record.starttime = self._get_recorded_starttime(key) or fallback_time
 
                 record.incomplete = False
                 record.record_format_version = RECORD_FORMAT_VERSION
