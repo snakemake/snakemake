@@ -68,7 +68,7 @@ class DummyRateLimiter(ContextDecorator):
 class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
-        workflow: Workflow,
+        workflow: "Workflow",
         executor_plugin: ExecutorPlugin,
         scheduler: SchedulerBase,
         greedy_scheduler_settings: GreedySchedulerSettings,
