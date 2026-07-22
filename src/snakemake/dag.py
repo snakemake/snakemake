@@ -487,7 +487,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             for job in yield_after_file[f]:
                                 await asyncio.to_thread(ready_queue.put, job)
 
-                        tg.create_task(retrieve_and_yield)
+                        tg.create_task(retrieve_and_yield())
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to retrieve input from storage.", e)
         await asyncio.to_thread(ready_queue.put, None)
