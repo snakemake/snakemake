@@ -1,3 +1,4 @@
+from queue import Queue
 from snakemake import wrapper
 from abc import abstractmethod
 
@@ -416,14 +417,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(
-        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
+        self,
+        jobs: List[Union[Job, GroupJob]],
+        ready_queue: Queue,
+        also_missing_internal=False,
     ):
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
-        for job in jobs:
+        yield_after_file = defaultdict(list)
+        yield_immediately = []
+        for i, job in enumerate(jobs):
+            needs_files = False
             if isinstance(job, GroupJob):
                 inner_jobs = job.jobs
             else:
@@ -442,7 +449,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             )
                         )
                     ):
+                        needs_files = True
                         to_retrieve[f].append(access_pattern(f))
+            if needs_files:
+                yield_after_file[f].append(job)
+            else:
+                yield_immediately.append(job)
+
+        for job in yield_immediately:
+            await asyncio.to_thread(ready_queue.put, job)
 
         if to_retrieve:
             try:
@@ -466,9 +481,16 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             f"{f.storage_object.is_ondemand_eligible} with access "
                             f"patterns {','.join(map(str, file_access_patterns))}"
                         )
-                        tg.create_task(f.retrieve_from_storage())
+
+                        async def retrieve_and_yield():
+                            await f.retrieve_from_storage()
+                            for job in yield_after_file[f]:
+                                await asyncio.to_thread(ready_queue.put, job)
+
+                        tg.create_task(retrieve_and_yield)
             except ExceptionGroup as e:
                 raise WorkflowError("Failed to retrieve input from storage.", e)
+        await asyncio.to_thread(ready_queue.put, None)
 
     def update_storage_inputs(self):
         self._storage_input_jobs.clear()

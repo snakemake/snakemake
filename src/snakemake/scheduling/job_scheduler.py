@@ -1,4 +1,4 @@
-from __future__ import annotations
+from itsdangerous import NoneAlgorithm
 
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
@@ -7,11 +7,13 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import defaultdict, deque
+from collections import deque
 import copy
-import math
-import os, signal, sys
+import signal
+import sys
 import threading
+from queue import Queue
+
 
 from itertools import chain, accumulate, filterfalse, repeat
 from contextlib import ContextDecorator
@@ -346,6 +348,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # actually run jobs
                     local_runjobs = [job for job in run if job.is_local]
                     runjobs = [job for job in run if not job.is_local]
+
                     if local_runjobs:
                         if self.workflow.remote_execution_settings.immediate_submit:
                             logger.warning(
@@ -359,16 +362,27 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 and not self.workflow.subprocess_exec
                             ):
                                 # retrieve storage inputs for local jobs
+                                ready_queue = Queue()
                                 self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
-                                        jobs=local_runjobs, also_missing_internal=True
+                                        jobs=local_runjobs,
+                                        ready_queue=ready_queue,
+                                        also_missing_internal=True,
                                     )
                                 )
-
-                            self.run(
-                                local_runjobs,
-                                executor=self._local_executor or self._executor,
-                            )
+                                while True:
+                                    job = ready_queue.get()
+                                    if job is None:
+                                        break
+                                    self.run(
+                                        [job],
+                                        executor=self._local_executor or self._executor,
+                                    )
+                            else:
+                                self.run(
+                                    local_runjobs,
+                                    executor=self._local_executor or self._executor,
+                                )
                     if runjobs:
                         is_shared_fs = (
                             SharedFSUsage.STORAGE_LOCAL_COPIES
@@ -383,12 +397,21 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             # Retrieve storage inputs for remote jobs, as storage local copies are handled
                             # via a shared filesystem.
                             # If local copies are not shared, they will be downloaded in the remote job.
+                            ready_queue = Queue()
                             self.workflow.async_run(
                                 self.workflow.dag.retrieve_storage_inputs(
-                                    jobs=runjobs, also_missing_internal=True
+                                    jobs=runjobs,
+                                    ready_queue=ready_queue,
+                                    also_missing_internal=True,
                                 )
                             )
-                        self.run(runjobs)
+                            while True:
+                                job = ready_queue.get()
+                                if job is None:
+                                    break
+                                self.run([job])
+                        else:
+                            self.run(runjobs)
 
                 if not self.dryrun:
                     if self._run_performed is None or self._run_performed:
