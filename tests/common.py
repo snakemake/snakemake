@@ -367,10 +367,9 @@ def run(
                 path, name_slug=original_dirname, cleanup=False
             ) as tmpdir:
                 # We will manually manage the directory
-                tmpdir_created = True
+                pass
         else:
             tmpdir = os.fsdecode(tmpdir)
-            tmpdir_created = False
 
     # Snakefile is now in temporary directory
     snakefile = join(path if no_tmpdir else tmpdir, snakefile)

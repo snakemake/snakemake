@@ -269,9 +269,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def info_header(self):
-        import os
         import sys
-        import shutil
         import getpass
         from datetime import datetime
         from snakemake.common import __version__
@@ -279,7 +277,6 @@ class Workflow(WorkflowExecutorInterface):
         import json
         import hashlib
 
-        conda_bin = shutil.which("conda")
         try:
             config_md5 = hashlib.md5(
                 json.dumps(self.config, sort_keys=True).encode("utf-8")
@@ -827,11 +824,12 @@ class Workflow(WorkflowExecutorInterface):
         else:
 
             def files(items):
-                relpath = lambda f: (
-                    f
-                    if os.path.isabs(f) or f.startswith("root://")
-                    else os.path.relpath(f)
-                )
+                def relpath(f):
+                    if os.path.isabs(f) or f.startswith("root://"):
+                        return f
+                    else:
+                        return os.path.relpath(f)
+
                 return map(
                     self.modifier.path_modifier.apply_default_storage,
                     map(relpath, filterfalse(self.is_rule, items)),
@@ -1138,8 +1136,8 @@ class Workflow(WorkflowExecutorInterface):
         from snakemake.cwl import dag_to_cwl
         import json
 
-        with open(path, "w") as cwl:
-            json.dump(dag_to_cwl(self.dag), cwl, indent=4)
+        with open(path, "w") as fobj:
+            json.dump(dag_to_cwl(self.dag), fobj, indent=4)
 
     def create_report(
         self,
@@ -2073,7 +2071,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not ruleinfo.template_engine and ruleinfo.container_img != False:
+                if not ruleinfo.template_engine and ruleinfo.container_img is not False:
                     # skip rules with template_engine directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
@@ -2357,23 +2355,23 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
-    def script(self, script):
+    def script(self, script_spec):
         def decorate(ruleinfo):
-            ruleinfo.script = script
+            ruleinfo.script = script_spec
             return ruleinfo
 
         return decorate
 
-    def notebook(self, notebook):
+    def notebook(self, notebook_spec):
         def decorate(ruleinfo):
-            ruleinfo.notebook = notebook
+            ruleinfo.notebook = notebook_spec
             return ruleinfo
 
         return decorate
 
-    def wrapper(self, wrapper):
+    def wrapper(self, wrapper_spec):
         def decorate(ruleinfo):
-            ruleinfo.wrapper = wrapper
+            ruleinfo.wrapper = wrapper_spec
             return ruleinfo
 
         return decorate
@@ -2385,9 +2383,9 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
-    def cwl(self, cwl):
+    def cwl(self, cwl_spec):
         def decorate(ruleinfo):
-            ruleinfo.cwl = cwl
+            ruleinfo.cwl = cwl_spec
             return ruleinfo
 
         return decorate

@@ -393,7 +393,7 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
     )
 
     assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
-    assert spy.spy_return == True
+    assert spy.spy_return
 
 
 def test_persistence_backend_db_run_directive_concurrency(tmp_path):
@@ -2558,7 +2558,7 @@ def test_workflow_profile_cli_overwrite():
     run(
         dpath("test_workflow_profile_cli_overwrite"),
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --set-resources a:foo='overwritten' a:mem_mb=8 --cores 2",
+        shellcmd="snakemake --set-resources a:foo='overwritten' a:mem_mb=8 --cores 2",
     )
 
 
@@ -3086,7 +3086,7 @@ def test_keep_local():
         assert os.path.exists(local_img)
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "keep_local_true_directive.flag"],
             cwd=tmpdir,
         )
@@ -3133,7 +3133,7 @@ def test_retrieve():
 
         shutil.rmtree(os.path.join(tmpdir, ".snakemake", "storage", "http"))
 
-        p = sp.check_output(
+        sp.check_output(
             ["snakemake", "-s", snakefile, "-c1", "retrieve_true.flag"], cwd=tmpdir
         )
         assert os.path.exists(local_img)

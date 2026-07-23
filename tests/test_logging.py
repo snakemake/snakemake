@@ -15,14 +15,8 @@ from snakemake_interface_logger_plugins.common import LogEvent
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected
-from .conftest import (
-    skip_on_windows,
-    only_on_windows,
-    ON_WINDOWS,
-    needs_strace,
-    ON_MACOS,
-)
+from .common import run, dpath
+from .conftest import ON_WINDOWS
 
 
 def count_events(caplog: pytest.LogCaptureFixture) -> dict[LogEvent, int]:
