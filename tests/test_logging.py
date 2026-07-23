@@ -24,14 +24,17 @@ test_rule_failure:
 
 * JOB_ERROR
 
+test_group_job_failure_events:
+
+* GROUP_INFO
+* GROUP_ERROR
+
 test_plugin (formatted output not checked):
 
 * RULEGRAPH
 
 Not currently in any tests:
 
-* GROUP_INFO
-* GROUP_ERROR
 * ERROR
 """
 
@@ -92,7 +95,9 @@ def count_events(caplog: pytest.LogCaptureFixture) -> dict[LogEvent, int]:
 
 
 def check_event_counts(
-    observed: dict[LogEvent, int], expected: dict[LogEvent, int | None]
+    observed: dict[LogEvent, int],
+    expected: dict[LogEvent, int | None],
+    partial: bool = False,
 ):
     """Check that captured event counts match expected values.
 
@@ -102,6 +107,8 @@ def check_event_counts(
         Observed event counts from ``count_events()``.
     expected
         Expected event counts. A value of None means any nonzero value.
+    partial
+        If True, observed must contain all events in expected but extra events are fine.
     """
 
     unexpected = {
@@ -109,12 +116,17 @@ def check_event_counts(
     }
 
     try:
-        assert not unexpected, f"Unexpected log events found: {unexpected}."
+        if not partial:
+            assert not unexpected, f"Unexpected log events found: {unexpected}."
 
         for event, expected_count in expected.items():
             actual_count = observed.get(event, 0)
             if expected_count is None:
                 assert actual_count > 0, f"Expected at least one {event} event."
+            elif partial:
+                assert (
+                    actual_count >= expected_count
+                ), f"Expected at least {expected_count} {event} events, got {actual_count}."
             else:
                 assert (
                     actual_count == expected_count
@@ -414,6 +426,48 @@ def test_rule_failure(
         stderr,
         [
             "Error in rule a:",  # JOB_ERROR
+        ],
+    )
+
+
+@skip_on_windows
+def test_group_job_failure_events(
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
+):
+    """Test log events for a grouped job failure via cluster executor.
+
+    Regression test for https://github.com/snakemake/snakemake/issues/4248
+    """
+    with caplog.at_level(logging.INFO):
+        run(
+            dpath("test_group_job_fail"),
+            cluster="./qsub",
+            shouldfail=True,
+            check_results=False,
+        )
+
+    # Check that we got GROUP_INFO and GROUP_ERROR events (don't worry about other event types here)
+    event_counts = count_events(caplog)
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.GROUP_INFO: 3,
+            LogEvent.GROUP_ERROR: 6,
+        },
+        partial=True,
+    )
+
+    # Check no errors occurred in formatting records
+    stderr = capfd.readouterr().err
+    check_no_formatting_errors(stderr)
+
+    # Check expected lines in log output
+    check_log_contains(
+        stderr,
+        [
+            "Group job 0 (jobs in lexicogr. order):",  # GROUP_INFO
+            "Error in group 0",  # GROUP_ERROR
         ],
     )
 
