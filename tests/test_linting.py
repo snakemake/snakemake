@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from pathlib import Path
 import subprocess as sp
 from itertools import product

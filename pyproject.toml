@@ -302,6 +302,8 @@ ruff = "*"
 
 [tool.pixi.feature.style.tasks]
 format = { cmd = "black docs/ apidocs/ src/ tests/**/*.py", description = "Format the code", default-environment = "quality" }
+typecheck = { cmd = "pyrefly .", description = "Typecheck the code", default-environment = "quality" }
+lint = { cmd = "ruff check .", description = "Lint the code", default-environment = "quality" }
 
 # Build
 [tool.pixi.feature.publish.pypi-dependencies]
