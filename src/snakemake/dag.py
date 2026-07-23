@@ -421,16 +421,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         jobs: List[Union[Job, GroupJob]],
         ready_queue: Queue,
         also_missing_internal=False,
-    ):
+    ) -> None:
+        """Retrieve storage inputs of given jobs.
+        When all inputs of a job are retrieved, put the job into the given ready_queue.
+        """
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
         to_retrieve = defaultdict(list)
-        yield_after_file = defaultdict(list)
+        file_index = dict()
+        yield_after_file = dict()
         yield_immediately = []
-        for i, job in enumerate(jobs):
+        for job in jobs:
             needs_files = False
+            last_new_file = None
             if isinstance(job, GroupJob):
                 inner_jobs = job.jobs
             else:
@@ -450,9 +455,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                         )
                     ):
                         needs_files = True
-                        to_retrieve[f].append(access_pattern(f))
+                        to_retrieve_entry = to_retrieve[f]
+                        if not to_retrieve_entry:
+                            last_new_file = f
+                            file_index[f] = len(to_retrieve)
+                        to_retrieve_entry.append(access_pattern(f))
             if needs_files:
-                yield_after_file[f].append(job)
+                if last_new_file is not None:
+                    yield_after_file[last_new_file].append(job)
+                else:
+                    _, last_prev_file = max(
+                        (file_index[f], f)
+                        for inner_job in inner_jobs
+                        for f in inner_job.input
+                    )
+                    yield_after_file[last_prev_file].append(job)
             else:
                 yield_immediately.append(job)
 

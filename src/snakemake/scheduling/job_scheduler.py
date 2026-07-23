@@ -22,6 +22,7 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
@@ -360,22 +361,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 and not self.workflow.subprocess_exec
                             ):
                                 # retrieve storage inputs for local jobs
-                                ready_queue = Queue()
-                                self.workflow.async_run(
-                                    self.workflow.dag.retrieve_storage_inputs(
-                                        jobs=local_runjobs,
-                                        ready_queue=ready_queue,
-                                        also_missing_internal=True,
-                                    )
+                                self.retrieve_and_run(
+                                    local_runjobs,
+                                    executor=self._local_executor or self._executor,
                                 )
-                                while True:
-                                    job = ready_queue.get()
-                                    if job is None:
-                                        break
-                                    self.run(
-                                        [job],
-                                        executor=self._local_executor or self._executor,
-                                    )
                             else:
                                 self.run(
                                     local_runjobs,
@@ -395,19 +384,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             # Retrieve storage inputs for remote jobs, as storage local copies are handled
                             # via a shared filesystem.
                             # If local copies are not shared, they will be downloaded in the remote job.
-                            ready_queue = Queue()
-                            self.workflow.async_run(
-                                self.workflow.dag.retrieve_storage_inputs(
-                                    jobs=runjobs,
-                                    ready_queue=ready_queue,
-                                    also_missing_internal=True,
-                                )
-                            )
-                            while True:
-                                job = ready_queue.get()
-                                if job is None:
-                                    break
-                                self.run([job])
+                            self.retrieve_and_run(runjobs)
                         else:
                             self.run(runjobs)
 
@@ -432,6 +409,41 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # as well, so that no unmanaged jobs remain.
             self._executor.cancel()
             raise e
+
+    def retrieve_and_run(
+        self, runjobs: list[AbstractJob], executor: AbstractExecutor | None = None
+    ) -> None:
+        """Parallel storage retrieval and job running. Whenever all inputs are
+        retrieved, already run the respective jobs while still retrieving inputs
+        of further jobs.
+        """
+        ready_queue = Queue()
+
+        def retrieve():
+            self.workflow.async_run(
+                self.workflow.dag.retrieve_storage_inputs(
+                    jobs=runjobs,
+                    ready_queue=ready_queue,
+                    also_missing_internal=True,
+                )
+            )
+
+        retrieve_thread = threading.Thread(target=retrieve, daemon=True)
+        retrieve_thread.start()
+        run_buffer = []
+        last_run = None
+        while True:
+            job = ready_queue.get()
+            if job is None:
+                retrieve_thread.join()
+                self.run(run_buffer)
+                return
+            run_buffer.append(job)
+            curr_time = time.time()
+            if last_run is None or curr_time - last_run >= 5:
+                last_run = curr_time
+                self.run(run_buffer)
+                run_buffer = []
 
     def _schedule_reevalutation(self, delay: int) -> None:
         threading.Timer(
@@ -534,7 +546,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._handle_error(job)
         self._toerror.clear()
 
-    def run(self, jobs, executor=None):
+    def run(self, jobs, executor: AbstractExecutor | None = None):
         self._run_performed = True
         if executor is None:
             executor = self._executor
