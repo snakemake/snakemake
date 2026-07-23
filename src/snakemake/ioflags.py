@@ -1,4 +1,4 @@
-from snakemake.io import flag, is_flagged
+from snakemake.io import flag
 
 
 def update(value):

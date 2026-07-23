@@ -112,12 +112,6 @@ from snakemake.io import (
 
 from snakemake.persistence import PersistenceBase
 from snakemake.utils import update_config
-from snakemake.script import script
-from snakemake.notebook import notebook
-from snakemake.wrapper import wrapper
-from snakemake.cwl import cwl
-from snakemake.template_rendering import render_template
-from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (
@@ -125,7 +119,6 @@ from snakemake.common import (
     async_runner,
     get_appdirs,
     is_local_file,
-    Rules,
     Scatter,
     Gather,
     smart_join,
@@ -147,7 +140,7 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.deployment.conda import Conda
-from snakemake import api, caching, sourcecache
+from snakemake import caching, sourcecache
 import snakemake.ioutils
 import snakemake.ioflags
 from snakemake.jobs import jobs_to_rulenames
