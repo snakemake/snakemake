@@ -124,7 +124,7 @@ class DefaultFormatter(logging.Formatter):
 
     def __init__(
         self,
-        quiet: Optional[Collection["Quietness"]],
+        quiet: Optional[Collection["Quietness"]] = None,
         show_failed_logs: bool = False,
     ):
         self.quiet = set() if quiet is None else quiet
