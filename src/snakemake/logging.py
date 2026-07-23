@@ -334,7 +334,7 @@ SNAKEMAKE
 
         output.append("    jobs:")
         for info in msg["job_error_info"]:
-            output.append(f"        rule {info['name']}:")
+            output.append(f"        rule {info['rule_name']}:")
             output.append(f"            jobid: {info['jobid']}")
             if info["output"]:
                 output.append(f"            output: {', '.join(info['output'])}")
