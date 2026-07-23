@@ -1,3 +1,41 @@
+"""Tests of logging system.
+
+
+LogEvent types
+--------------
+
+Several tests check that specific LogEvent types have been generated, and verify that
+all were formatted correctly with no errors. Together they should cover nearly the
+entire set of events.
+
+test_log_events (and others):
+
+* WORKFLOW_STARTED
+* RUN_INFO
+* JOB_INFO
+* SHELLCMD
+* RESOURCES_INFO
+* PROGRESS
+* JOB_STARTED
+* JOB_FINISHED
+* DEBUG_DAG
+
+test_rule_failure:
+
+* JOB_ERROR
+
+test_plugin (formatted output not checked):
+
+* RULEGRAPH
+
+Not currently in any tests:
+
+* GROUP_INFO
+* GROUP_ERROR
+* ERROR
+"""
+
+from collections.abc import Iterable
 import os
 import shutil
 import sys
@@ -8,6 +46,7 @@ from collections import Counter
 from pathlib import Path
 from queue import Queue
 import json
+import re
 
 import pytest
 
@@ -23,6 +62,20 @@ from .conftest import (
     needs_strace,
     ON_MACOS,
 )
+
+LOGGING_ERROR_SENTINEL = "--- Logging error ---"
+
+
+def check_no_formatting_errors(stderr: str):
+    """Assert that no log formatting errors occurred during the test.
+
+    Python's logging.Handler.handleError() writes '--- Logging error ---'
+    to stderr whenever a formatter raises an exception. This check ensures
+    that all log events were formatted successfully.
+    """
+    assert (
+        LOGGING_ERROR_SENTINEL not in stderr
+    ), "Log formatting error detected in stderr output."
 
 
 def count_events(caplog: pytest.LogCaptureFixture) -> dict[LogEvent, int]:
@@ -74,6 +127,24 @@ def check_event_counts(
             print(f"  {event}: {observed[event]}", file=sys.stderr)
 
         raise
+
+
+def check_log_contains(stderr: str, patterns: Iterable[str | re.Pattern]):
+    """Check that the given strings or regex patterns are present in logging output."""
+
+    for pattern in patterns:
+        if isinstance(pattern, str):
+            assert (
+                pattern in stderr
+            ), f"Expected substring {pattern!r} not found in stderr output"
+        elif isinstance(pattern, re.Pattern):
+            assert (
+                pattern.search(stderr) is not None
+            ), f"Expected pattern {pattern.pattern!r} not found in stderr output"
+        else:
+            raise TypeError(
+                f"Elements of patterns must be str or re.Pattern, got {type(pattern)}"
+            )
 
 
 def test_logfile():
@@ -136,6 +207,37 @@ def test_issue4063():
     test_logger.removeHandler(handler)
 
 
+def test_formatting_error_produces_sentinel(capfd: pytest.CaptureFixture[str]):
+    """Verify that a log formatting error produces the sentinel string in stderr.
+
+    This validates that check_no_formatting_errors() would detect real formatting bugs.
+    """
+    from snakemake.logging import ColorizingTextHandler, DefaultFormatter
+
+    handler = ColorizingTextHandler(stream=sys.stderr)
+    formatter = DefaultFormatter()
+    handler.setFormatter(formatter)
+
+    test_logger = logging.getLogger("test_formatting_error_sentinel")
+    test_logger.setLevel(logging.ERROR)
+    test_logger.addHandler(handler)
+
+    try:
+        # Fire a JOB_ERROR event with a deliberately broken extra dict
+        # (missing required keys like 'rule_name') to trigger a formatting error.
+        test_logger.error(
+            "bad record",
+            extra=dict(event=LogEvent.JOB_ERROR),
+        )
+    finally:
+        test_logger.removeHandler(handler)
+        # test_logger remains globally registered in logging.Logger.manager.loggerDict, but Python
+        # has no public API to remove it afterward. Shouldn't be a problem.
+
+    stderr = capfd.readouterr().err
+    assert LOGGING_ERROR_SENTINEL in stderr
+
+
 def test_logging_config(tmp_path: Path):
     """Test configuring logging using ``logging.config.dictConfig()`` in the Snakefile.
 
@@ -196,7 +298,10 @@ def test_logger_in_workflow():
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
-def test_log_events_dryrun(caplog: pytest.LogCaptureFixture):
+def test_log_events_dryrun(
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
+):
     """Test LogEvent counts of records captured during dry run."""
 
     with caplog.at_level(logging.INFO):
@@ -214,14 +319,27 @@ def test_log_events_dryrun(caplog: pytest.LogCaptureFixture):
         },
     )
 
+    # Check no errors occurred in formatting records
+    stderr = capfd.readouterr().err
+    check_no_formatting_errors(stderr)
+
 
 def test_log_events(
-    caplog: pytest.LogCaptureFixture, capfd: pytest.CaptureFixture[str]
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
 ):
     """Test LogEvent counts of records captured during workflow run."""
 
-    with caplog.at_level(logging.INFO):
-        run(dpath("logging/test_logfile"), check_results=False)
+    with caplog.at_level(logging.DEBUG):
+        # printshellcmds and debug_dag are enabled so that the SHELLCMD and DEBUG_DAG
+        # events are also visible in stderr (otherwise the default filter would drop
+        # them), letting check_log_contains() below cover every event type checked here.
+        run(
+            dpath("logging/test_logfile"),
+            check_results=False,
+            printshellcmds=True,
+            debug_dag=True,
+        )
 
     event_counts = count_events(caplog)
 
@@ -236,25 +354,37 @@ def test_log_events(
             LogEvent.PROGRESS: 6,
             LogEvent.JOB_STARTED: None,
             LogEvent.JOB_FINISHED: 6,
+            LogEvent.DEBUG_DAG: None,
         },
     )
 
-    captured = capfd.readouterr()
-    stderr_output = captured.err
-    expected_in_stderr = [
-        "Building DAG of jobs",
-        "Job stats:",
-        "Finished job",
-        "localrule all:",
-    ]
+    stderr = capfd.readouterr().err
 
-    for expected_msg in expected_in_stderr:
-        assert (
-            expected_msg in stderr_output
-        ), f"Expected '{expected_msg}' not found in stderr output"
+    # Check no errors occurred in formatting records
+    check_no_formatting_errors(stderr)
+
+    # Check expected lines in log output
+    check_log_contains(
+        stderr,
+        [
+            "Building DAG of jobs",
+            "SNAKEMAKE",  # WORKFLOW_STARTED
+            "Job stats:",  # RUN_INFO
+            "localrule all:",  # JOB_INFO
+            "Shell command:",  # SHELLCMD
+            "Provided cores:",  # RESOURCES_INFO
+            re.compile(r"\d+ of \d+ steps \(\d+%\) done"),  # PROGRESS
+            re.compile(r"Execute \d+ jobs"),  # JOB_STARTED
+            "Finished jobid:",  # JOB_FINISHED
+            "candidate job",  # DEBUG_DAG
+        ],
+    )
 
 
-def test_rule_failure(caplog: pytest.LogCaptureFixture):
+def test_rule_failure(
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
+):
     """Test LogEvent counts of records captured during workflow run with a failing rule."""
 
     with caplog.at_level(logging.INFO):
@@ -273,6 +403,18 @@ def test_rule_failure(caplog: pytest.LogCaptureFixture):
             LogEvent.JOB_STARTED: None,
             LogEvent.JOB_ERROR: 6,
         },
+    )
+
+    # Check no errors occurred in formatting records
+    stderr = capfd.readouterr().err
+    check_no_formatting_errors(stderr)
+
+    # Check expected lines in log output
+    check_log_contains(
+        stderr,
+        [
+            "Error in rule a:",  # JOB_ERROR
+        ],
     )
 
 
