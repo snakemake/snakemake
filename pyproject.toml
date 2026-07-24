@@ -53,7 +53,7 @@ dependencies = [
   "snakemake-interface-executor-plugins>=9.4.0,<10.0",
   "snakemake-interface-storage-plugins>=4.4.1,<5.0",
   "snakemake-interface-report-plugins>=2.0.1,<3.0.0",
-  "snakemake-interface-software-deployment-plugins >=0.18.3,<1.0",
+  "snakemake-interface-software-deployment-plugins >=0.18.4,<1.0",
   "snakemake-interface-logger-plugins>=1.1.0,<3.0.0",
   "snakemake-interface-scheduler-plugins>=2.0.0,<3.0.0",
   "tabulate",
@@ -103,7 +103,7 @@ requires-pixi = ">=0.63"
 [tool.pixi.pypi-dependencies]
 snakemake = { path = ".", editable = true, extras = ["all"] }
 #snakemake-interface-software-deployment-plugins = { path = "../snakemake-interface-software-deployment-plugins", editable = true }
-snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
+#snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
 #snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
 
 [tool.pixi.environments]
@@ -236,7 +236,7 @@ snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
 snakemake-software-deployment-plugin-conda = ">=0.6.0,<1.0.0"
-#snakemake-software-deployment-plugin-container = ">=0.6.2,<1.0.0"
+snakemake-software-deployment-plugin-container = ">=0.6.3,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
 
