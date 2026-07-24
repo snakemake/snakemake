@@ -940,15 +940,15 @@ def test_profile_double_dash():
 
 
 @skip_on_windows
-@skip_on_macos
 @connected
+@apptainer
 def test_singularity():
     run(dpath("test_singularity"), deployment_method={"container"})
 
 
 @skip_on_windows
-@skip_on_macos
 @connected
+@apptainer
 def test_singularity_cluster():
     run(
         dpath("test_singularity"),
@@ -958,7 +958,7 @@ def test_singularity_cluster():
 
 
 @skip_on_windows
-@skip_on_macos
+@apptainer
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -969,7 +969,7 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
-@skip_on_macos
+@apptainer
 def test_singularity_module_invalid():
     run(
         dpath("test_singularity_module"),
@@ -982,12 +982,12 @@ def test_singularity_module_invalid():
 @skip_on_windows
 @skip_on_macos
 @connected
+@apptainer
 def test_singularity_none():
     run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
-@skip_on_macos
 @connected
 @apptainer
 def test_singularity_global():
@@ -998,7 +998,6 @@ def test_singularity_global():
 
 
 @skip_on_windows
-@skip_on_macos
 @connected
 @apptainer
 def test_singularity_source_cache():
