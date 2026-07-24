@@ -469,6 +469,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             (file_index[f], f)
                             for inner_job in inner_jobs
                             for f in inner_job.input
+                            if f in file_index
                         )
                         yield_after_file[last_prev_file].append(job)
                 else:
@@ -500,14 +501,17 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                                 f"patterns {','.join(map(str, file_access_patterns))}"
                             )
 
-                            async def retrieve_and_yield():
+                            async def retrieve_and_yield(f, jobs_to_yield):
                                 await f.retrieve_from_storage()
-                                for job in yield_after_file[f]:
+                                for job in jobs_to_yield:
                                     await asyncio.to_thread(ready_queue.put, job)
 
-                            tg.create_task(retrieve_and_yield())
+                            jobs_to_yield = yield_after_file[f]
+                            tg.create_task(retrieve_and_yield(f, jobs_to_yield))
                 except ExceptionGroup as e:
-                    raise WorkflowError("Failed to retrieve input from storage.", e)
+                    raise WorkflowError(
+                        "Failed to retrieve input from storage.", e
+                    ) from e
             await asyncio.to_thread(ready_queue.put, None)
         except Exception as e:
             await asyncio.to_thread(ready_queue.put, e)
