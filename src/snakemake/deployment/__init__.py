@@ -39,9 +39,9 @@ class SoftwareDeploymentManager:
         from snakemake.workflow import Workflow
 
         self.workflow: Workflow = workflow
-        self.specs_to_envs = {}
-        self.env_instances = {}
-        self.shell_executable = ShellExecutable(
+        self._env_cache = {}
+        self._env_instances = {}
+        self._default_shell_executable_obj = ShellExecutable(
             executable=shell.get_executable() or "/bin/sh",
             command_arg="-c",
         )
@@ -80,7 +80,7 @@ class SoftwareDeploymentManager:
         for job in jobs:
             if (
                 job.software_env_spec is not None
-                and job.software_env_spec not in self.specs_to_envs
+                and job.software_env_spec not in self._env_cache
                 and (
                     job.is_local
                     or shared_envs
@@ -91,7 +91,7 @@ class SoftwareDeploymentManager:
                     )
                 )
             ):
-                self.get_env(job.software_env_spec)
+                self.get_env_from_job(job)
 
     async def cache_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         shared_cache = (
@@ -164,17 +164,28 @@ class SoftwareDeploymentManager:
                 await env.cleanup_cache()
                 env.managed_remove()
 
+    def get_env_from_job(self, job: "snakemake.jobs.Job") -> Optional[EnvBase]:
+        assert job.software_env_spec is not None
+        return self.get_env(
+            job.software_env_spec, shell_exec=job.resources.get("shell_exec")
+        )
+
     def get_env(
-        self, env_spec: EnvSpecBase, mountpoints: Optional[List[Path]] = None
+        self,
+        env_spec: EnvSpecBase,
+        mountpoints: Optional[List[Path]] = None,
+        shell_exec: Optional[str] = None,
     ) -> Optional[EnvBase]:
+        key = env_spec, mountpoints, shell_exec
         if mountpoints is None:
             mountpoints = []
-        if env_spec in self.specs_to_envs:
-            return self.specs_to_envs[env_spec]
+        entry = self._env_cache.get(key)
+        if entry is not None:
+            return entry
 
         if env_spec.kind not in self.selected_plugin_kinds:
             if env_spec.fallback is not None:
-                return self.get_env(env_spec.fallback)
+                return self.get_env(env_spec.fallback, shell_exec=shell_exec)
             else:
                 # no method activated that can yield an env here
                 return None
@@ -193,12 +204,20 @@ class SoftwareDeploymentManager:
         cache_prefix.mkdir(parents=True, exist_ok=True)
         pinfile_prefix.mkdir(parents=True, exist_ok=True)
 
+        shell_execucable_obj = self._default_shell_executable_obj
+        if shell_exec is not None:
+            shell_execucable_obj = ShellExecutable(
+                executable=shell_exec,
+                command_arg="-c",  # all relevant shells use the -c
+            )
+
         env = env_spec.env_cls()(
             spec=env_spec,
             within=(
                 self.get_env(
                     env_spec.within,
                     mountpoints=[deployment_prefix, cache_prefix, pinfile_prefix],
+                    shell_exec=shell_exec,
                 )
                 if env_spec.within is not None
                 else None
@@ -206,7 +225,7 @@ class SoftwareDeploymentManager:
             settings=self.workflow.software_deployment_provider_settings.get(
                 self.plugins[env_spec.kind].name
             ),
-            shell_executable=self.shell_executable,
+            shell_executable=shell_execucable_obj,
             tempdir=Path(tempfile.gettempdir()),
             mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())]
             + get_snakemake_searchpaths()
@@ -215,11 +234,11 @@ class SoftwareDeploymentManager:
             deployment_prefix=deployment_prefix,
             pinfile_prefix=pinfile_prefix,
         )
-        if env in self.env_instances:
+        if env in self._env_instances:
             # env with same content already instantiated, use that instead
-            env = self.env_instances[env]
+            env = self._env_instances[env]
 
-        self.specs_to_envs[env_spec] = env
+        self._env_cache[key] = env
         return env
 
     def register_in_global_variables(self, global_variables: Dict[str, Any]) -> None:

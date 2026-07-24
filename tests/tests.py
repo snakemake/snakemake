@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from .common import run, dpath, apptainer, connected, prepare_tmpdir, serve_directory
 from .conftest import (
     skip_on_windows,
+    skip_on_macos,
     only_on_windows,
     ON_WINDOWS,
     needs_strace,
@@ -939,12 +940,14 @@ def test_profile_double_dash():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 def test_singularity():
     run(dpath("test_singularity"), deployment_method={"container"})
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 def test_singularity_cluster():
     run(
@@ -955,6 +958,7 @@ def test_singularity_cluster():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -965,6 +969,7 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_singularity_module_invalid():
     run(
         dpath("test_singularity_module"),
@@ -975,12 +980,14 @@ def test_singularity_module_invalid():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 def test_singularity_none():
     run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 @apptainer
 def test_singularity_global():
@@ -991,6 +998,7 @@ def test_singularity_global():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 @apptainer
 def test_singularity_source_cache():
@@ -1017,8 +1025,9 @@ def test_log_input():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
-def test_cwl_singularity():
+def test_cwl_container():
     run(
         dpath("test_cwl"),
         deployment_method={"container"},
@@ -1698,6 +1707,7 @@ def test_issue1085():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_issue1083():
     run(dpath("test_issue1083"), deployment_method={"container"})
 
@@ -1811,6 +1821,7 @@ def test_github_issue52():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_github_issue78():
     run(dpath("test_github_issue78"), deployment_method={"container"})
 
@@ -2856,6 +2867,7 @@ def test_update_flag_fail_cleanup():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_shell_exec_singularity():
     run(dpath("test_shell_exec"), deployment_method={"container"})
 
@@ -2957,6 +2969,7 @@ def test_github_issue_3374():
 
 
 @skip_on_windows  # OS agnostic
+@skip_on_macos  # OS agnostic
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),

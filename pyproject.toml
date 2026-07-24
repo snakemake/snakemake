@@ -103,7 +103,7 @@ requires-pixi = ">=0.63"
 [tool.pixi.pypi-dependencies]
 snakemake = { path = ".", editable = true, extras = ["all"] }
 #snakemake-interface-software-deployment-plugins = { path = "../snakemake-interface-software-deployment-plugins", editable = true }
-#snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
+snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
 #snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
 
 [tool.pixi.environments]
@@ -235,8 +235,8 @@ snakemake-executor-plugin-cluster-generic = "*"
 snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
-snakemake-software-deployment-plugin-conda = ">=0.5.3,<1.0.0"
-snakemake-software-deployment-plugin-container = ">=0.6.2,<1.0.0"
+snakemake-software-deployment-plugin-conda = ">=0.6.0,<1.0.0"
+#snakemake-software-deployment-plugin-container = ">=0.6.2,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
 

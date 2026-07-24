@@ -320,7 +320,7 @@ class TestCrossKindFallback:
         container_spec.fallback = conda_spec
 
         cached = MagicMock(name="cached_conda_env")
-        manager.specs_to_envs[conda_spec] = cached
+        manager._env_cache[conda_spec] = cached
 
         # container not selected -> falls back to conda (cached) without deploying
         assert manager.get_env(container_spec) is cached
@@ -334,7 +334,7 @@ class TestCrossKindFallback:
         manager = _make_deployment_manager("conda")
         conda_spec = _make_conda_spec("env.yaml")
         cached = MagicMock(name="cached_conda_env")
-        manager.specs_to_envs[conda_spec] = cached
+        manager._env_cache[conda_spec] = cached
         # kind selected and already cached -> returns cache, no deploy attempt
         assert manager.get_env(conda_spec) is cached
 

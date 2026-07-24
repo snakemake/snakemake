@@ -522,11 +522,8 @@ class Job(
 
     @property
     def software_env(self) -> Optional[SoftwareEnvBase]:
-
         if self.software_env_spec:
-            env = self.dag.workflow.software_deployment_manager.get_env(
-                self.software_env_spec
-            )
+            env = self.dag.workflow.software_deployment_manager.get_env_from_job(self)
             if self.rule.is_containerized and is_conda_env(env):
                 env.containerized_path = get_containerized_path(env)
             return env
