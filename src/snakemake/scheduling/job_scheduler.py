@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -7,11 +5,13 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import defaultdict, deque
+from collections import deque
 import copy
-import math
-import os, signal, sys
+import signal
+import sys
 import threading
+from queue import Queue
+
 
 from itertools import chain, accumulate, filterfalse, repeat
 from contextlib import ContextDecorator
@@ -22,6 +22,7 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import _IOFile
 from snakemake.jobs import AbstractJob
@@ -66,7 +67,7 @@ class DummyRateLimiter(ContextDecorator):
 class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
-        workflow: Workflow,
+        workflow: "Workflow",
         executor_plugin: ExecutorPlugin,
         scheduler: SchedulerBase,
         greedy_scheduler_settings: GreedySchedulerSettings,
@@ -346,6 +347,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     # actually run jobs
                     local_runjobs = [job for job in run if job.is_local]
                     runjobs = [job for job in run if not job.is_local]
+
                     if local_runjobs:
                         if self.workflow.remote_execution_settings.immediate_submit:
                             logger.warning(
@@ -359,16 +361,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 and not self.workflow.subprocess_exec
                             ):
                                 # retrieve storage inputs for local jobs
-                                self.workflow.async_run(
-                                    self.workflow.dag.retrieve_storage_inputs(
-                                        jobs=local_runjobs, also_missing_internal=True
-                                    )
+                                self.retrieve_and_run(
+                                    local_runjobs,
+                                    executor=self._local_executor or self._executor,
                                 )
-
-                            self.run(
-                                local_runjobs,
-                                executor=self._local_executor or self._executor,
-                            )
+                            else:
+                                self.run(
+                                    local_runjobs,
+                                    executor=self._local_executor or self._executor,
+                                )
                     if runjobs:
                         is_shared_fs = (
                             SharedFSUsage.STORAGE_LOCAL_COPIES
@@ -383,12 +384,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             # Retrieve storage inputs for remote jobs, as storage local copies are handled
                             # via a shared filesystem.
                             # If local copies are not shared, they will be downloaded in the remote job.
-                            self.workflow.async_run(
-                                self.workflow.dag.retrieve_storage_inputs(
-                                    jobs=runjobs, also_missing_internal=True
-                                )
-                            )
-                        self.run(runjobs)
+                            self.retrieve_and_run(runjobs)
+                        else:
+                            self.run(runjobs)
 
                 if not self.dryrun:
                     if self._run_performed is None or self._run_performed:
@@ -411,6 +409,47 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # as well, so that no unmanaged jobs remain.
             self._executor.cancel()
             raise e
+
+    def retrieve_and_run(
+        self, runjobs: list[AbstractJob], executor: AbstractExecutor | None = None
+    ) -> None:
+        """Parallel storage retrieval and job running. Whenever all inputs are
+        retrieved, already run the respective jobs while still retrieving inputs
+        of further jobs.
+        """
+        ready_queue = Queue()
+
+        def retrieve():
+            self.workflow.async_run(
+                self.workflow.dag.retrieve_storage_inputs(
+                    jobs=runjobs,
+                    ready_queue=ready_queue,
+                    also_missing_internal=True,
+                )
+            )
+
+        retrieve_thread = threading.Thread(target=retrieve, daemon=True)
+        retrieve_thread.start()
+        run_buffer = []
+        last_run = None
+        while True:
+            item = ready_queue.get()
+            if isinstance(item, Exception):
+                retrieve_thread.join()
+                raise item
+            elif item is None:
+                retrieve_thread.join()
+                if run_buffer:
+                    self.run(run_buffer)
+                return
+            else:
+                job = item
+            run_buffer.append(job)
+            curr_time = time.time()
+            if last_run is None or curr_time - last_run >= 5:
+                last_run = curr_time
+                self.run(run_buffer)
+                run_buffer = []
 
     def _schedule_reevalutation(self, delay: int) -> None:
         threading.Timer(
@@ -513,7 +552,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._handle_error(job)
         self._toerror.clear()
 
-    def run(self, jobs, executor=None):
+    def run(self, jobs, executor: AbstractExecutor | None = None):
         self._run_performed = True
         if executor is None:
             executor = self._executor

@@ -1,3 +1,4 @@
+from queue import Queue
 from snakemake import wrapper
 from abc import abstractmethod
 
@@ -416,59 +417,104 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(
-        self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
-    ):
+        self,
+        jobs: List[Union[Job, GroupJob]],
+        ready_queue: Queue,
+        also_missing_internal=False,
+    ) -> None:
+        """Retrieve storage inputs of given jobs.
+        When all inputs of a job are retrieved, put the job into the given ready_queue.
+        """
 
         def access_pattern(f):
             return f.flags.get(flags.access_patterns.STORE_KEY)
 
-        to_retrieve = defaultdict(list)
-        for job in jobs:
-            if isinstance(job, GroupJob):
-                inner_jobs = job.jobs
-            else:
-                inner_jobs = [job]
-            for inner_job in inner_jobs:
-                for f in inner_job.input:
-                    if (
-                        f.is_storage
-                        and not inner_job.is_norun
-                        and (
-                            # if f exists in storage, retrieve below will check if it is
-                            # newer than an eventual local copy
-                            (also_missing_internal and await f.exists_in_storage())
-                            or self.is_external_input(
-                                f, inner_job, not_needrun_is_external=True
+        try:
+            to_retrieve = defaultdict(list)
+            file_index = dict()
+            yield_after_file = defaultdict(list)
+            yield_immediately = []
+            for job in jobs:
+                needs_files = False
+                last_new_file = None
+                if isinstance(job, GroupJob):
+                    inner_jobs = job.jobs
+                else:
+                    inner_jobs = [job]
+                for inner_job in inner_jobs:
+                    for f in inner_job.input:
+                        if (
+                            f.is_storage
+                            and not inner_job.is_norun
+                            and (
+                                # if f exists in storage, retrieve below will check if it is
+                                # newer than an eventual local copy
+                                (also_missing_internal and await f.exists_in_storage())
+                                or self.is_external_input(
+                                    f, inner_job, not_needrun_is_external=True
+                                )
                             )
+                        ):
+                            needs_files = True
+                            to_retrieve_entry = to_retrieve[f]
+                            if not to_retrieve_entry:
+                                last_new_file = f
+                                file_index[f] = len(to_retrieve)
+                            to_retrieve_entry.append(access_pattern(f))
+                if needs_files:
+                    if last_new_file is not None:
+                        yield_after_file[last_new_file].append(job)
+                    else:
+                        _, last_prev_file = max(
+                            (file_index[f], f)
+                            for inner_job in inner_jobs
+                            for f in inner_job.input
+                            if f in file_index
                         )
-                    ):
-                        to_retrieve[f].append(access_pattern(f))
+                        yield_after_file[last_prev_file].append(job)
+                else:
+                    yield_immediately.append(job)
 
-        if to_retrieve:
-            try:
-                async with asyncio.TaskGroup() as tg:
-                    for f, file_access_patterns in to_retrieve.items():
-                        # METHOD: If the file is at least by one job accessed randomly
-                        # (i.e. non sequential), or multiple times, or if multiple
-                        # jobs access the same file, we should download it.
-                        # Otherwise, it is eligible for on-demand retrieval (i.e.
-                        # mounting or symlinking it from whatever network storage).
-                        # This information is passed to the storage plugin via the
-                        # attribute is_ondemand_eligible.
-                        f.storage_object.is_ondemand_eligible = (
-                            len(file_access_patterns) == 1
-                            and AccessPattern.RANDOM not in file_access_patterns
-                            and AccessPattern.MULTI not in file_access_patterns
-                            and None not in file_access_patterns
-                        )
-                        logger.debug(
-                            f"Ondemand eligibility of {f.storage_object.print_query}: "
-                            f"{f.storage_object.is_ondemand_eligible} with access "
-                            f"patterns {','.join(map(str, file_access_patterns))}"
-                        )
-                        tg.create_task(f.retrieve_from_storage())
-            except ExceptionGroup as e:
-                raise WorkflowError("Failed to retrieve input from storage.", e)
+            for job in yield_immediately:
+                await asyncio.to_thread(ready_queue.put, job)
+
+            if to_retrieve:
+                try:
+                    async with asyncio.TaskGroup() as tg:
+                        for f, file_access_patterns in to_retrieve.items():
+                            # METHOD: If the file is at least by one job accessed randomly
+                            # (i.e. non sequential), or multiple times, or if multiple
+                            # jobs access the same file, we should download it.
+                            # Otherwise, it is eligible for on-demand retrieval (i.e.
+                            # mounting or symlinking it from whatever network storage).
+                            # This information is passed to the storage plugin via the
+                            # attribute is_ondemand_eligible.
+                            f.storage_object.is_ondemand_eligible = (
+                                len(file_access_patterns) == 1
+                                and AccessPattern.RANDOM not in file_access_patterns
+                                and AccessPattern.MULTI not in file_access_patterns
+                                and None not in file_access_patterns
+                            )
+                            logger.debug(
+                                f"Ondemand eligibility of {f.storage_object.print_query}: "
+                                f"{f.storage_object.is_ondemand_eligible} with access "
+                                f"patterns {','.join(map(str, file_access_patterns))}"
+                            )
+
+                            async def retrieve_and_yield(f, jobs_to_yield):
+                                await f.retrieve_from_storage()
+                                for job in jobs_to_yield:
+                                    await asyncio.to_thread(ready_queue.put, job)
+
+                            jobs_to_yield = yield_after_file[f]
+                            tg.create_task(retrieve_and_yield(f, jobs_to_yield))
+                except ExceptionGroup as e:
+                    raise WorkflowError(
+                        "Failed to retrieve input from storage.", e
+                    ) from e
+            await asyncio.to_thread(ready_queue.put, None)
+        except Exception as e:
+            await asyncio.to_thread(ready_queue.put, e)
 
     def update_storage_inputs(self):
         self._storage_input_jobs.clear()
