@@ -444,9 +444,7 @@ def expand_vars_and_user(value):
 # Thanks to techkuz.
 def is_namedtuple_instance(obj: Any) -> bool:
     return (
-            isinstance(obj, tuple) and
-            hasattr(obj, '_asdict') and
-            hasattr(obj, '_fields')
+        isinstance(obj, tuple) and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
     )
 
 
