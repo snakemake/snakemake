@@ -241,6 +241,8 @@ class SoftwareDeploymentManager:
         if env in self._env_instances:
             # env with same content already instantiated, use that instead
             env = self._env_instances[env]
+        else:
+            self._env_instances[env] = env
 
         self._env_cache[key] = env
         return env
