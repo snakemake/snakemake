@@ -176,7 +176,7 @@ class SoftwareDeploymentManager:
         mountpoints: Optional[List[Path]] = None,
         shell_exec: Optional[str] = None,
     ) -> Optional[EnvBase]:
-        key = env_spec, mountpoints, shell_exec
+        key = env_spec, tuple(mountpoints), shell_exec
         if mountpoints is None:
             mountpoints = []
         entry = self._env_cache.get(key)
