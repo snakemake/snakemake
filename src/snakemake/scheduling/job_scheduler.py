@@ -433,11 +433,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
         run_buffer = []
         last_run = None
         while True:
-            job = ready_queue.get()
-            if job is None:
+            item = ready_queue.get()
+            if isinstance(item, Exception):
                 retrieve_thread.join()
-                self.run(run_buffer)
+                raise item
+            elif item is None:
+                retrieve_thread.join()
+                if run_buffer:
+                    self.run(run_buffer)
                 return
+            else:
+                job = item
             run_buffer.append(job)
             curr_time = time.time()
             if last_run is None or curr_time - last_run >= 5:
