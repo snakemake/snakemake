@@ -15,12 +15,29 @@ module test:
 
 use rule * from test as test_*
 
+
 use rule a from test as test_* with:
-    input: "config/config.yaml"
+    input:
+        "config/config.yaml",
+
+
+assert test.some_value == 15
+assert test.some_func() == 15
+
+# Change module value/func
+test.some_value = 30
+
+
+def some_new_func():
+    return 30
+
+
+test.some_func = some_new_func
+
+assert test.some_value == 30
+assert test.some_func() == 30
+
 
 rule all:
     input:
         multiext(expand("results/testmodule/c/{name}.", name="test")[0], "tsv", "txt"),
-
-
-assert test.some_func() == 15
