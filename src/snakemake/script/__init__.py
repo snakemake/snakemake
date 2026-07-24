@@ -1,3 +1,8 @@
+from typing import Optional
+from typing import Dict
+from snakemake.settings.types import NotebookEditMode
+from typing import TYPE_CHECKING
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -14,7 +19,6 @@ import shlex
 import sys
 import tempfile
 import textwrap
-import typing
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
@@ -24,12 +28,11 @@ from urllib.error import URLError
 
 from snakemake import iocontainers
 from snakemake.iocontainers import Snakemake
-from snakemake.common import (
+from snakemake.common.misc import get_snakemake_searchpaths
+from snakemake.common.constants import (
     MIN_PY_VERSION,
     ON_WINDOWS,
-    get_snakemake_searchpaths,
 )
-from snakemake.deployment import singularity
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.shell import shell
@@ -40,6 +43,9 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.utils import format
+
+if TYPE_CHECKING:
+    from snakemake.executors.local import RunArgs
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
@@ -296,58 +302,22 @@ class ScriptBase(ABC):
 
     def __init__(
         self,
-        path,
-        cache_path: typing.Optional[str],
-        source,
-        basedir,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        conda_base_path,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-        runtime_paths,
+        path: SourceFile,
+        cache_path: Path,
+        source: str,
+        is_local: bool,
+        run_args: "RunArgs",
+        config: Dict,
     ):
         self.path = path
         self.cache_path = cache_path
         self.source = source
-
-        self.basedir = basedir
-        self.input = input_
-        self.output = output
-        self.params = params
-        self.wildcards = wildcards
-        self.threads = threads
-        self.resources = resources
-        self.log = log
-        self.config = config
-        self.rulename = rulename
-        self.conda_env = conda_env
-        self.conda_base_path = conda_base_path
-        self.container_img = container_img
-        self.singularity_args = singularity_args
-        self.env_modules = env_modules
-        self.bench_record = bench_record
-        self.jobid = jobid
-        self.bench_iteration = bench_iteration
-        self.cleanup_scripts = cleanup_scripts
-        self.shadow_dir = shadow_dir
         self.is_local = is_local
-        self.runtime_paths = runtime_paths
+        self.run_args = run_args
+        self.config = config
+
+    def preamble_addendum(self) -> str:
+        return ""
 
     def evaluate(self, edit=False):
         assert not edit or self.editable
@@ -371,7 +341,7 @@ class ScriptBase(ABC):
         except URLError as e:
             raise WorkflowError(e)
         finally:
-            if fd and self.cleanup_scripts:
+            if fd and self.run_args.cleanup_scripts:
                 os.remove(fd.name)
             else:
                 if fd:
@@ -388,69 +358,54 @@ class ScriptBase(ABC):
     @abstractmethod
     def get_preamble(self) -> str: ...
 
-    @abstractmethod
-    def write_script(self, preamble, fd) -> None: ...
+    def write_script(self, preamble, fd):
+        fd.write(preamble.encode())
+        fd.write(self.source.encode())
 
     @abstractmethod
-    def execute_script(self, fname, edit=False) -> None: ...
+    def execute_script(
+        self, fname, edit: Optional[NotebookEditMode] = False
+    ) -> None: ...
 
     def _execute_cmd(self, cmd, **kwargs):
         return shell(
             cmd,
-            bench_record=self.bench_record,
-            conda_env=self.conda_env,
-            conda_base_path=self.conda_base_path,
-            container_img=self.container_img,
-            shadow_dir=self.shadow_dir,
-            env_modules=self.env_modules,
-            singularity_args=self.singularity_args,
-            resources=self.resources,
-            threads=self.threads,
-            runtime_paths=self.runtime_paths,
+            run_args=self.run_args,
             **kwargs,
         )
 
 
 class PythonScript(ScriptBase):
+
     @staticmethod
-    def generate_preamble(
-        path,
-        cache_path: typing.Optional[str],
-        source,
-        basedir,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-        preamble_addendum="",
-    ):
+    def _minify_preamble(preamble: str) -> str:
+        return textwrap.dedent(preamble).replace("\n", "")
+
+    def preamble_addendum(self) -> str:
+        if isinstance(self.path, LocalSourceFile):
+            file_override = os.path.realpath(
+                self.path.get_path_or_uri(secret_free=True)
+            )
+        else:
+            file_override = self.path.get_path_or_uri(secret_free=True)
+
+        return "__real_file__ = __file__; __file__ = {file_override};".format(
+            file_override=repr(file_override)
+        )
+
+    def get_preamble(self):
         snakemake = Snakemake(
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            bench_iteration,
-            path.get_basedir().get_path_or_uri(secret_free=True),
+            input_=self.run_args.input,
+            output=self.run_args.output,
+            params=self.run_args.params,
+            wildcards=self.run_args.wildcards,
+            threads=self.run_args.threads,
+            resources=self.run_args.resources,
+            log=self.run_args.log,
+            config=self.config,
+            rulename=self.run_args.job_rule.name,
+            scriptdir=self.path.get_basedir().get_path_or_uri(secret_free=True),
+            bench_iteration=self.run_args.bench_iteration,
         )
         # python 3.14 uses protocol 5 by default, which is not supported in python 3.7 and younger
         # to ensure compatibility, we use protocol 4 here
@@ -459,21 +414,21 @@ class PythonScript(ScriptBase):
         # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
         searchpaths = get_snakemake_searchpaths()
-        if container_img is not None:
-            searchpaths = singularity.get_snakemake_searchpath_mountpoints()
 
         # Add the cache path to the search path so that other cached source files in the same dir
         # can be imported.
-        if cache_path:
+        if self.cache_path:
             # TODO handle this in case of container_img, analogously to above
-            cache_searchpath = os.path.dirname(cache_path)
+            cache_searchpath = os.path.dirname(self.cache_path)
             if cache_searchpath:
                 searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
-        if is_local:
-            searchpaths.append(path.get_basedir().get_path_or_uri(secret_free=True))
+        if self.is_local:
+            searchpaths.append(
+                self.path.get_basedir().get_path_or_uri(secret_free=True)
+            )
 
-        shell_exec = resources.get("shell_exec")
+        shell_exec = self.run_args.resources.get("shell_exec")
         shell_exec_stmt = (
             ""
             if shell_exec is None
@@ -481,14 +436,13 @@ class PythonScript(ScriptBase):
         )
 
         preamble = f"""
-            import sys;
-            sys.path.extend({repr(searchpaths)});
-            import pickle;
+            import sys, pickle;
+            sys.path.extend({repr(list(map(str, searchpaths)))});
             snakemake = pickle.loads({snakemake});
-            from snakemake.logging import logger;
             from snakemake.iocontainers import Snakemake;
+            is_script = True;
             {shell_exec_stmt}
-            {preamble_addendum}
+            {self.preamble_addendum()}
             """
         return "\n".join(
             [
@@ -498,74 +452,13 @@ class PythonScript(ScriptBase):
             ]
         )
 
-    @staticmethod
-    def _minify_preamble(preamble: str) -> str:
-        return textwrap.dedent(preamble).replace("\n", "")
+    def _is_python_env(self) -> bool:
+        assert self.run_args.software_env is not None
 
-    def get_preamble(self):
-        if isinstance(self.path, LocalSourceFile):
-            file_override = os.path.realpath(
-                self.path.get_path_or_uri(secret_free=True)
-            )
-        else:
-            file_override = self.path.get_path_or_uri(secret_free=True)
-        preamble_addendum = (
-            "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(file_override)
-            )
-        )
-
-        return PythonScript.generate_preamble(
-            self.path,
-            self.cache_path,
-            self.source,
-            self.basedir,
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.conda_env,
-            self.container_img,
-            self.singularity_args,
-            self.env_modules,
-            self.bench_record,
-            self.jobid,
-            self.bench_iteration,
-            self.cleanup_scripts,
-            self.shadow_dir,
-            self.is_local,
-            preamble_addendum=preamble_addendum,
-        )
-
-    def write_script(self, preamble, fd):
-        fd.write(preamble.encode())
-        fd.write(self.source.encode())
-
-    def _is_python_env(self):
-        def contains_python(prefix):
-            if not ON_WINDOWS:
-                return (prefix / "python").exists()
-            else:
-                return (prefix / "python.exe").exists()
-
-        if self.conda_env is not None:
-            prefix = Path(self.conda_env)
-            if not ON_WINDOWS:
-                prefix /= "bin"
-            # Define fallback prefix in case conda_env is a named environment
-            # instead of a full path.
-            fallback_prefix = Path(self.conda_base_path) / "envs" / prefix
-            return contains_python(prefix) or contains_python(fallback_prefix)
-        elif self.env_modules is not None:
-            prefix = Path(self._execute_cmd("echo $PATH", read=True).split(":")[0])
-            return contains_python(prefix)
-        else:
-            raise NotImplementedError()
+        is_python_env = self.run_args.software_env.contains_executable("python")
+        if ON_WINDOWS and not is_python_env:
+            return self.run_args.software_env.contains_executable("python.exe")
+        return is_python_env
 
     def _get_python_version(self):
         # Obtain a clean version string. Using python --version is not reliable, because depending on the distribution
@@ -583,30 +476,28 @@ class PythonScript(ScriptBase):
                 f"Unable to determine Python version from output '{out}': {e}"
             )
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         py_exec = sys.executable
-        if self.container_img is not None:
-            # use python from image
-            py_exec = "python"
-        elif self.conda_env is not None or self.env_modules is not None:
-            if self._is_python_env():
+        if self.run_args.software_env is not None:
+            if self.run_args.software_env.spec.kind == "container":
+                # use python from image
+                py_exec = "python"
+            elif self._is_python_env():
                 py_version = self._get_python_version()
-                # If version is None, all fine, because host python usage is intended.
-                if py_version is not None:
-                    if py_version >= MIN_PY_VERSION:
-                        # Python version is new enough, make use of environment
-                        # to execute script
-                        py_exec = "python"
-                    else:
-                        logger.warning(
-                            "Environment defines Python "
-                            "version < {0}.{1}. Using Python of the "
-                            "main process to execute "
-                            "script. Note that this cannot be avoided, "
-                            "because the script uses data structures from "
-                            "Snakemake which are Python >={0}.{1} "
-                            "only.".format(*MIN_PY_VERSION)
-                        )
+                if py_version >= MIN_PY_VERSION:
+                    # Python version is new enough, make use of environment
+                    # to execute script
+                    py_exec = "python"
+                else:
+                    logger.warning(
+                        "Environment defines Python "
+                        "version < {0}.{1}. Using Python of the "
+                        "main process to execute "
+                        "script. Note that this cannot be avoided, "
+                        "because the script uses data structures from "
+                        "Snakemake which are Python >={0}.{1} "
+                        "only.".format(*MIN_PY_VERSION)
+                    )
 
         if ON_WINDOWS:
             # use forward slashes so script command still works even if
@@ -619,32 +510,14 @@ class PythonScript(ScriptBase):
 
 
 class RScript(ScriptBase):
-    @staticmethod
-    def generate_preamble(
-        path,
-        source,
-        basedir,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        preamble_addendum="",
-    ):
-        return textwrap.dedent("""
+    def get_preamble(self):
+        resources = {
+            name: value
+            for name, value in self.run_args.resources.items()
+            if name != "_cores" and name != "_nodes"
+        }
+
+        return textwrap.dedent(f"""
         ######## snakemake preamble start (automatically inserted, do not edit) ########
         library(methods)
         Snakemake <- setClass(
@@ -665,17 +538,17 @@ class RScript(ScriptBase):
             )
         )
         snakemake <- Snakemake(
-            input = {},
-            output = {},
-            params = {},
-            wildcards = {},
-            threads = {},
-            log = {},
-            resources = {},
-            config = {},
-            rule = {},
-            bench_iteration = {},
-            scriptdir = {},
+            input = {REncoder.encode_namedlist(self.run_args.input)},
+            output = {REncoder.encode_namedlist(self.run_args.output)},
+            params = {REncoder.encode_namedlist(self.run_args.params)},
+            wildcards = {REncoder.encode_namedlist(self.run_args.wildcards)},
+            threads = {self.run_args.threads},
+            log = {REncoder.encode_namedlist(self.run_args.log)},
+            resources = {REncoder.encode_namedlist(resources)},
+            config = {REncoder.encode_dict(self.config)},
+            rule = {REncoder.encode_value(self.run_args.job_rule.name)},
+            bench_iteration = {REncoder.encode_numeric(self.run_args.bench_iteration)},
+            scriptdir = {REncoder.encode_value(self.path.get_basedir().get_path_or_uri(secret_free=True))},
             source = function(...){{
                 old_wd <- getwd()
                 on.exit(setwd(old_wd), add = TRUE)
@@ -686,140 +559,17 @@ class RScript(ScriptBase):
                 source(file)
             }}
         )
-        {preamble_addendum}
+
+        {self.preamble_addendum()}
 
         ######## snakemake preamble end #########
-        """).format(
-            REncoder.encode_namedlist(input_),
-            REncoder.encode_namedlist(output),
-            REncoder.encode_namedlist(params),
-            REncoder.encode_namedlist(wildcards),
-            threads,
-            REncoder.encode_namedlist(log),
-            REncoder.encode_namedlist(
-                {
-                    name: value
-                    for name, value in resources.items()
-                    if name != "_cores" and name != "_nodes"
-                }
-            ),
-            REncoder.encode_dict(config),
-            REncoder.encode_value(rulename),
-            REncoder.encode_numeric(bench_iteration),
-            REncoder.encode_value(path.get_basedir().get_path_or_uri(secret_free=True)),
-            preamble_addendum=preamble_addendum,
-        )
+        """)
 
-    def get_preamble(self):
-        return RScript.generate_preamble(
-            self.path,
-            self.source,
-            self.basedir,
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.conda_env,
-            self.container_img,
-            self.singularity_args,
-            self.env_modules,
-            self.bench_record,
-            self.jobid,
-            self.bench_iteration,
-            self.cleanup_scripts,
-            self.shadow_dir,
-        )
-
-    def write_script(self, preamble, fd):
-        fd.write(preamble.encode())
-        fd.write(self.source.encode())
-
-    def execute_script(self, fname, edit=False):
-        if self.conda_env is not None and "R_LIBS" in os.environ:
-            logger.warning(
-                "R script job uses conda environment but "
-                "R_LIBS environment variable is set. This "
-                "is likely not intended, as R_LIBS can "
-                "interfere with R packages deployed via "
-                "conda. Consider running `unset R_LIBS` or "
-                "remove it entirely before executing "
-                "Snakemake."
-            )
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("Rscript --vanilla {fname:q}", fname=fname)
 
 
-class RMarkdown(ScriptBase):
-    def get_preamble(self):
-        return textwrap.dedent("""
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        library(methods)
-        Snakemake <- setClass(
-            "Snakemake",
-            slots = c(
-                input = "list",
-                output = "list",
-                params = "list",
-                wildcards = "list",
-                threads = "numeric",
-                log = "list",
-                resources = "list",
-                config = "list",
-                rule = "character",
-                bench_iteration = "numeric",
-                scriptdir = "character",
-                source = "function"
-            )
-        )
-        snakemake <- Snakemake(
-            input = {},
-            output = {},
-            params = {},
-            wildcards = {},
-            threads = {},
-            log = {},
-            resources = {},
-            config = {},
-            rule = {},
-            bench_iteration = {},
-            scriptdir = {},
-            source = function(...){{
-                old_wd <- getwd()
-                on.exit(setwd(old_wd), add = TRUE)
-
-                is_url <- grepl("^https?://", snakemake@scriptdir)
-                file <- ifelse(is_url, file.path(snakemake@scriptdir, ...), ...)
-                if (!is_url) setwd(snakemake@scriptdir)
-                source(file)
-            }}
-        )
-
-        ######## snakemake preamble end #########
-        """).format(
-            REncoder.encode_namedlist(self.input),
-            REncoder.encode_namedlist(self.output),
-            REncoder.encode_namedlist(self.params),
-            REncoder.encode_namedlist(self.wildcards),
-            self.threads,
-            REncoder.encode_namedlist(self.log),
-            REncoder.encode_namedlist(
-                {
-                    name: value
-                    for name, value in self.resources.items()
-                    if name != "_cores" and name != "_nodes"
-                }
-            ),
-            REncoder.encode_dict(self.config),
-            REncoder.encode_value(self.rulename),
-            REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(
-                self.path.get_basedir().get_path_or_uri(secret_free=True)
-            ),
-        )
+class RMarkdown(RScript):
 
     def write_script(self, preamble, fd):
         # Insert Snakemake object after the RMarkdown header
@@ -834,12 +584,12 @@ class RMarkdown(ScriptBase):
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
-    def execute_script(self, fname, edit=False):
-        if len(self.output) != 1:
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
+        if len(self.run_args.output) != 1:
             raise WorkflowError(
                 "RMarkdown scripts (.Rmd) may only have a single output file."
             )
-        out = os.path.abspath(self.output[0])
+        out = os.path.abspath(self.run_args.output[0])
         self._execute_cmd(
             'Rscript --vanilla -e \'rmarkdown::render("{fname}", output_file="{out}", quiet=TRUE, knit_root_dir = "{workdir}", params = list(rmd="{fname}"))\'',
             fname=fname,
@@ -850,8 +600,12 @@ class RMarkdown(ScriptBase):
 
 class JuliaScript(ScriptBase):
     def get_preamble(self):
-        return textwrap.dedent(
-            """
+        resources = {
+            name: value
+            for name, value in self.run_args.resources.items()
+            if name != "_cores" and name != "_nodes"
+        }
+        return textwrap.dedent(f"""
                 ######## snakemake preamble start (automatically inserted, do not edit) ########
                 struct Snakemake
                     input::Dict
@@ -868,78 +622,29 @@ class JuliaScript(ScriptBase):
                     #source::Any
                 end
                 snakemake = Snakemake(
-                    {}, #input::Dict
-                    {}, #output::Dict
-                    {}, #params::Dict
-                    {}, #wildcards::Dict
-                    {}, #threads::Int64
-                    {}, #log::Dict
-                    {}, #resources::Dict
-                    {}, #config::Dict
-                    {}, #rule::String
-                    {}, #bench_iteration::Int64
-                    {}, #scriptdir::String
+                    {JuliaEncoder.encode_namedlist(self.run_args.input)}, #input::Dict
+                    {JuliaEncoder.encode_namedlist(self.run_args.output)}, #output::Dict
+                    {JuliaEncoder.encode_namedlist(self.run_args.params)}, #params::Dict
+                    {JuliaEncoder.encode_namedlist(self.run_args.wildcards)}, #wildcards::Dict
+                    {JuliaEncoder.encode_value(self.run_args.threads)}, #threads::Int64
+                    {JuliaEncoder.encode_namedlist(self.run_args.log)}, #log::Dict
+                    {JuliaEncoder.encode_namedlist(resources)}, #resources::Dict
+                    {JuliaEncoder.encode_dict(self.config)}, #config::Dict
+                    {JuliaEncoder.encode_value(self.run_args.job_rule.name)}, #rule::String
+                    {JuliaEncoder.encode_value(self.run_args.bench_iteration)}, #bench_iteration::Int64
+                    {JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri(secret_free=True))}, #scriptdir::String
                     #, #source::Any
                 )
+                {self.preamble_addendum()}
                 ######## snakemake preamble end #########
-                """.format(
-                JuliaEncoder.encode_namedlist(self.input),
-                JuliaEncoder.encode_namedlist(self.output),
-                JuliaEncoder.encode_namedlist(self.params),
-                JuliaEncoder.encode_namedlist(self.wildcards),
-                JuliaEncoder.encode_value(self.threads),
-                JuliaEncoder.encode_namedlist(self.log),
-                JuliaEncoder.encode_namedlist(
-                    {
-                        name: value
-                        for name, value in self.resources.items()
-                        if name != "_cores" and name != "_nodes"
-                    }
-                ),
-                JuliaEncoder.encode_dict(self.config),
-                JuliaEncoder.encode_value(self.rulename),
-                JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(
-                    self.path.get_basedir().get_path_or_uri(secret_free=True)
-                ),
-            )
-        )
+            """)
 
-    def write_script(self, preamble, fd):
-        fd.write(preamble.encode())
-        fd.write(self.source.encode())
-
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
 class RustScript(ScriptBase):
-    @staticmethod
-    def generate_preamble(
-        path,
-        source,
-        basedir,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-        preamble_addendum="",
-    ):
+    def get_preamble(self):
         # snakemake's namedlists will be encoded as a dict
         # which stores the not-named items at the key "positional"
         # and unpacks named items into the dict
@@ -953,31 +658,31 @@ class RustScript(ScriptBase):
             )
 
         snakemake = dict(
-            input=encode_namedlist(input_._plainstrings()._allitems()),
-            output=encode_namedlist(output._plainstrings()._allitems()),
-            params=encode_namedlist(params.items()),
-            wildcards=encode_namedlist(wildcards.items()),
-            threads=threads,
+            input=encode_namedlist(self.run_args.input._plainstrings()._allitems()),
+            output=encode_namedlist(self.run_args.output._plainstrings()._allitems()),
+            params=encode_namedlist(self.run_args.params.items()),
+            wildcards=encode_namedlist(self.run_args.wildcards.items()),
+            threads=self.run_args.threads,
             resources=encode_namedlist(
                 {
                     name: value
-                    for (name, value) in resources.items()
+                    for (name, value) in self.run_args.resources.items()
                     if name != "_cores" and name != "_nodes"
                 }.items()
             ),
-            log=encode_namedlist(log._plainstrings()._allitems()),
-            config=encode_namedlist(config.items()),
-            rulename=rulename,
-            bench_iteration=bench_iteration,
-            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
+            log=encode_namedlist(self.run_args.log._plainstrings()._allitems()),
+            config=encode_namedlist(self.config.items()),
+            rulename=self.run_args.job_rule.name,
+            bench_iteration=self.run_args.bench_iteration,
+            scriptdir=self.path.get_basedir().get_path_or_uri(secret_free=True),
         )
 
         json_string = json.dumps(dict(snakemake))
 
-        return textwrap.dedent("""
+        return textwrap.dedent(f"""
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
                 "/bench_iteration": {{
-                   "use_type": "Option<usize>"
+                    "use_type": "Option<usize>"
                 }},
                 "/input/positional": {{
                     "use_type": "Vec<String>"
@@ -1081,47 +786,14 @@ class RustScript(ScriptBase):
                     s
                 }};
             }}
-            // TODO include addendum, if any {{preamble_addendum}}
-            """).format(
-            json_string=json_string,
-            preamble_addendum=preamble_addendum,
-        )
-
-    def get_preamble(self):
-        preamble_addendum = ""
-
-        preamble = RustScript.generate_preamble(
-            self.path,
-            self.source,
-            self.basedir,
-            self.input,
-            self.output,
-            self.params,
-            self.wildcards,
-            self.threads,
-            self.resources,
-            self.log,
-            self.config,
-            self.rulename,
-            self.conda_env,
-            self.container_img,
-            self.singularity_args,
-            self.env_modules,
-            self.bench_record,
-            self.jobid,
-            self.bench_iteration,
-            self.cleanup_scripts,
-            self.shadow_dir,
-            self.is_local,
-            preamble_addendum=preamble_addendum,
-        )
-        return preamble
+            {self.preamble_addendum()}
+            """)
 
     def write_script(self, preamble, fd):
         content = self.combine_preamble_and_source(preamble)
         fd.write(content.encode())
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
@@ -1231,43 +903,19 @@ class RustScript(ScriptBase):
 
 
 class BashScript(ScriptBase):
-    @staticmethod
-    def generate_preamble(
-        path,
-        source,
-        basedir,
-        input_,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-    ) -> str:
+    def get_preamble(self):
         snakemake = Snakemake(
-            input_=input_,
-            output=output,
-            params=params,
-            wildcards=wildcards,
-            threads=threads,
-            resources=resources,
-            log=log,
-            config=config,
-            rulename=rulename,
-            bench_iteration=bench_iteration,
-            scriptdir=path.get_basedir().get_path_or_uri(secret_free=True),
+            input_=self.run_args.input,
+            output=self.run_args.output,
+            params=self.run_args.params,
+            wildcards=self.run_args.wildcards,
+            threads=self.run_args.threads,
+            resources=self.run_args.resources,
+            log=self.run_args.log,
+            config=self.config,
+            rulename=self.run_args.job_rule.name,
+            scriptdir=self.path.get_basedir().get_path_or_uri(secret_free=True),
+            bench_iteration=self.run_args.bench_iteration,
         )
 
         namedlists = [
@@ -1281,34 +929,7 @@ class BashScript(ScriptBase):
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
-        return preamble
-
-    def get_preamble(self):
-        preamble = BashScript.generate_preamble(
-            path=self.path,
-            source=self.source,
-            basedir=self.basedir,
-            input_=self.input,
-            output=self.output,
-            params=self.params,
-            wildcards=self.wildcards,
-            threads=self.threads,
-            resources=self.resources,
-            log=self.log,
-            config=self.config,
-            rulename=self.rulename,
-            conda_env=self.conda_env,
-            container_img=self.container_img,
-            singularity_args=self.singularity_args,
-            env_modules=self.env_modules,
-            bench_record=self.bench_record,
-            jobid=self.jobid,
-            bench_iteration=self.bench_iteration,
-            cleanup_scripts=self.cleanup_scripts,
-            shadow_dir=self.shadow_dir,
-            is_local=self.is_local,
-        )
-        return preamble
+        return f"{preamble}\n{self.preamble_addendum()}"
 
     def write_script(self, preamble, fd):
         content = self.combine_preamble_and_source(preamble)
@@ -1322,12 +943,12 @@ class BashScript(ScriptBase):
 
         return "\n".join([shebang, preamble, source])
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("bash {fname:q}", fname=fname)
 
 
 class XonshScript(PythonScript):
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd(
             "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
             fname=fname,
@@ -1339,7 +960,7 @@ class HyScript(PythonScript):
         fd.write(f"(pys #[[{preamble}]])".encode())
         fd.write(self.source.encode())
 
-    def execute_script(self, fname, edit=False):
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd("hy {fname:q}", fname=fname)
 
 
@@ -1428,29 +1049,8 @@ def get_language(source_file, source):
 
 def script(
     path,
-    basedir,
-    input,
-    output,
-    params,
-    wildcards,
-    threads,
-    resources,
-    log,
-    config,
-    rulename,
-    conda_env,
-    conda_base_path,
-    container_img,
-    singularity_args,
-    env_modules,
-    bench_record,
-    jobid,
-    bench_iteration,
-    cleanup_scripts,
-    shadow_dir,
-    sourcecache_path,
-    runtime_sourcecache_path,
-    runtime_paths,
+    run_args: "RunArgs",
+    config: Dict,
 ):
     """
     Load a script from the given basedir + path and execute it.
@@ -1460,10 +1060,10 @@ def script(
 
     path, source, language, is_local, cache_path = get_source(
         path,
-        SourceCache(sourcecache_path, runtime_sourcecache_path),
-        basedir,
-        wildcards,
-        params,
+        SourceCache(run_args.cache_path, run_args.runtime_cache_path),
+        run_args.basedir,
+        run_args.wildcards,
+        run_args.params,
     )
 
     exec_class = {
@@ -1482,30 +1082,11 @@ def script(
         )
 
     executor = exec_class(
-        path,
-        cache_path,
-        source,
-        basedir,
-        input,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        conda_base_path,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        is_local,
-        runtime_paths,
+        path=path,
+        cache_path=cache_path,
+        source=source,
+        is_local=is_local,
+        run_args=run_args,
+        config=config,
     )
     executor.evaluate()

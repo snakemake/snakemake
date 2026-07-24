@@ -4,7 +4,7 @@ import sys
 import pytest
 from contextlib import suppress
 
-from snakemake.common import ON_WINDOWS
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.utils import find_bash_on_windows
 from snakemake.shell import shell
 
@@ -16,6 +16,10 @@ only_on_windows = pytest.mark.skipif(not ON_WINDOWS, reason="Windows stuff")
 skip_on_macos_arm = pytest.mark.skipif(
     ON_MACOS and ON_APPLE_SILICON,
     reason="Needed Conda packages not available on macOS Apple silicon",
+)
+skip_on_macos = pytest.mark.skipif(
+    ON_MACOS,
+    reason="Needed Conda packages not installed on macOS",
 )
 needs_strace = pytest.mark.xfail(
     os.system("strace -o /dev/null true") != 0, reason="Missing strace"

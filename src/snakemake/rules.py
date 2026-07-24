@@ -1,3 +1,7 @@
+from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
+from snakemake.deployment import EnvSpecs
+from typing import Optional
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -22,6 +26,10 @@ except ImportError:  # python < 3.11
     import sre_constants
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_software_deployment_plugins import (
+    EnvSpecBase as SoftwareEnvSpecBase,
+    EnvSpecSourceFile,
+)
 
 from snakemake.io import (
     IOFile,
@@ -72,7 +80,7 @@ from snakemake.exceptions import (
     is_file_not_found_error,
 )
 from snakemake.logging import logger
-from snakemake.common import (
+from snakemake.common.misc import (
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,
@@ -80,6 +88,7 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_common.utils import not_iterable, lazy_property
 from snakemake_interface_common.rules import RuleInterface
+from snakemake.deployment import EnvSpecs as SoftwareEnvSpecs
 
 if typing.TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -109,15 +118,13 @@ class Rule(RuleInterface):
         self.protected_output = set()
         self.touch_output = set()
         self.shadow_depth = None
-        self.resources: Resources | None = None
+        self.resources: Optional[Resources] = None
         self.priority = 0
         self._log = Log()
         self._benchmark = None
-        self._conda_env = None
-        self._expanded_conda_env = _NOT_CACHED
-        self._container_img = None
+        self._software_env_specs: Optional[SoftwareEnvSpecs] = None
+        self._expanded_software_env_spec = _NOT_CACHED
         self.is_containerized = False
-        self.env_modules = None
         self._group = None
         self._wildcard_names = None
         self._lineno: int = lineno
@@ -143,6 +150,15 @@ class Rule(RuleInterface):
         self.module_globals: typing.Dict
         self._pathvars: typing.Optional[Pathvars] = None
         self.cache: typing.Optional[RuleCache] = None
+
+    @property
+    def software_env_specs(self) -> EnvSpecs:
+        return self._software_env_specs
+
+    @software_env_specs.setter
+    def software_env_specs(self, software_env_specs: SoftwareEnvSpecs) -> None:
+        self._software_env_specs = software_env_specs
+        self._expanded_software_env_spec = _NOT_CACHED
 
     @property
     def pathvars(self) -> Pathvars:
@@ -258,20 +274,12 @@ class Rule(RuleInterface):
         self.register_wildcards(self._benchmark)
 
     @property
-    def conda_env(self):
-        return self._conda_env
+    def software_env_spec(self):
+        return self._software_env_spec
 
-    @conda_env.setter
-    def conda_env(self, conda_env):
-        self._conda_env = conda_env
-
-    @property
-    def container_img(self):
-        return self._container_img
-
-    @container_img.setter
-    def container_img(self, container_img):
-        self._container_img = container_img
+    @software_env_spec.setter
+    def software_env_spec(self, software_env_spec):
+        self._software_env_spec = software_env_spec
 
     @property
     def input(self):
@@ -1194,80 +1202,96 @@ class Rule(RuleInterface):
         else:
             return self.group
 
-    def expand_conda_env(self, wildcards, params=None, input=None):
-        if self._expanded_conda_env is not _NOT_CACHED:
-            return self._expanded_conda_env
+    def expand_software_env_specs(
+        self, wildcards=None, params=None, input=None
+    ) -> Optional[SoftwareEnvSpecBase]:
+        if self._expanded_software_env_spec is not _NOT_CACHED:
+            return self._expanded_software_env_spec
 
-        from snakemake.common import is_local_file
-        from snakemake.sourcecache import SourceFile, infer_source_file
-        from snakemake.deployment.conda import (
-            CondaEnvFileSpec,
-            CondaEnvNameSpec,
-            CondaEnvDirSpec,
-            CondaEnvSpecType,
-        )
+        from snakemake.common.misc import is_local_file
+        from snakemake.sourcecache import infer_source_file
 
-        conda_env = self._conda_env
-        if conda_env is not None:
-            if not callable(conda_env):
-                cacheable = not contains_wildcard(conda_env)
-            else:
-                conda_env, _ = self.apply_input_function(
-                    conda_env, wildcards=wildcards, params=params, input=input
+        software_env_specs = self._software_env_specs
+        if software_env_specs is not None:
+            if software_env_specs.is_callable():
+                if wildcards is None:
+                    raise ExpandSoftwareEnvRequiresWildcardsError()
+                software_env_specs = software_env_specs.resolve_callables(
+                    lambda spec: self.apply_input_function(
+                        spec, wildcards=wildcards, params=params, input=input
+                    )[0]
                 )
                 cacheable = False
-                if conda_env is None:
+                if software_env_specs is None:
                     return None
+            else:
+                cacheable = True
         else:
-            self._expanded_conda_env = None
+            self._expanded_software_env_spec = None
             return None
 
-        assert isinstance(conda_env, (str, Path, SourceFile))
-        spec_type = CondaEnvSpecType.from_spec(conda_env)
+        def modify_source_paths(env_spec_source_file: EnvSpecSourceFile):
+            path = env_spec_source_file.path_or_uri
+            if is_local_file(path) and not os.path.isabs(path):
+                # Software env file paths are considered to be relative to the
+                # directory of the Snakefile.
+                # Hence we adjust the path accordingly.
+                # This is not necessary in case of receiving a SourceFile.
+                source_file = self.basedir.join(path)
+                path = os.path.relpath(source_file.path)
+            else:
+                source_file = infer_source_file(path)
 
-        if spec_type is CondaEnvSpecType.FILE:
-            if not isinstance(conda_env, SourceFile):
-                if is_local_file(conda_env) and not os.path.isabs(conda_env):
-                    # Conda env file paths are considered to be relative to the directory of the Snakefile
-                    # hence we adjust the path accordingly.
-                    # This is not necessary in case of receiving a SourceFile.
-                    conda_env = self.basedir.join(conda_env)
-                else:
-                    # infer source file from unmodified uri or path
-                    conda_env = infer_source_file(conda_env)
+            if env_spec_source_file.suffix_replacement is not None:
+                source_file = source_file.replace_suffix(
+                    env_spec_source_file.suffix_replacement.old_suffixes,
+                    env_spec_source_file.suffix_replacement.new_suffix,
+                )
+                path = source_file.get_path_or_uri(secret_free=True)
 
-            conda_env = CondaEnvFileSpec(conda_env)
-        elif spec_type is CondaEnvSpecType.NAME:
-            assert isinstance(conda_env, str)
-            conda_env = CondaEnvNameSpec(conda_env)
-        elif spec_type is CondaEnvSpecType.DIR:
-            conda_env = CondaEnvDirSpec(conda_env)
-        else:
-            raise RuntimeError(f"bug: unsupported conda spec type {spec_type}")
+            cached_path = self.workflow.sourcecache.cache_entry(source_file)
+            try:
+                self.workflow.sourcecache.cache(source_file)
+            except Exception:
+                # ignore exception, we still want the path to be returned
+                # the plugin has to check for its existence
+                pass
+            return EnvSpecSourceFile(path_or_uri=path, cached=cached_path)
 
-        conda_env = conda_env.apply_wildcards(wildcards)
-        conda_env.check()
+        def apply_wildcards_on_attributes(value):
+            # normalize to path to str
+            is_env_spec_source_file = isinstance(value, EnvSpecSourceFile)
+            if is_env_spec_source_file:
+                value = value.path_or_uri
+            is_path = isinstance(value, Path)
+            if is_path:
+                value = str(value)
+
+            # apply wildcards
+            if isinstance(value, str):
+                if contains_wildcard(value):
+                    cacheable &= False
+                    if wildcards is None:
+                        raise ExpandSoftwareEnvRequiresWildcardsError()
+                    value = apply_wildcards(value, wildcards)
+
+            # transform back into original type
+            if is_path:
+                value = Path(value)
+            if is_env_spec_source_file:
+                value = EnvSpecSourceFile(path_or_uri=value)
+            return value
+
+        software_env_spec = software_env_specs.interpret()
+
+        software_env_spec = software_env_spec.modify_identity_attributes(
+            apply_wildcards_on_attributes
+        ).modify_source_paths(modify_source_paths)
 
         if cacheable:
-            self._expanded_conda_env = conda_env
+            self._expanded_software_env_spec = software_env_spec
 
-        return conda_env
-
-    def expand_container_img(self, wildcards):
-        """
-        Expand the given container wildcards
-        """
-        if callable(self.container_img):
-            container_url, _ = self.apply_input_function(
-                self.container_img, wildcards=wildcards
-            )
-            return container_url
-
-        elif isinstance(self.container_img, str):
-            resolved_url = apply_wildcards(self.container_img, wildcards)
-            return resolved_url
-
-        return self.container_img
+        return software_env_spec
 
     def is_producer(self, requested_output):
         """

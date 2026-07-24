@@ -1,0 +1,10 @@
+shell.executable("bash")
+
+# When --sdm conda is given but not --sdm envmodules, the envmodules
+# spec will have no plugin loaded, so Snakemake falls back to conda.
+rule a:
+    output:
+        "test.out"
+    software: envmodules("bio/bwa") or conda(envfile="test-env.yaml")
+    shell:
+        "bwa 2> {output} || true"

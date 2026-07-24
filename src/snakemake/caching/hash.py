@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from snakemake import script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
-from snakemake.settings.types import DeploymentMethod
 
 if TYPE_CHECKING:
     from snakemake.jobs import Job
@@ -130,24 +129,11 @@ class ProvenanceHashMap:
             h.update(file_hash.encode())
 
         # Hash used containers or conda environments.
-        if not (job.rule.cache and job.rule.cache.omit_software):
-            if (
-                DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
-                and job.conda_env
-            ):
-                if (
-                    DeploymentMethod.APPTAINER
-                    in workflow.deployment_settings.deployment_method
-                    and job.conda_env.container_img_url
-                ):
-                    h.update(job.conda_env.container_img_url.encode())
-                h.update(job.conda_env.content)
-            elif (
-                DeploymentMethod.APPTAINER
-                in workflow.deployment_settings.deployment_method
-                and job.container_img_url
-            ):
-                h.update(job.container_img_url.encode())
+        if (
+            not (job.rule.cache and job.rule.cache.omit_software)
+            and job.software_env is not None
+        ):
+            h.update(job.software_env.hash().encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).
         hashes = await asyncio.gather(
