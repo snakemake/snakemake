@@ -864,15 +864,15 @@ Available factory functions
 
 The following factory functions are provided by the official plugins:
 
-========== ============ =====================================================
-Factory    Plugin        Description
-========== ============ =====================================================
-``conda``  conda        Conda environment from YAML file or name
-``container`` container  Docker/Apptainer/Podman container
-``envmodules`` envmodules  Environment modules (Lmod)
-========== ============ =====================================================
+============== ============ =====================================================
+Factory        Plugin        Description
+============== ============ =====================================================
+``conda``      conda        Conda environment from YAML file or name
+``container``  container    Docker/Apptainer/Podman container
+``envmodules`` envmodules   Environment modules (Lmod)
+============== ============ =====================================================
 
-Additional plugins (e.g., pixi) may be provided by the community.
+Additional plugins may be provided by the community.
 
 Plugin arguments:
 
