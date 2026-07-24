@@ -15,7 +15,6 @@ from snakemake.utils import format
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 from snakemake.executors.local import RunArgs
 
 
@@ -58,6 +57,20 @@ def cwl(
     }
 
     container_settings = run_args.software_deployment_provider_settings.get("container")
+    if container_settings is None:
+        try:
+            from snakemake_software_deployment_plugin_container import (
+                Settings as ContainerSettings,
+            )
+        except ModuleNotFoundError:
+            raise WorkflowError(
+                "CWL integration requires "
+                "snakemake-software-deployment-plugin-container to be installed."
+            )
+        container_settings = ContainerSettings()
+    from snakemake_software_deployment_plugin_container import (
+        Runtime as ContainerRuntime,
+    )
 
     args = []
     if container_settings is not None:
