@@ -360,15 +360,8 @@ def run_wrapper(run_args: RunArgs):
             write_benchmark_records,
         )
 
-    # Change workdir if shadow defined and not using container.
-    # Otherwise, we do the change from inside the container.
-    immediate_shadow_dir = None
-    if run_args.software_env is None or run_args.software_env.spec.kind != "container":
-        immediate_shadow_dir = run_args.shadow_dir
-        run_args.shadow_dir = None
-
     try:
-        with change_working_directory(immediate_shadow_dir):
+        with change_working_directory(run_args.shadow_dir):
 
             if run_args.benchmark:
                 bench_records = []
