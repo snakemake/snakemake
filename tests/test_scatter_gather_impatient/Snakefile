@@ -1,0 +1,55 @@
+scattergather:
+    split={"items": 4, "tolerance": 0.25, "impatient": True}
+
+
+rule all:
+    input:
+        "gathered/all.txt"
+
+
+rule split:
+    output:
+        scatter.split("splitted/{scatteritem}.txt")
+    shell:
+        r"""
+        mkdir -p splitted
+        for output in {output}; do
+            printf '%s\n' "$output" | sed 's#^splitted/##; s#\.txt$##' > "$output"
+        done
+        """
+
+
+rule delayed:
+    output:
+        "delay/{scatteritem}.done"
+    shell:
+        r"""
+        mkdir -p delay
+        # Hold back one branch so gather can prove it starts early once enough
+        # successful branches exist.
+        case "{output}" in
+            *4-of-4.done)
+                sleep 2
+                ;;
+        esac
+        touch {output}
+        """
+
+
+rule intermediate:
+    input:
+        data="splitted/{scatteritem}.txt",
+        delay="delay/{scatteritem}.done"
+    output:
+        "splitted/{scatteritem}.post.txt"
+    shell:
+        "cp {input.data} {output}"
+
+
+rule gather:
+    input:
+        gather.split("splitted/{scatteritem}.post.txt")
+    output:
+        "gathered/all.txt"
+    shell:
+        "mkdir -p gathered && cat {input} > {output}"
