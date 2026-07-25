@@ -273,6 +273,11 @@ class ScheduledPeriodicTimer:
 
     def _action(self):
         """Internally, called by timer"""
+        # A cancel() can land between the timer firing and this call. Without this guard
+        # the reschedule below would resurrect a cancelled timer, leaking the monitor
+        # thread for the rest of the process' life.
+        if self._stopped:
+            return
         self.work()
         self._times_called += 1
         if self._times_called > self._interval:
@@ -287,8 +292,11 @@ class ScheduledPeriodicTimer:
 
     def cancel(self):
         """Call to cancel any events"""
-        self._timer.cancel()
+        # Set the flag before cancelling so a concurrent _action() observes it and does
+        # not re-arm. _timer is None if cancel() runs before start().
         self._stopped = True
+        if self._timer is not None:
+            self._timer.cancel()
 
 
 class BenchmarkTimer(ScheduledPeriodicTimer):
@@ -433,9 +441,12 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
         start_time = time.time()
         bench_thread = BenchmarkTimer(int(pid or os.getpid()), result, interval)
         bench_thread.start()
-        yield result
-        bench_thread.cancel()
-        result.running_time = time.time() - start_time
+        try:
+            yield result
+        finally:
+            # Cancel in finally so a raising body cannot leak the monitor thread.
+            bench_thread.cancel()
+            result.running_time = time.time() - start_time
 
 
 def print_benchmark_tsv(records, file_, extended_fmt):
