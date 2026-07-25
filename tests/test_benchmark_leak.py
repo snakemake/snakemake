@@ -8,9 +8,11 @@ the leaked threads accumulate until the scheduler starves.
 See: https://github.com/snakemake/snakemake/issues/XXXX
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 
-from snakemake.benchmark import ScheduledPeriodicTimer, benchmarked
+from snakemake.benchmark import BenchmarkTimer, ScheduledPeriodicTimer, benchmarked
 
 
 class _Counter(ScheduledPeriodicTimer):
@@ -58,3 +60,33 @@ def test_benchmarked_cancels_when_body_raises():
 
     # running_time defaults to None; the finally in benchmarked() sets it after cancel().
     assert record.running_time is not None, "monitor not stopped on exception path"
+
+
+def test_work_stops_monitor_once_process_exited():
+    """BenchmarkTimer.work() stops the monitor when the observed process is gone, so it
+    doesn't keep polling a dead PID until the context closes."""
+    main = MagicMock()
+    main.is_running.return_value = False
+    timer = BenchmarkTimer.__new__(BenchmarkTimer)
+    timer.main = main
+    timer._stopped = False
+    timer._update_record = lambda: None  # isolate the stop check from actual sampling
+
+    timer.work()
+
+    assert timer._stopped is True
+
+
+def test_action_does_not_rearm_when_work_self_terminates():
+    """If work() stops the monitor (observed process exited), _action must not re-arm."""
+    t = _make(stopped=False, timer=None)
+
+    def stopping_work():
+        t.fires += 1
+        t._stopped = True  # as BenchmarkTimer.work does when the process is gone
+
+    t.work = stopping_work
+    t._action()
+
+    assert t.fires == 1
+    assert t._timer is None, "_action re-armed after work() self-terminated"

@@ -280,6 +280,8 @@ class ScheduledPeriodicTimer:
             return
         self.work()
         self._times_called += 1
+        if self._stopped:  # work() stops us once the observed process has exited
+            return
         if self._times_called > self._interval:
             self._timer = DaemonTimer(self._interval, self._action)
         else:
@@ -324,6 +326,11 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             pass  # skip, process died in flight
         except AttributeError:
             pass  # skip, process died in flight
+        # Stop once the observed process has exited — nothing left to sample, so don't keep
+        # polling a dead PID until the context closes. Checked after the sample above so a
+        # final measurement is still attempted.
+        if not self.main.is_running():
+            self._stopped = True
 
     def _update_record(self):
         """Perform the actual measurement"""
