@@ -4,14 +4,13 @@ ScheduledPeriodicTimer re-armed a fresh DaemonTimer on every fire without checki
 stop flag, so a cancel() landing between a fire and _action() was undone and the monitor
 thread lived for the rest of the process. This fires on normal job completion, so at scale
 the leaked threads accumulate until the scheduler starves.
-
-See: https://github.com/snakemake/snakemake/issues/XXXX
 """
 
 from unittest.mock import MagicMock
 
 import pytest
 
+from snakemake import benchmark as bm
 from snakemake.benchmark import BenchmarkTimer, ScheduledPeriodicTimer, benchmarked
 
 
@@ -44,8 +43,40 @@ def test_action_is_noop_once_stopped():
     assert t._timer is None, "_action re-armed a cancelled timer (the leak)"
 
 
-def test_cancel_is_none_safe_and_sets_flag_first():
-    """cancel() before start() must not raise and must record the stop."""
+def test_action_does_not_rearm_when_cancelled_mid_action():
+    """A cancel() that lands after _action's initial check (here: during work(), before
+    the reschedule) must still prevent re-arming — the locked re-check catches it."""
+    t = _make(stopped=False, timer=None)
+
+    def work_then_cancel():
+        t.fires += 1
+        t.cancel()  # concurrent cancel racing the reschedule
+
+    t.work = work_then_cancel
+    t._action()
+
+    assert t.fires == 1
+    assert t._timer is None, (
+        "re-armed despite a cancel during the check→reschedule window"
+    )
+
+
+def test_cancel_sets_flag_before_cancelling_timer():
+    """cancel() must set _stopped before touching the timer, so a racing _action sees it."""
+    t = _make(stopped=False, timer=None)
+    observed = {}
+    fake_timer = MagicMock()
+    fake_timer.cancel.side_effect = lambda: observed.update(stopped=t._stopped)
+    t._timer = fake_timer
+
+    t.cancel()
+
+    assert observed["stopped"] is True, "timer cancelled before the stop flag was set"
+    fake_timer.cancel.assert_called_once()
+
+
+def test_cancel_is_none_safe():
+    """cancel() before start() (no timer yet) must not raise and must record the stop."""
     t = _make(stopped=False, timer=None)
 
     t.cancel()  # _timer is None here — must not AttributeError
@@ -53,13 +84,15 @@ def test_cancel_is_none_safe_and_sets_flag_first():
     assert t._stopped is True
 
 
-def test_benchmarked_cancels_when_body_raises():
-    """A raising body must still cancel the monitor (running_time set in finally)."""
-    with pytest.raises(ValueError), benchmarked() as record:
+def test_benchmarked_cancels_monitor_even_when_body_raises(monkeypatch):
+    """benchmarked() must cancel the monitor on the exception path (cancel in finally)."""
+    fake = MagicMock()
+    monkeypatch.setattr(bm, "BenchmarkTimer", lambda *a, **k: fake)
+
+    with pytest.raises(ValueError), benchmarked():
         raise ValueError("boom")
 
-    # running_time defaults to None; the finally in benchmarked() sets it after cancel().
-    assert record.running_time is not None, "monitor not stopped on exception path"
+    fake.cancel.assert_called_once()
 
 
 def test_work_stops_monitor_once_process_exited():
