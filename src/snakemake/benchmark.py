@@ -114,6 +114,9 @@ class BenchmarkRecord:
         self.skipped_procs = set()
         #: Track if data has been collected
         self.data_collected = False
+        #: Set when the observed process exited before it could be sampled (a job faster
+        #: than the benchmark interval) — a benign reason for missing stats, not an error.
+        self.process_gone = False
         self.errors: List[str] = []
 
     def timedelta_to_str(self, x):
@@ -171,10 +174,17 @@ class BenchmarkRecord:
         # If no data has been collect mem and cpu statistics will be printed as NA
         # to make it possible to distinguish this case from processes that complete instantly
         if not self.data_collected:
-            err_msg = "\n".join(self.errors)
-            logger.warning(
-                f"Benchmark: unable to collect cpu and memory benchmark statistics: {err_msg}"
-            )
+            if self.process_gone and not self.errors:
+                # The process finished before the first sample (a job faster than the
+                # benchmark interval). Expected — emit NA without warning.
+                logger.debug(
+                    "Benchmark: process exited before resource usage could be sampled"
+                )
+            else:
+                err_msg = "\n".join(self.errors)
+                logger.warning(
+                    f"Benchmark: unable to collect cpu and memory benchmark statistics: {err_msg}"
+                )
         record = [
             round(self.running_time, 4),
             self.timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
@@ -389,6 +399,10 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 io_in = None
                 io_out = None
             data_collected = True
+        except psutil.NoSuchProcess:
+            # The process finished before this sample — benign, not a collection error.
+            self.bench_record.process_gone = True
+            return
         except (OSError, psutil.Error) as e:
             # Also collect OSError, which can be raised when too many proc files are opened.
             self.bench_record.errors.append(str(e))
