@@ -1169,7 +1169,7 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=False,
         )
         self._build_dag()
-        for spec in self.software_deployment_manager.specs_to_envs.keys():
+        for spec in self.software_deployment_manager.registered_specs:
             print(spec)
 
     def cache_or_deploy_software_envs(self) -> None:

@@ -247,6 +247,11 @@ class SoftwareDeploymentManager:
         self._env_cache[key] = env
         return env
 
+    @property
+    def registered_specs(self) -> Iterable[EnvSpecBase]:
+        for spec, _, _ in self._env_cache:
+            yield spec
+
     def register_in_global_variables(self, global_variables: Dict[str, Any]) -> None:
         for kind, plugin in self.plugins.items():
             if kind in global_variables:
