@@ -184,9 +184,9 @@ class TokenAutomaton:
 
     def subautomaton(self, automaton, *args, token=None, **kwargs):
         if automaton in self.deprecated:
-            assert token is not None, (
-                "bug: deprecation encountered but subautomaton not called with a token"
-            )
+            assert (
+                token is not None
+            ), "bug: deprecation encountered but subautomaton not called with a token"
             self.error(
                 f"Keyword {automaton} is deprecated. {self.deprecated[automaton]}",
                 token,
