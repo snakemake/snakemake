@@ -504,6 +504,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_config_non_json_serializable():
+    run(dpath("test_config"), config={"path_value": Path("data")})
+
+
 def test_update_config():
     run(dpath("test_update_config"))
 
@@ -3484,3 +3488,17 @@ def test_github_issue_4039_runtime_no_override():
         cleanup=False,
     )
     shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_delete_temp_fs():
+    outdir = run(
+        dpath("test_delete_temp_fs"),
+        shellcmd="snakemake -c1 --default-storage-provider fs",
+        cleanup=False,
+    )
+    temp_file = os.path.join(outdir, "a")
+    assert not os.path.exists(
+        temp_file
+    ), "temp file was not removed in main working directory"
+    shutil.rmtree(outdir)

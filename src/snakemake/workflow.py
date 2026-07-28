@@ -280,6 +280,12 @@ class Workflow(WorkflowExecutorInterface):
         import hashlib
 
         conda_bin = shutil.which("conda")
+        try:
+            config_md5 = hashlib.md5(
+                json.dumps(self.config, sort_keys=True).encode("utf-8")
+            ).hexdigest()
+        except (TypeError, ValueError):
+            config_md5 = "unavailable"
 
         return {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -296,9 +302,7 @@ class Workflow(WorkflowExecutorInterface):
             "snakefile_main": self.main_snakefile,
             "snakefile": self.snakefile,
             "workflow_id": uuid.uuid4(),
-            "config_md5": hashlib.md5(
-                json.dumps(config, sort_keys=True).encode("utf-8")
-            ).hexdigest(),
+            "config_md5": config_md5,
         }
 
     @property

@@ -1133,7 +1133,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             async for f in unneeded_files():
                 if await f.exists_local():
                     logger.info(f"Removing local copy of storage file: {fmt_iofile(f)}")
-                    await f.remove()
+                    await f.remove(only_local=True)
 
     def jobid(self, job):
         """Return job id of given job."""

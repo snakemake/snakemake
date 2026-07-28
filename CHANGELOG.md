@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.23.1](https://github.com/snakemake/snakemake/compare/v9.23.0...v9.23.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* LoggerManager.shutdown() error handling, flush all loggers ([#4196](https://github.com/snakemake/snakemake/issues/4196)) ([5bcdbf3](https://github.com/snakemake/snakemake/commit/5bcdbf3c65dff84e55616c3f14316a17c66cdcd3))
+* temp files not deleted when using remote storage plugins ([#4232](https://github.com/snakemake/snakemake/issues/4232)) ([7c58f53](https://github.com/snakemake/snakemake/commit/7c58f531ee1583ad59c190253301baa2814e313a))
+
+
+### Documentation
+
+* mention sponsoring in docs ([c659d62](https://github.com/snakemake/snakemake/commit/c659d62015bd7b354367e34a77490d762cf6029d))
+
 ## [9.23.0](https://github.com/snakemake/snakemake/compare/v9.22.0...v9.23.0) (2026-06-11)
 
 

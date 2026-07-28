@@ -1,0 +1,21 @@
+# This test is run with the fs storage plugin. It tests whether the temp file is properly deleted
+# not only in the fs path but also in the global path.
+
+
+rule all:
+    input:
+        "b"
+
+rule first:
+    output:
+        temp("a"),
+    shell:
+        "echo 'first' > {output}"
+
+rule second:
+    input:
+        "a",
+    output:
+        "b",
+    shell:
+        "(cat {input}; echo 'second') > {output}"

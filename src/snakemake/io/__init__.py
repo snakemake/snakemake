@@ -1211,7 +1211,7 @@ def contains_wildcard_constraints(pattern):
 
 
 async def remove(file, remove_non_empty_dir=False, only_local=False):
-    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
+    if not only_local and file.is_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
