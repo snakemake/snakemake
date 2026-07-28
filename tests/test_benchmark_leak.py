@@ -56,9 +56,9 @@ def test_action_does_not_rearm_when_cancelled_mid_action():
     t._action()
 
     assert t.fires == 1
-    assert t._timer is None, (
-        "re-armed despite a cancel during the check→reschedule window"
-    )
+    assert (
+        t._timer is None
+    ), "re-armed despite a cancel during the check→reschedule window"
 
 
 def test_cancel_sets_flag_before_cancelling_timer():
