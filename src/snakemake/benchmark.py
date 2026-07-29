@@ -269,27 +269,39 @@ class ScheduledPeriodicTimer:
         self._interval = interval
         self._timer = None
         self._stopped = True
+        # Serializes the stop flag with (re)scheduling so cancel() and _action() can't
+        # interleave into a resurrected timer — the thread-leak this class had.
+        self._lock = threading.Lock()
+
+    def _schedule(self):
+        """Arm the next tick. Caller must hold ``self._lock``."""
+        if self._times_called > self._interval:
+            self._timer = DaemonTimer(self._interval, self._action)
+        else:
+            self._timer = DaemonTimer(BENCHMARK_INTERVAL_SHORT, self._action)
+        self._timer.start()
 
     def start(self):
         """Start the intervalic timer"""
         self.work()
         self._times_called += 1
-        self._stopped = False
-        if self._times_called > self._interval:
-            self._timer = DaemonTimer(self._interval, self._action)
-        else:
-            self._timer = DaemonTimer(BENCHMARK_INTERVAL_SHORT, self._action)
-        self._timer.start()
+        with self._lock:
+            self._stopped = False
+            self._schedule()
 
     def _action(self):
         """Internally, called by timer"""
+        if self._stopped:  # fast path; the authoritative check is under the lock below
+            return
         self.work()
         self._times_called += 1
-        if self._times_called > self._interval:
-            self._timer = DaemonTimer(self._interval, self._action)
-        else:
-            self._timer = DaemonTimer(BENCHMARK_INTERVAL_SHORT, self._action)
-        self._timer.start()
+        with self._lock:
+            # Re-check under the lock: a cancel() (or work() self-terminating once the
+            # observed process exits) must win the race and stop us from re-arming a timer
+            # that would then live for the rest of the process.
+            if self._stopped:
+                return
+            self._schedule()
 
     def work(self):
         """Override to perform the action"""
@@ -297,8 +309,13 @@ class ScheduledPeriodicTimer:
 
     def cancel(self):
         """Call to cancel any events"""
-        self._timer.cancel()
-        self._stopped = True
+        # Under the lock this is mutually exclusive with _action's reschedule: either we set
+        # the flag first and _action sees it, or _action arms the next timer and we cancel it
+        # here. _timer is None if cancel() runs before start().
+        with self._lock:
+            self._stopped = True
+            if self._timer is not None:
+                self._timer.cancel()
 
 
 class BenchmarkTimer(ScheduledPeriodicTimer):
@@ -326,6 +343,11 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             pass  # skip, process died in flight
         except AttributeError:
             pass  # skip, process died in flight
+        # Stop once the observed process has exited — nothing left to sample, so don't keep
+        # polling a dead PID until the context closes. Checked after the sample above so a
+        # final measurement is still attempted.
+        if not self.main.is_running():
+            self._stopped = True
 
     def _update_record(self):
         """Perform the actual measurement"""
@@ -447,9 +469,12 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
         start_time = time.time()
         bench_thread = BenchmarkTimer(int(pid or os.getpid()), result, interval)
         bench_thread.start()
-        yield result
-        bench_thread.cancel()
-        result.running_time = time.time() - start_time
+        try:
+            yield result
+        finally:
+            # Cancel in finally so a raising body cannot leak the monitor thread.
+            bench_thread.cancel()
+            result.running_time = time.time() - start_time
 
 
 def print_benchmark_tsv(records, file_, extended_fmt):
