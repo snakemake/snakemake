@@ -34,7 +34,7 @@ Consider the following example:
       output:
           "test.{i}.out"
       container:
-          "docker://continuumio/miniconda3:4.4.10"
+          "docker://condaforge/miniforge3:26.3.2-3"
       conda:
           "envs/test.yaml"
       shell:

@@ -1,6 +1,6 @@
 
 
-singularity: "docker://continuumio/miniconda3"
+singularity: "docker://condaforge/miniforge3:26.3.2-3"
 
 
 rule a:
