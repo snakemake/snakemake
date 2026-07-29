@@ -364,11 +364,25 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         cpu_time = 0
 
         data_collected = False
-        # Iterate over process and all children
+        this_time = time.time()
         try:
-            this_time = time.time()
-            for proc in chain((self.main,), self.main.children(recursive=True)):
-                proc = self.procs.setdefault(proc.pid, proc)
+            procs = chain((self.main,), self.main.children(recursive=True))
+        except psutil.NoSuchProcess:
+            # The observed process finished before this sample (a job faster than the
+            # benchmark interval) — benign, not a collection error.
+            self.bench_record.process_gone = True
+            return
+        except (OSError, psutil.Error) as e:
+            # Also collect OSError, which can be raised when too many proc files are opened.
+            self.bench_record.errors.append(str(e))
+            return
+
+        # Sample each process independently: a child exiting mid-sample is normal churn
+        # and must not discard the partial sample or masquerade as the observed process
+        # disappearing.
+        for proc in procs:
+            proc = self.procs.setdefault(proc.pid, proc)
+            try:
                 with proc.oneshot():
                     if self.bench_record.prev_time:
                         cpu_usage += proc.cpu_percent() * (
@@ -379,10 +393,16 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                     # not have access to.
                     try:
                         meminfo = proc.memory_full_info()
+                    except psutil.NoSuchProcess:
+                        raise
                     except psutil.Error:
                         # Continue to fetch information about the remaining processes
                         # save skipped processes pid and name for debugging
-                        self.bench_record.skipped_procs.add((proc.pid, proc.name()))
+                        try:
+                            name = proc.name()
+                        except psutil.Error:
+                            name = "?"
+                        self.bench_record.skipped_procs.add((proc.pid, name))
                         continue
                     rss += meminfo.rss
                     vms += meminfo.vms
@@ -402,33 +422,38 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                     self.bench_record.processed_procs[(proc.pid, proc.name())] = (
                         cpu_times.user + cpu_times.system
                     )
-
-            cpu_time = sum(self.bench_record.processed_procs.values())
-
-            self.bench_record.prev_time = this_time
-            if not self.bench_record.first_time:
-                self.bench_record.prev_time = this_time
-
-            rss /= 1024 * 1024
-            vms /= 1024 * 1024
-            uss /= 1024 * 1024
-            pss /= 1024 * 1024
-
-            if check_io:
-                io_in /= 1024 * 1024
-                io_out /= 1024 * 1024
-            else:
-                io_in = None
-                io_out = None
+            except psutil.NoSuchProcess:
+                # Exited between enumeration and sampling. Only the observed process
+                # vanishing is the benign whole-job case; a vanished child is skipped
+                # and the partial sample kept.
+                if proc.pid == self.main.pid:
+                    self.bench_record.process_gone = True
+                continue
+            except (OSError, psutil.Error) as e:
+                self.bench_record.errors.append(str(e))
+                continue
             data_collected = True
-        except psutil.NoSuchProcess:
-            # The process finished before this sample — benign, not a collection error.
-            self.bench_record.process_gone = True
+
+        if not data_collected:
             return
-        except (OSError, psutil.Error) as e:
-            # Also collect OSError, which can be raised when too many proc files are opened.
-            self.bench_record.errors.append(str(e))
-            return
+
+        cpu_time = sum(self.bench_record.processed_procs.values())
+
+        self.bench_record.prev_time = this_time
+        if not self.bench_record.first_time:
+            self.bench_record.prev_time = this_time
+
+        rss /= 1024 * 1024
+        vms /= 1024 * 1024
+        uss /= 1024 * 1024
+        pss /= 1024 * 1024
+
+        if check_io:
+            io_in /= 1024 * 1024
+            io_out /= 1024 * 1024
+        else:
+            io_in = None
+            io_out = None
 
         # Update benchmark record's RSS and VMS
         if data_collected:
