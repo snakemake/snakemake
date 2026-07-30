@@ -450,7 +450,7 @@ The ``lookup`` function has the signature
 
 The required ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
-From Snakemake 9.25 on, alternatively, you can simply provide any of the two as the first positonal argument.
+From Snakemake 9.25 on, alternatively, you can simply provide any of the two as the first positional argument.
 The matching argument will be chosen via the type of the ``within`` parameter.
 
 In case of a pandas dataframe,
