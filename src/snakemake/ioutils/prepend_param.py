@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Union
 
 from snakemake.common import get_function_params, overwrite_function_params
 from snakemake.io import is_callable
@@ -10,6 +10,7 @@ def prepend_param(
     prefix: str,
     paths_or_func: Union[Callable, str, Path, List[Union[str, Path]]],
     space: bool = True,
+    _func_name: str = "prepend_param"
 ):
     """
     Prepend each filename in `paths_or_func` with `prefix`,
@@ -24,7 +25,7 @@ def prepend_param(
             path = str(path)
         if not isinstance(path, str):
             raise ValueError(
-                "Values passed to prepend "
+                f"Values passed to {_func_name} "
                 "must be a single string or pathlib.Path (or a function returning those). "
                 f"Obtained value: {repr(path)}"
             )
@@ -54,3 +55,13 @@ def prepend_param(
         return inner
     else:
         return do(paths_or_func)
+
+
+def join_params(
+    *params: Union[Callable, str, Path, List[Union[str, Path]]],
+    space: bool = True,
+) -> Union[str, Callable]:
+    """
+    Join given parameters into a single string, with a space (if `space` is `True`).
+    """
+    return prepend_param("", params, space=space, _func_name="join_params")
