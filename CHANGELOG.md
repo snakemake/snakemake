@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [9.24.0](https://github.com/snakemake/snakemake/compare/v9.23.1...v9.24.0) (2026-07-30)
+
+
+### Features
+
+* allow to combine cases with otherwise in branch function ([#4262](https://github.com/snakemake/snakemake/issues/4262)) ([000ff52](https://github.com/snakemake/snakemake/commit/000ff52112589fd0e02820bed6356f9946046188))
+
+
+### Bug Fixes
+
+* avoid config hash crash for non-serializable values ([#4241](https://github.com/snakemake/snakemake/issues/4241)) ([1a27746](https://github.com/snakemake/snakemake/commit/1a2774645a599d6c7d0589a048b64023b360c7d3))
+* compilation error when final line contains an f-string ([#4234](https://github.com/snakemake/snakemake/issues/4234)) ([9c5e7fe](https://github.com/snakemake/snakemake/commit/9c5e7fea607ecf30e7fbfa47bfc9d54565b170ef))
+* Group error log formatting ([#4256](https://github.com/snakemake/snakemake/issues/4256)) ([bb6dcde](https://github.com/snakemake/snakemake/commit/bb6dcde4d951bb495267258935dc21813e63f266))
+* leak of benchmark monitor threads ([#4259](https://github.com/snakemake/snakemake/issues/4259)) ([d37852e](https://github.com/snakemake/snakemake/commit/d37852e01f11206446c9618aa6c6f0dfa84ed9e5))
+* no benchmark warning when a process exits before it can be sampled ([#4260](https://github.com/snakemake/snakemake/issues/4260)) ([6738359](https://github.com/snakemake/snakemake/commit/6738359fb5c3f2b1a53d951595d44edd2bfd7ce9))
+* persistence starttime unset/defaults ([#4251](https://github.com/snakemake/snakemake/issues/4251)) ([56395c0](https://github.com/snakemake/snakemake/commit/56395c0edc2fb3eca5fc80b28b43a0113a5e6bc0))
+
 ## [9.23.1](https://github.com/snakemake/snakemake/compare/v9.23.0...v9.23.1) (2026-06-17)
 
 
