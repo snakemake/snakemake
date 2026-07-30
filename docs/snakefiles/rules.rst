@@ -741,12 +741,33 @@ set the ``space`` keyword argument to ``False``:
 
 .. code-block:: python
 
-    params:
-        data=prepend_param("-i", input.data, space=False)
-    input:
-        data=["a.txt", "b.txt", "c.txt"],
-    shell:
-        "somecommand {params.data}"  # Runs somecommand -ia.txt -ib.txt -ic.txt
+    rule a:
+        input:
+            data=["a.txt", "b.txt", "c.txt"],
+        params:
+            data=prepend_param("-i", input.data, space=False)
+        shell:
+            "somecommand {params.data}"  # Runs somecommand -ia.txt -ib.txt -ic.txt
+
+
+The join_params function
+""""""""""""""""""""""""
+
+The ``join_params`` function takes one or more parameters (str, Path, :ref:`parameter functions <snakefiles-params>`) and joins them into a single string (by default separated with a whitespace).
+It is most useful in case of e.g. `wrappers <https://snakemake-wrappers.readthedocs.io>`__ that are for simplicity limited to a single string parameter for extra arguments.
+The helper function thereby automatically and recursively resolves any parameter functions:
+
+.. code-block:: python
+
+    rule a:
+        input:
+            graph="test.gbz",
+            paths="test.paths",
+        params:
+            extra=join_params(prepend_param("--ref-paths", input.data), "--parameter-preset hifi")
+        wrapper:
+            "v9.9.0/bio/vg/giraffe"
+
 
 
 .. _snakefiles-rule-item-access:
