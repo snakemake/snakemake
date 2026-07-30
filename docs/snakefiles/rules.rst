@@ -609,6 +609,20 @@ An example for using the cases argument could look as follows:
         }
     )
 
+Above, if the value given as condition is not found in the cases mapping, a KeyError is raised.
+To avoid that, one can provide ``otherwise`` as a fallback value, e.g.
+
+.. code-block:: python
+
+    branch(
+        lookup(dpath="tool/to/use", within=config),
+        cases={
+            "sometool": "results/sometool/{dataset}.txt",
+            "someothertool": "results/someothertool/{dataset}.txt"
+        },
+        otherwise="results/someresult/{dataset}.txt"
+    )
+
 The evaluate function
 """""""""""""""""""""
 
