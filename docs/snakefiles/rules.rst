@@ -440,8 +440,8 @@ The ``lookup`` function has the signature
 .. code-block:: python
 
     lookup(
-        dpath: Optional[str | Callable] = None,
         query: Optional[str | Callable] = None,
+        dpath: Optional[str | Callable] = None,
         cols: Optional[List[str]] = None,
         is_nrows: Optional[int],
         within=None,
@@ -450,6 +450,8 @@ The ``lookup`` function has the signature
 
 The required ``within`` parameter takes either a python mapping, a pandas dataframe, or a pandas series.
 For the former case, it expects the ``dpath`` argument, for the latter two cases, it expects the ``query`` argument to be given.
+From Snakemake 9.25 on, alternatively, you can simply provide any of the two as the first positional argument.
+The matching argument will be chosen via the type of the ``within`` parameter.
 
 In case of a pandas dataframe,
 the query parameter is passed to `DataFrame.query() <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html>`_.
@@ -467,7 +469,7 @@ e.g.
 
 .. code-block:: python
 
-    collect("results/{item.sample}.txt", item=lookup(query="someval > 2", within=samples))
+    collect("results/{item.sample}.txt", item=lookup("someval > 2", within=samples))
 
 Here, we take the file ``"results/{item.sample}.txt"`` with ``{item.sample}`` being replaced by the
 sample names that occur in all rows of the dataframe ``samples`` where the value of the ``someval`` column is greater than 2.
@@ -478,26 +480,26 @@ for the :ref:`branch function <snakefiles-branch-function>`, e.g.
 
 .. code-block:: python
 
-    branch(lookup(query="sample == '{sample}' & someval > 2", within=samples), then="foo", otherwise="bar")
+    branch(lookup("sample == '{sample}' & someval > 2", within=samples), then="foo", otherwise="bar")
 
 In case your dataframe has an index, you can also access the index within the
 query, e.g. for faster, constant time lookups:
 
 .. code-block:: python
 
-    lookup(query="index.loc[{sample}]", within=samples)
+    lookup("index.loc[{sample}]", within=samples)
 
 Further, it is possible to constrain the output to a list of columns, e.g.
 
 .. code-block:: python
 
-    lookup(query="sample == '{sample}'", within=samples, cols=["somecolumn"])
+    lookup("sample == '{sample}'", within=samples, cols=["somecolumn"])
 
 or to a single column, e.g.
 
 .. code-block:: python
 
-    lookup(query="sample == '{sample}'", within=samples, cols="somecolumn")
+    lookup("sample == '{sample}'", within=samples, cols="somecolumn")
 
 In the latter case, just a list of items in that column is returned (e.g. ``["a", "b", "c"]``).
 
@@ -506,7 +508,7 @@ If it is used, lookup just returns a boolean value indicating whether the number
 
 .. code-block:: python
 
-    lookup(query="sample == '{sample}'", within=samples, is_nrows=5)
+    lookup("sample == '{sample}'", within=samples, is_nrows=5)
 
 In case of a **pandas series**, the series is converted into a dataframe via
 Series.to_frame() and the same logic as for a dataframe is applied.
@@ -525,7 +527,7 @@ to auxiliary namespace arguments given to the lookup function, e.g.
 .. code-block:: python
 
     lookup(
-        query="cell_type == '{sample.cell_type}'",
+        "cell_type == '{sample.cell_type}'",
         within=samples,
         sample=lookup("sample == '{sample}'", within=samples)
     )
@@ -569,7 +571,7 @@ An example of using ``branch`` in combination with ``lookup`` from a ``config`` 
 .. code-block:: python
 
     branch(
-        lookup(dpath="tools/sometool", within=config),
+        lookup("tools/sometool", within=config),
         then="results/sometool/{dataset}.txt",
         otherwise="results/someresult/{dataset}.txt"
     )
@@ -602,11 +604,25 @@ An example for using the cases argument could look as follows:
 .. code-block:: python
 
     branch(
-        lookup(dpath="tool/to/use", within=config),
+        lookup("tool/to/use", within=config),
         cases={
             "sometool": "results/sometool/{dataset}.txt",
             "someothertool": "results/someothertool/{dataset}.txt"
         }
+    )
+
+Above, if the value given as condition is not found in the cases mapping, a KeyError is raised.
+To avoid that, one can provide ``otherwise`` as a fallback value, e.g.
+
+.. code-block:: python
+
+    branch(
+        lookup("tool/to/use", within=config),
+        cases={
+            "sometool": "results/sometool/{dataset}.txt",
+            "someothertool": "results/someothertool/{dataset}.txt"
+        },
+        otherwise="results/someresult/{dataset}.txt"
     )
 
 The evaluate function
