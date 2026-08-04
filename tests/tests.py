@@ -1038,6 +1038,14 @@ def test_issue823_1():
     run(dpath("test_issue823_1"))
 
 
+def test_function_f_string():
+    run(dpath("test_function_f_string"), executor="dryrun", check_results=False)
+
+
+def test_function_f_string_newline():
+    run(dpath("test_function_f_string_newline"), executor="dryrun", check_results=False)
+
+
 @skip_on_windows
 def test_issue823_2():
     run(dpath("test_issue823_2"))
