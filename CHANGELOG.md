@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.25.0](https://github.com/snakemake/snakemake/compare/v9.24.0...v9.25.0) (2026-08-04)
+
+
+### Features
+
+* allow first positional parameter of lookup function to be used as both query and dpath ([#4263](https://github.com/snakemake/snakemake/issues/4263)) ([08d1d26](https://github.com/snakemake/snakemake/commit/08d1d26baa2e1f863e6a0b997fd823db9607bab6))
+
 ## [9.24.0](https://github.com/snakemake/snakemake/compare/v9.23.1...v9.24.0) (2026-07-30)
 
 
