@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.25.1](https://github.com/snakemake/snakemake/compare/v9.25.0...v9.25.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* fix f-string parsing at file end ([#4269](https://github.com/snakemake/snakemake/issues/4269)) ([eab8d26](https://github.com/snakemake/snakemake/commit/eab8d2639b3bb7ff7737c68dd6d281d72c5630d2))
+
 ## [9.25.0](https://github.com/snakemake/snakemake/compare/v9.24.0...v9.25.0) (2026-08-04)
 
 
