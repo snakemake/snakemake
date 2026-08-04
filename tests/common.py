@@ -270,6 +270,7 @@ def run(
     deployment_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
+    debug_dag=False,
     default_storage_provider=None,
     default_storage_prefix=None,
     local_storage_prefix=Path(".snakemake/storage"),
@@ -444,6 +445,7 @@ def run(
             settings.OutputSettings(
                 verbose=True,
                 printshellcmds=printshellcmds,
+                debug_dag=debug_dag,
                 show_failed_logs=True,
                 benchmark_extended=benchmark_extended,
             ),
