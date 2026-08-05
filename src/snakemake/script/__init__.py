@@ -432,7 +432,7 @@ class PythonScript(ScriptBase):
         shell_exec_stmt = (
             ""
             if shell_exec is None
-            else f"from snakemake.shell import shell; shell.executable({shell_exec});"
+            else f"from snakemake.shell import shell; shell.executable({repr(shell_exec)});"
         )
 
         preamble = f"""
