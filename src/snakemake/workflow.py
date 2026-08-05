@@ -1371,11 +1371,6 @@ class Workflow(WorkflowExecutorInterface):
 
             if not self.dryrun:
                 if len(self.dag):
-                    from snakemake.shell import shell
-
-                    shell_exec = shell.get_executable()
-                    if shell_exec is not None:
-                        logger.info(f"Using shell: {shell_exec}")
                     if not self.local_exec:
                         nodes_str = (
                             "unlimited"
