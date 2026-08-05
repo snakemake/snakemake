@@ -1916,6 +1916,12 @@ class Workflow(WorkflowExecutorInterface):
                     rule=rule,
                 )
 
+            # set currently defined shell executable
+            from snakemake.shell import shell
+            shell_exec = shell.get_executable()
+            if shell_exec is not None:
+                rule.resources["shell_exec"] = shell_exec
+
             if ruleinfo.resources:
                 args, resources = ruleinfo.resources
                 if args:

@@ -1211,6 +1211,8 @@ class Rule(RuleInterface):
         from snakemake.common.misc import is_local_file
         from snakemake.sourcecache import infer_source_file
 
+        cacheable = False
+
         software_env_specs = self._software_env_specs
         if software_env_specs is not None:
             if software_env_specs.is_callable():
@@ -1259,6 +1261,8 @@ class Rule(RuleInterface):
             return EnvSpecSourceFile(path_or_uri=path, cached=cached_path)
 
         def apply_wildcards_on_attributes(value):
+            nonlocal cacheable
+
             # normalize to path to str
             is_env_spec_source_file = isinstance(value, EnvSpecSourceFile)
             if is_env_spec_source_file:
