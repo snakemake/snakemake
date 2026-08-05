@@ -1,0 +1,10 @@
+shell.executable("bash")
+
+from . import foo
+from . import bar
+
+rule inner:
+    output:
+        "inner.txt",
+    shell:
+        f"echo bar={bar.data} foo={foo.data} > {{output}}"
