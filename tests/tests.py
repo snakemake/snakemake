@@ -676,6 +676,10 @@ def test_input_generator():
     run(dpath("test_input_generator"))
 
 
+def test_github_issue3953():
+    run(dpath("test_github_issue3953"), shouldfail=True)
+
+
 def test_symlink_time_handling():
     # See Snakefile for notes on why this fails on some systems
     if os.utime in os.supports_follow_symlinks:
