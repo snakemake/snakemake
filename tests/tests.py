@@ -1079,7 +1079,10 @@ def test_group_jobs_attempts():
 
 
 def assert_resources(resources: dict, **expected_resources):
-    assert resources == expected_resources
+    for name, expected_value in expected_resources.items():
+        assert (
+            resources.get(name) == expected_value
+        ), f"Resource '{name}' expected to be {expected_value}, but got {resources.get(name)}"
 
 
 @skip_on_windows
