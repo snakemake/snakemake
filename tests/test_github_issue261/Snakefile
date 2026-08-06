@@ -14,7 +14,7 @@ rule process:
         touch('test1/{target}/{config}/v{index}')
 
 def genetate_inputs(wildcards):
-    with checkpoints.random.get(**wildcards).output[0].open() as fran:
+    with open(checkpoints.random.get(**wildcards).output[0]) as fran:
         for line in fran.readlines():
             yield line.rstrip()
 
