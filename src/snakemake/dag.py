@@ -1395,7 +1395,19 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             raise MissingInputException(job, missing_input)
 
     async def update_needrun(self, create_inventory=False):
-        """Update the information whether a job needs to be executed."""
+        """Determine which jobs need to be (re-)executed.
+
+        Complexity: O(N + n·F)
+        - N=all DAG jobs (toposort, in-memory)
+        - n=non-finished candidates (F async file checks each: mtime/exists/checksum).
+
+        Algorithm:
+        1. Toposort ALL jobs in the DAG; exclude already-finished ones to get candidates.
+        2. Concurrently compute output_mintime per candidate (across its own outputs and direct dependents).
+        3. Evaluate each candidate for needrun.
+        4. Propagates needrun downstream (dependency reruns) and upstream (missing input).
+        5. Updates _needrun, _reason, and _n_until_ready.
+        """
 
         if create_inventory and self.workflow.is_main_process:
             # Concurrently collect mtimes of all existing files.
@@ -2230,6 +2242,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated:
             logger.info("Updating checkpoint dependencies.")
 
+        prev_jobs = set(self.jobs)  # snapshot BEFORE while loop
         i = 1
         while job_queue:
             logger.debug(f"Checkpoint dependency update round {i}")
@@ -2281,12 +2294,46 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated:
             self.set_until_jobs()
             self.delete_omitfrom_jobs()
+            await self.expand_incomplete_input_jobs(self.jobs - prev_jobs)
             await self.postprocess_after_update()
 
         return updated
 
+    async def expand_incomplete_input_jobs(self, new_jobs: Set[Job]):
+        """Re-expand new DAG jobs whose inputs are not yet fully resolved.
+
+        :meth:`snakemake.jobs.Job.__init__` sets :attr:`snakemake.jobs.Job.incomplete_input_expand` via :meth:`snakemake.rules.Rule.expand_input`,
+        which calls :meth:`snakemake.rules.Rule.apply_input_function`.
+        That function returns an incomplete marker when either:
+        - groupid is None at construction time (the input function takes groupid
+          as a parameter but the job hasn't been assigned to a group yet), or
+        - a checkpoint output is not yet available.
+
+        Without re-expansion, such jobs may be submitted to the cluster with wrong or missing inputs.
+
+        Each job is attempted to expand input exactly once per call:
+        - groupid-blocked: always succeeds after update_groups(); may introduce
+          new dep jobs that are also incomplete, so we recurse on them.
+        - checkpoint-blocked: expansion always fails (newjob remains incomplete);
+          `replace_job` is still called to keep `job_factory.cache` consistent with the DAG (see test_github_issue806),
+          but newjob is not added to `next_new_jobs`, so recursion stops here.
+        """
+        incomplete_new_jobs = {j for j in new_jobs if j.incomplete_input_expand}
+        if not incomplete_new_jobs:
+            return
+        await self.update_needrun()
+        self.update_groups()
+        next_new_jobs: Set[Job] = set()
+        for job in incomplete_new_jobs:
+            newjob = await job.updated()
+            prev_jobs = set(self.jobs)
+            await self.replace_job(job, newjob, recursive=False)
+            if not newjob.incomplete_input_expand:
+                next_new_jobs.update(self.jobs - prev_jobs)
+        await self.expand_incomplete_input_jobs(next_new_jobs)
+
     async def postprocess_after_update(self):
-        await self.postprocess()
+        await self.postprocess(update_incomplete_input_expand_jobs=False)
         self._derived_targetfiles = None
 
     def register_running(self, jobs: AnySet[AbstractJob]):
@@ -2299,29 +2346,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 # already gone
                 pass
 
-    async def finish(self, job, update_checkpoint_dependencies=True):
+    async def finish(
+        self, job: Union[Job, GroupJob], update_checkpoint_dependencies=True
+    ):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
         self._running.remove(job)
-
-        # turn off this job's Reason
-        if job.is_group():
-            for j in job:
-                self.reason(j).mark_finished()
-        else:
-            self.reason(job).mark_finished()
-
         try:
             self._ready_jobs.remove(job)
         except KeyError:
             pass
 
-        if job.is_group():
-            jobs = job
-        else:
-            jobs = [job]
-
+        # turn off this job's Reason
+        jobs: List[Job] = job if job.is_group() else [job]  # type: ignore[reportAssignmentType]
+        for j in jobs:
+            self.reason(j).mark_finished()
         self._finished.update(jobs)
         self.checkpoint_jobs.difference_update(job for job in jobs if job.is_checkpoint)
 
