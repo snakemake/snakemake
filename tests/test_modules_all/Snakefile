@@ -12,6 +12,9 @@ module test:
     replace_prefix:
         {"results/": "results/testmodule/"}
 
+use rule c_txt from test as c_md with:
+    output:
+        "results/c/{name}.md",
 
 use rule * from test as test_*
 
