@@ -1,0 +1,76 @@
+# This tests that the tolerance works correctly when each intermediate job
+# produces multiple output files. In this case, there are 4 scatter items.
+# The intermediate1 rule produces two output files. The intermediate2 rule
+# produces three output files. So if everything succeeds, there are
+# 4 * 3 = 12 output files.
+# The tolerance is set to 0.25, so we can
+# tolerate one BRANCH failure == 6/24 files.
+
+scattergather:
+    split={"items": 4, "tolerance": 0.25}
+
+
+rule all:
+    input:
+        "gathered/all.txt"
+
+
+rule split:
+    output:
+        scatter.split("splitted/{scatteritem}.txt")
+    shell:
+        r"""
+        mkdir -p splitted
+        touch {output}
+        """
+
+
+rule intermediate1:
+    input:
+        "splitted/{scatteritem}.txt"
+    output:
+        "int1/{scatteritem}.txt",
+        "int1/{scatteritem}.aux"
+    shell:
+        r"""
+        mkdir -p int1
+        echo {output[0]} > {output[0]}
+        echo {output[1]} > {output[1]}
+        """
+
+
+rule intermediate2:
+    input:
+        "int1/{scatteritem}.txt",
+        "int1/{scatteritem}.aux"
+    output:
+        "results/{scatteritem}.txt",
+        "results/{scatteritem}.aux",
+        "results/{scatteritem}.extra"
+    shell:
+        # Fail the second scatter item.
+        r"""
+        mkdir -p results
+        case "{wildcards.scatteritem}" in
+            2-of-4)
+                exit 1
+                ;;
+        esac
+        echo {output[0]} > {output[0]}
+        echo {output[1]} > {output[1]}
+        echo {output[2]} > {output[2]}
+        """
+
+
+rule gather:
+    input:
+        gather.split("results/{scatteritem}.txt"),
+        gather.split("results/{scatteritem}.aux"),
+        gather.split("results/{scatteritem}.extra")
+    output:
+        "gathered/all.txt"
+    shell:
+        r"""
+        mkdir -p gathered
+        echo {input} > {output}
+        """

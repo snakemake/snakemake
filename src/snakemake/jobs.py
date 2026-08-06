@@ -964,6 +964,20 @@ class Job(
             for f in to_remove:
                 await f.remove()
 
+    def invalidate_input_dependent_state(self) -> None:
+        """
+        Invalidate any input-dependent state of this job.
+
+        This is necessary when the input files of a job have changed, e.g. when
+        dead gather inputs have been pruned.
+        """
+        self._params = None
+        self._resources = None
+        self._scheduler_resources = None
+        self._non_derived_params = None
+        self._params_and_resources_resetted = False
+        self._conda_env_spec = None
+
     def format_wildcards(self, string, **variables):
         """Format a string with variables from the job."""
         _variables = dict()
