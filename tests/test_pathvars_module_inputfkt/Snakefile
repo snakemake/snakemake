@@ -1,0 +1,12 @@
+module testmodule:
+    snakefile:
+        "module/Snakefile"
+    pathvars:
+        results="results/testmodule"
+
+use rule * from testmodule
+
+rule all:
+    default_target: True
+    input:
+        'results/testmodule/all.txt'
