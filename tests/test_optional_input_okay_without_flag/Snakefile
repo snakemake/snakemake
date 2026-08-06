@@ -1,0 +1,26 @@
+"""
+Current behavior without optional input:
+- merge requires all input files
+- all counts_nnn.json files are found
+Expected: workflow succeeds and letter_counts.json is created.
+"""
+rule all:
+    input:
+        "letter_counts.json"
+
+rule merge_counts:
+    input:
+        counts=["counts_000.json", "counts_001.json", "counts_002.json"]
+    output:
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for counts_file in input.counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
