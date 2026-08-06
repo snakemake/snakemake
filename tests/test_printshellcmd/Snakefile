@@ -1,0 +1,22 @@
+rule test_shell:
+    output:
+        "mock.shell.txt"
+    shell:
+        "echo Hello World > {output}"
+
+
+rule test_script:
+    output:
+        "mock.script.txt"
+    script:
+        "mock.py"
+
+
+rule test_wrapper:
+    input:
+        "mock.bam"
+    output:
+        "mock.sorted.bam"
+    wrapper:
+        "0.2.0/bio/samtools/sort"
+
