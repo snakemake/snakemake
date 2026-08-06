@@ -1,18 +1,15 @@
-from snakemake.exceptions import print_exception
-from typing import Dict
-from snakemake.sourcecache import SourceFile
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
+from typing import Dict
 import re
 from typing import Optional
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
-from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
+from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file, SourceFile
 
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
 

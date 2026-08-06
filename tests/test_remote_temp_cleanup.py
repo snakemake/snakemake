@@ -111,7 +111,7 @@ def test_handle_temp_yields_output_iofile_with_temp_flag(mock_dag):
     output _IOFile objects (with temp flag). The set intersection must preserve
     the output objects so that remove() sees is_flagged(file, "temp") == True.
     """
-    from snakemake.io import AnnotatedString, flag as io_flag
+    from snakemake.io import AnnotatedString
 
     mock_dag.workflow.remote_exec = False  # assume main process
 
