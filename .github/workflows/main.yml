@@ -119,7 +119,7 @@ jobs:
             --group ${{ matrix.test_group }} \
             --splitting-algorithm=least_duration \
             --showlocals \
-            --show-capture=all -s
+            --show-capture=all
 
           cd tests/test_report
           pixi run -e ${{ matrix.env }} snakemake \
