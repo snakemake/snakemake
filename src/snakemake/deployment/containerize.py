@@ -1,14 +1,24 @@
+from typing import TYPE_CHECKING
 from pathlib import Path
 import hashlib
 import os
 from abc import ABC, abstractmethod
 
+from snakemake.exceptions import ExpandSoftwareEnvRequiresWildcardsError
+from snakemake.sourcecache import infer_source_file
+from snakemake.common.misc import is_local_file, is_conda_env_spec
+
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
-from snakemake.io import is_callable, contains_wildcard
 
-CONDA_ENV_PATH = "/conda-envs"
+if TYPE_CHECKING:
+    from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+
+# TODO convert to rattler or pixi?
+
+
+def get_containerized_path(env: "CondaEnvSpec") -> Path:
+    return Path("/conda-envs") / env.hash()
 
 
 # ── Step 1: The ABC (Abstract Base Class) ──
@@ -73,6 +83,9 @@ class DockerFormat(ContainerFormat):
     def comment(self, text):
         print(f"# {text}")
 
+    def write_file(self, content, dest):
+        print(f"RUN cat > {dest} <<EOF\n{content}\nEOF")
+
     def copy_file(self, src, dest):
         print(f"COPY {src} {dest}")
 
@@ -111,6 +124,9 @@ class ApptainerFormat(ContainerFormat):
     def comment(self, text):
         # Comments in Apptainer use #, same as Docker
         print(f"# {text}")
+
+    def write_file(self, content, dest):
+        self._post.append(f"cat > {dest} <<EOF\n{content}\nEOF")
 
     def copy_file(self, src, dest):
         self._files.append((src, dest))
@@ -161,7 +177,6 @@ def containerize(workflow, dag, fmt="dockerfile"):
         dag: The DAG object.
         fmt: The output format — "dockerfile" or "apptainer".
     """
-    from .conda import CondaEnvFileSpec, CondaEnvSpecType
 
     # ── Choose the format ──
     if fmt == "dockerfile":
@@ -174,55 +189,52 @@ def containerize(workflow, dag, fmt="dockerfile"):
     # ── Everything below is the SAME as the original (lines 22–72) ──
 
     # collect envs from jobs from the initial DAG.
-    conda_envs = {job.conda_env for job in dag.jobs if job.conda_env is not None}
-    dag_jobs = {job.name for job in dag.jobs if job.conda_env is not None}
+    def _is_conda_env_spec(env_spec):
+        return env_spec is not None and is_conda_env_spec(env_spec)
 
-    # collect envs from rules not in the initial DAG (e.g., for rules past checkpoints)
+    conda_envs = {
+        job.software_env
+        for job in dag.jobs
+        if _is_conda_env_spec(job.software_env_spec)
+    }
+    # now add envs from rules that are not part of the DAG (e.g. because of checkpoints)
+    dag_rules = {job.rule.name for job in dag.jobs}
+
     for rule in workflow.rules:
-        if not rule.conda_env or rule.name in dag_jobs:
-            continue
+        if rule.name not in dag_rules:
+            try:
+                env_spec = rule.expand_software_env_specs()
+            except ExpandSoftwareEnvRequiresWildcardsError:
+                logger.warning(
+                    f"Rule {rule.name} defines software environment that cannot be "
+                    "considered for containerization because the rule is not part of "
+                    "the initial DAG as it depends on a checkpoint."
+                )
+                continue
+            if _is_conda_env_spec(env_spec):
+                env = workflow.software_deployment_manager.get_env(env_spec)
+                conda_envs.add(env)
 
-        env_def = rule.conda_env
-
-        if is_callable(env_def) or contains_wildcard(str(env_def)):
-            raise WorkflowError(
-                "Containerization of conda based workflows is not allowed if any conda env definition is dynamic "
-                "(e.g. contains a wildcard or is a function) and the corresponding rule is not part of the initial DAG. "
-                f"Found in rule {rule.name}."
-            )
-
-        spec_type = CondaEnvSpecType.from_spec(rule.conda_env)
-        if spec_type is not CondaEnvSpecType.FILE:
+    for env in conda_envs:
+        if env.spec.envfile is None:
             raise WorkflowError(
                 "Only file-based conda environments are supported for containerization for rules that are not part "
                 "of the initial DAG (e.g. because they are downstream of a checkpoint). "
-                f"Rule {rule.name} uses a conda environment by name or directory."
+                f"Invalid conda env spec: {env.spec}"
             )
 
-        env_def = infer_source_file(rule.conda_env, rule.basedir)
-        spec = CondaEnvFileSpec(env_def)
-        conda_env = spec.get_conda_env(workflow, envs_dir=CONDA_ENV_PATH)
-        if conda_env.is_externally_managed:
-            logger.warning(
-                "Skipping containerization of externally managed conda environment in rule %s.",
-                rule.name,
-            )
-            continue
-        conda_envs.add(conda_env)
-
-    def relfile(env):
-        if isinstance(env.file, LocalSourceFile):
-            return os.path.relpath(
-                env.file.get_path_or_uri(secret_free=True), os.getcwd()
-            )
+    def relfile(path_or_uri):
+        if is_local_file(path_or_uri):
+            return os.path.relpath(path_or_uri, os.getcwd())
         else:
-            return env.file.get_path_or_uri(secret_free=True)
+            return infer_source_file(path_or_uri).get_path_or_uri(secret_free=True)
 
-    envs = sorted(conda_envs, key=relfile)
+    sorted_envs = sorted(conda_envs, key=lambda env: env.spec.envfile.path_or_uri)
     envhash = hashlib.sha256()
-    for env in envs:
-        logger.info(f"Hashing conda environment {relfile(env)}.")
-        envhash.update(env.content)
+    for env in sorted_envs:
+        logger.info(f"Hashing conda environment {env.spec}.")
+        # build a hash of the environment contents
+        envhash.update(env.hash().encode())
 
     # ── From here, we use the formatter instead of hardcoded print() ──
 
@@ -233,48 +245,35 @@ def containerize(workflow, dag, fmt="dockerfile"):
     generate_env_cmds = []
     generated = set()
 
-    # curl is needed for Apptainer whenever remote env files are fetched in %post
-    needs_curl = fmt == "apptainer" and any(
-        not isinstance(env.file, LocalSourceFile) for env in envs
-    )
-    if needs_curl:
-        formatter.run_command("apt-get update")
-        formatter.run_command("apt-get install -y --no-install-recommends curl")
-
-    for env in envs:
-        if env.content_hash in generated:
+    for env in sorted_envs:
+        if env.hash() in generated:
+            # another conda env with the same content was generated before
             continue
-        prefix = Path(CONDA_ENV_PATH) / env.content_hash
-        env_source_path = relfile(env)
+        prefix = get_containerized_path(env)
+        env_source_path = relfile(env.spec.envfile.path_or_uri)
         env_target_path = prefix / "environment.yaml"
-
-        formatter.comment(f"Conda environment:")
+        with open(env.spec.envfile.cached, "r") as f:
+            env_content = f.read()
+        formatter.comment("Conda environment:")
         formatter.comment(f"  source: {env_source_path}")
         formatter.comment(f"  prefix: {prefix}")
-        for line in env.content.decode().strip().split("\n"):
+        for line in env_content.strip().split("\n"):
             formatter.comment(f"  {line}")
-
         formatter.run_command(f"mkdir -p {prefix}")
 
-        if isinstance(env.file, LocalSourceFile):
+        if is_local_file(env_source_path):
             formatter.copy_file(env_source_path, env_target_path)
         else:
-            formatter.add_remote_file(
-                env.file.get_path_or_uri(secret_free=True), env_target_path
-            )
+            formatter.write_file(env_content, env_target_path)
 
         generate_env_cmds.append(
             f"conda env create --prefix {prefix} --file {env_target_path} &&"
         )
-        generated.add(env.content_hash)
+        generated.add(env.hash())
 
     # Step 3: Generate conda environments (was lines 111-112)
     if generate_env_cmds:
         formatter.run_combined(generate_env_cmds, "conda clean --all -y")
-
-    # Remove lists to reduce image size
-    if needs_curl:
-        formatter.run_command("rm -rf /var/lib/apt/lists/*")
 
     # For Apptainer, print the collected sections at the end
     if hasattr(formatter, "finish"):
