@@ -33,6 +33,12 @@ class AbstractOutputFileCache:
             self.cache_location = os.environ[LOCATION_ENVVAR]
         except KeyError:
             raise MissingOutputFileCachePathException()
+
+        try:
+            Path(self.cache_location).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            self.raise_write_error(self.cache_location, e)
+
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod
