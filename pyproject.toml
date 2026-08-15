@@ -264,12 +264,11 @@ xorg-libxdmcp = "*"
 xorg-libsm = "*"
 stress-ng = "*"
 nodejs = "*"
+squashfuse = ">=0.6.2"  # enable conda installation in container.
 cwltool = "*"
 cwl-utils = "*"
-# apptainer is installed at the system level in CI via
-# eWaterCycle/setup-apptainer, see .github/workflows/main.yml. The conda-forge
-# squashfuse (pulled in as an apptainer dependency) deadlocks FUSE mounts of SIF
-# images, so it must not be on PATH here.
+# # moved to pixi from main.yaml installing via apt
+apptainer = "*"
 git = "*"
 wget = "*"
 dash = "*"
