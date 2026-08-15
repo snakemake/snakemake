@@ -183,13 +183,24 @@ def test_wrapper_local_git_prefix():
         )
 
 
+# skip for container in conda-forge (see https://github.com/conda-forge/squashfuse-feedstock/issues/21)
+# @skip_on_windows
+# @connected
+# @conda
+# def test_singularity_conda():
+#     run(
+#         dpath("test_singularity_conda"),
+#         deployment_method={"conda", "container"},
+#     )
+
+
 @skip_on_windows
 @connected
 @conda
-def test_singularity_conda():
+def test_udocker_conda():
     run(
-        dpath("test_singularity_conda"),
-        deployment_method={"conda", "container"},
+        dpath("test_udocker_conda"),
+        deployment_method={"conda", "udocker"},
     )
 
 
