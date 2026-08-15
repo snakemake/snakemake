@@ -95,12 +95,6 @@ jobs:
               >/etc/sysctl.d/90-disable-userns-restrictions.conf'
           sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
-      - name: Setup Apptainer (os='Linux')
-        if: runner.os == 'Linux'
-        uses: eWaterCycle/setup-apptainer@v2
-        with:
-          apptainer-version: 1.5.3
-
       - name: Setup MinIO for AWS S3 testing (os='Linux', for AWS S3 testing)
         if: runner.os == 'Linux'
         uses: comfuture/minio-action@v1
