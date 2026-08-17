@@ -178,7 +178,7 @@ class Workflow(WorkflowExecutorInterface):
     _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
-    start_time: datetime = datetime.now()
+    start_time: datetime = field(default_factory=datetime.now)
 
     def __post_init__(self):
         """
