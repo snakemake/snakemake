@@ -185,7 +185,9 @@ class shell:
             # implicitly via the rule func context, which is added here.
             context = func_context
         else:
-            if "snakemake" in func_context:
+            if "snakemake" in func_context and hasattr(
+                func_context["snakemake"], "threads"
+            ):
                 # We are called from a script/wrapper.
                 # Infer threads from snakemake object, so that env variables like
                 # OMP_NUM_THREADS have reasonable defaults instead of 1
