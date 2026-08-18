@@ -105,9 +105,6 @@ class Rule(RuleInterface):
         self._params = Params()
         self._wildcard_constraints = dict()
         self.dependencies = dict()
-        self.temp_output = set()
-        self.protected_output = set()
-        self.touch_output = set()
         self.shadow_depth = None
         self.resources: Resources | None = None
         self.priority = 0
@@ -541,15 +538,6 @@ class Rule(RuleInterface):
             _item = IOFile(item, rule=self)
             _item.check()
 
-            if is_flagged(item, "temp"):
-                if output:
-                    self.temp_output.add(_item)
-            if is_flagged(item, "protected"):
-                if output:
-                    self.protected_output.add(_item)
-            if is_flagged(item, "touch"):
-                if output:
-                    self.touch_output.add(_item)
             if is_flagged(item, "report"):
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
