@@ -429,6 +429,8 @@ class Rule(RuleInterface):
                 newitem.clone_flags(item)
             self.output[i] = newitem
 
+        self.output._take_names(list(self.output._get_names()))
+
     def _update_item_wildcard_constraints(self, item):
         if not (self.wildcard_constraints or self.workflow.wildcard_constraints):
             return item
