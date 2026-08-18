@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [9.25.2](https://github.com/snakemake/snakemake/compare/v9.25.1...v9.25.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* in scripts/wrappers using shell(), auto-infer thread count from … ([#4282](https://github.com/snakemake/snakemake/issues/4282)) ([3dbad53](https://github.com/snakemake/snakemake/commit/3dbad53fbfcbb48c7c71bdc3dab20bf2f4ba0a7e))
+* scoped module container directive ([#4184](https://github.com/snakemake/snakemake/issues/4184)) ([06656ef](https://github.com/snakemake/snakemake/commit/06656efee0dc14168b53830600ac1e5e88ff94bb))
+* touch and wildcard_constraints ([#4283](https://github.com/snakemake/snakemake/issues/4283)) ([500df04](https://github.com/snakemake/snakemake/commit/500df04c9c3419affb2054181bde3540a22ab244))
+
 ## [9.25.1](https://github.com/snakemake/snakemake/compare/v9.25.0...v9.25.1) (2026-08-04)
 
 
