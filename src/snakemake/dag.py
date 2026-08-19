@@ -533,11 +533,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             )
                             cleaned.add(f)
 
+    def running(self, job) -> bool:
+        """
+        Return whether the given job, or the group it belongs to, is currently
+        running. A job remains registered as running while its outputs are being
+        postprocessed, including storage handling, until DAG.finish() is called.
+        """
+        if job in self._running:
+            return True
+        group = self._group.get(job)
+        return group is not None and group in self._running
+
     async def sanitize_local_storage_copies(self):
         """Remove local copies of storage files that will be recreated in this run."""
         async with asyncio.TaskGroup() as tg:
             for job in self.needrun_jobs():
-                if not self.finished(job):
+                if not self.running(job):
                     for f in job.output:
                         if f.is_storage and await f.exists_local():
                             tg.create_task(
