@@ -369,6 +369,8 @@ class Rule(RuleInterface):
         for name, item in kwoutput.items():
             self._set_inoutput_item(item, output=True, name=name)
 
+        self.update_wildcard_constraints()
+
         for item in self.output:
             self.register_wildcards(item)
         # Check output file name list for duplicates
@@ -517,7 +519,6 @@ class Rule(RuleInterface):
                 self.dependencies[item] = rule_dependency
 
             if output:
-                item = self._update_item_wildcard_constraints(item)
                 if self.workflow.storage_settings.all_temp:
                     # mark as temp if all output files shall be marked as temp
                     item = flag(item, "temp")
