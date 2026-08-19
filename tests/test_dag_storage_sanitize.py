@@ -42,9 +42,7 @@ def mock_dag():
     return dag
 
 
-def test_sanitize_removes_local_copy_of_unfinished_nonrunning_job(
-    tmp_path, mock_dag
-):
+def test_sanitize_removes_local_copy_of_unfinished_nonrunning_job(tmp_path, mock_dag):
     """An unfinished, non-running job should still have its local copy removed.
 
     Such an output is going to be recreated by this invocation, so removing
@@ -87,9 +85,7 @@ def test_sanitize_keeps_local_copy_of_running_job(tmp_path, mock_dag):
     assert local_copy.exists()
 
 
-def test_sanitize_removes_local_copy_of_nonrunning_group_job(
-    tmp_path, mock_dag
-):
+def test_sanitize_removes_local_copy_of_nonrunning_group_job(tmp_path, mock_dag):
     """Group membership alone must not preserve a stale local storage copy.
 
     Only jobs whose group is actually running should be protected from
@@ -131,4 +127,3 @@ def test_sanitize_keeps_local_copy_of_running_group_job(tmp_path, mock_dag):
     _run(mock_dag.sanitize_local_storage_copies())
 
     assert local_copy.exists()
-

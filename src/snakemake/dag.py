@@ -541,7 +541,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         """
         if job in self._running:
             return True
-        group = self._group.get(job)
+        group = self.get_job_group(job)
         return group is not None and group in self._running
 
     async def sanitize_local_storage_copies(self):
