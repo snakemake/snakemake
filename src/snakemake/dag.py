@@ -535,14 +535,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     def running(self, job) -> bool:
         """
-        Return whether the given job, or the group it belongs to, is currently
-        running. A job remains registered as running while its outputs are being
-        postprocessed, including storage handling, until DAG.finish() is called.
+        Return whether the given job, or a running group containing it, is
+        currently running.
         """
         if job in self._running:
             return True
-        group = self.get_job_group(job)
-        return group is not None and group in self._running
+        return any(
+            running_job.is_group() and job in running_job
+            for running_job in self._running
+        )
 
     async def sanitize_local_storage_copies(self):
         """Remove local copies of storage files that will be recreated in this run."""

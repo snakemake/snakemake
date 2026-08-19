@@ -38,7 +38,6 @@ def mock_dag():
     dag._finished = set()
     dag._needrun = set()
     dag._running = set()
-    dag._group = {}
     return dag
 
 
@@ -86,20 +85,22 @@ def test_sanitize_keeps_local_copy_of_running_job(tmp_path, mock_dag):
 
 
 def test_sanitize_removes_local_copy_of_nonrunning_group_job(tmp_path, mock_dag):
-    """Group membership alone must not preserve a stale local storage copy.
+    """A running group that doesn't contain this job must not preserve it.
 
-    Only jobs whose group is actually running should be protected from
-    sanitation.
+    Only jobs that are members of an actually running group should be
+    protected from sanitation.
     """
     local_copy = tmp_path / "output.mmi"
     local_copy.write_text("stale")
 
     job = MagicMock()
     job.output = [_make_storage_iofile(str(local_copy))]
-    group = MagicMock()
+    other_group = MagicMock()
+    other_group.is_group.return_value = True
+    other_group.__contains__.return_value = False
 
     mock_dag._needrun.add(job)
-    mock_dag._group[job] = group
+    mock_dag._running.add(other_group)
 
     _run(mock_dag.sanitize_local_storage_copies())
 
@@ -119,9 +120,10 @@ def test_sanitize_keeps_local_copy_of_running_group_job(tmp_path, mock_dag):
     job = MagicMock()
     job.output = [_make_storage_iofile(str(local_copy))]
     group = MagicMock()
+    group.is_group.return_value = True
+    group.__contains__.side_effect = lambda j: j is job
 
     mock_dag._needrun.add(job)
-    mock_dag._group[job] = group
     mock_dag._running.add(group)
 
     _run(mock_dag.sanitize_local_storage_copies())
