@@ -1,7 +1,7 @@
 from pathlib import PosixPath
 
-from snakemake.io import WILDCARD_REGEX, expand
-from snakemake.exceptions import WildcardError
+from snakemake.io import WILDCARD_REGEX, IOFile, expand, temp
+from snakemake.exceptions import WildcardError, WorkflowError
 
 
 def test_wildcard_regex():
@@ -105,3 +105,33 @@ def test_expand():
 
     # expand on pathlib.Path objects
     assert expand(PosixPath() / "{x}" / "{y}", x="Hello", y="world") == ["Hello/world"]
+
+
+def test_iofile_format_raises_on_flagged_file():
+    """.format() on a flagged _IOFile (e.g. temp(), storage.s3()) must not silently drop the
+    flag. It's an inherited plain str.format() call, which has no notion of flags at all and
+    returns a bare str -- unlike apply_wildcards(), which snakemake's own expand() uses
+    internally and which correctly preserves flags across wildcard substitution. Mirrors the
+    existing guard in expand() itself (see test_expand's lack of coverage for this -- expand()
+    raises WorkflowError for an already-flagged pattern rather than silently mishandling it;
+    .format() previously had no equivalent protection)."""
+    flagged = IOFile(temp("results/{sample}.txt"), rule=None)
+
+    # apply_wildcards() is the correct, flag-preserving way to do this -- confirm it actually
+    # works as the baseline this test is protecting.
+    substituted = flagged.apply_wildcards({"sample": "foo"})
+    assert substituted == "results/foo.txt"
+    assert substituted.is_temp
+
+    # .format() must refuse rather than silently return an unflagged (and not even _IOFile)
+    # result.
+    try:
+        flagged.format(sample="foo")
+        assert False, ".format() on a flagged _IOFile should raise WorkflowError"
+    except WorkflowError:
+        pass
+
+    # a plain, unflagged file has nothing to lose, so .format() keeps working as ordinary
+    # str.format() -- this override must not affect the common, harmless case.
+    unflagged = IOFile("results/{sample}.txt", rule=None)
+    assert unflagged.format(sample="foo") == "results/foo.txt"
