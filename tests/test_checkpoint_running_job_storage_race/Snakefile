@@ -1,0 +1,50 @@
+# Regression test for a race between checkpoint dependency resolution and an
+# unrelated, still-running job that has a storage output (see
+# DAG.sanitize_local_storage_copies() / DAG.running() in dag.py).
+#
+# slow_storage_job writes its output immediately, then sleeps well past the
+# point where the checkpoint below will have finished and triggered a
+# checkpoint-dependency DAG update (DAG.update_checkpoint_dependencies() ->
+# DAG.postprocess() -> DAG.sanitize_local_storage_copies()). Since
+# slow_storage_job's shell process has not yet exited, Snakemake has not
+# called DAG.finish() on it -- so it is still "running" and not yet
+# "finished" -- while its local output file already exists on disk. Without
+# DAG.running() guarding sanitize_local_storage_copies(), that local copy
+# gets deleted out from under the still-running job, and the job later fails
+# with a spurious "output file ... (missing locally)" error.
+#
+# This only needs to outlast the checkpoint's own (fast, in-process) shell
+# command and dependency-resolution bookkeeping, not any configurable
+# Snakemake setting -- it is unrelated to e.g. --latency-wait.
+SLOW_JOB_SLEEP_SECONDS = 5
+
+
+rule all:
+    input:
+        local("combined.done"),
+        "slow_output.txt",
+
+
+checkpoint make_chunk:
+    output:
+        local("chunk.done")
+    shell:
+        "touch {output}"
+
+
+def combine_input(wildcards):
+    return checkpoints.make_chunk.get().output[0]
+
+
+rule combine:
+    input:
+        combine_input
+    output:
+        local(touch("combined.done"))
+
+
+rule slow_storage_job:
+    output:
+        "slow_output.txt"
+    shell:
+        "echo hello > {output} && sleep {SLOW_JOB_SLEEP_SECONDS}"
