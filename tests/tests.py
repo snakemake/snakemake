@@ -1898,6 +1898,18 @@ def test_output_file_cache_storage(s3_storage):
     )
 
 
+def test_output_file_cache_creates_cache_directory(tmp_path, monkeypatch):
+    from snakemake.caching.local import OutputFileCache
+
+    cache_dir = tmp_path / "nested" / "cache"
+    assert not cache_dir.exists()
+
+    monkeypatch.setenv("SNAKEMAKE_OUTPUT_CACHE", str(cache_dir))
+    OutputFileCache()
+
+    assert cache_dir.is_dir()
+
+
 @pytest.mark.parametrize("executor", ["dryrun", "touch"])
 @patch("snakemake.dag.DAG.retrieve_storage_inputs", new_callable=AsyncMock)
 def test_storage_noretrieve_dryrun_or_touch(mock_retrieve_storage_inputs, executor):
