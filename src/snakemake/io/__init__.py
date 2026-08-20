@@ -896,6 +896,23 @@ class _IOFile(str, AnnotatedStringInterface):
             with open(file, "w") as f:
                 pass
 
+    def format(self, *args, **kwargs):
+        """Override str.format() to guard against silently dropping flags."""
+        from snakemake.path_modifier import PATH_MODIFIER_FLAG
+
+        significant_flags = {
+            key: value for key, value in self.flags.items() if key != PATH_MODIFIER_FLAG
+        }
+        if significant_flags:
+            raise WorkflowError(
+                f"Flags ({significant_flags}) on file '{self}' would be silently lost by "
+                "calling .format() on it (str.format() has no notion of flags such as "
+                "storage.s3(), temp(), or directory(), and does not preserve them). Use "
+                ".apply_wildcards(wildcards_dict) instead, which is the flag-preserving "
+                "equivalent for substituting wildcards into a single file pattern."
+            )
+        return super().format(*args, **kwargs)
+
     def apply_wildcards(self, wildcards):
         f = self._file
 
