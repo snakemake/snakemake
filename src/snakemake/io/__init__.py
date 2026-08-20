@@ -901,9 +901,7 @@ class _IOFile(str, AnnotatedStringInterface):
         from snakemake.path_modifier import PATH_MODIFIER_FLAG
 
         significant_flags = {
-            key: value
-            for key, value in self.flags.items()
-            if key != PATH_MODIFIER_FLAG
+            key: value for key, value in self.flags.items() if key != PATH_MODIFIER_FLAG
         }
         if significant_flags:
             raise WorkflowError(
