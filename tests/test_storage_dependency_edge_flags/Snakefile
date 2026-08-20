@@ -1,0 +1,46 @@
+storage:
+    provider="s3",
+    retries=5
+
+
+REMOTE = f"{config['s3_prefix']}/producer.txt"
+
+
+rule all:
+    input:
+        "downstream.txt"
+
+
+rule producer:
+    output:
+        remote=storage.s3(REMOTE)
+    shell:
+        r"""
+        # Make a spurious second execution fail loudly.
+        test ! -e producer.ran
+        touch producer.ran
+        printf 'producer\n' > {output.remote}
+        """
+
+
+def stale_producer_edge(wildcards):
+    # Build the producer's concrete local staging path correctly, then
+    # intentionally drop the _IOFile flags. This models the stale edge
+    # observed after checkpoint DAG rewriting: same path, flags == {}.
+    canonical = rules.producer.output.remote.apply_wildcards({})
+    assert canonical.is_storage
+    return str(canonical)
+
+
+rule consumer:
+    input:
+        # Ordering is intentional. _IOFile equality/hash is path-based, so
+        # when equal dependency-edge paths are deduplicated, the first object
+        # can survive. The second input is the correct storage-aware view and
+        # also makes the workflow executable after the producer is skipped.
+        stale=stale_producer_edge,
+        good=storage.s3(REMOTE)
+    output:
+        "downstream.txt"
+    shell:
+        "cat {input.good} > {output}"

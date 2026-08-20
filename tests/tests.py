@@ -857,6 +857,51 @@ def test_storage(s3_storage):
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
 @pytest.mark.needs_s3
+def test_storage_output_not_missing_via_unflagged_dependency_edge(s3_storage):
+    """A stale consumer edge must not override producer storage semantics."""
+    prefix, settings = s3_storage
+    path = dpath("test_storage_dependency_edge_flags")
+
+    # First invocation materializes producer.txt in S3 and records metadata.
+    tmpdir = run(
+        path,
+        cores=1,
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+        check_results=False,
+        cleanup=False,
+    )
+    assert tmpdir is not None
+
+    try:
+        assert (tmpdir / "producer.ran").exists()
+
+        # Model a fresh machine/invocation: provenance remains, but the local
+        # storage staging cache does not. Force only the consumer to needrun.
+        shutil.rmtree(tmpdir / ".snakemake" / "storage", ignore_errors=True)
+        (tmpdir / "downstream.txt").unlink()
+
+        # Correct behavior: consumer reruns, producer is recognized as already
+        # present in storage. Buggy behavior: update_needrun() checks the stale
+        # unflagged edge locally, schedules producer again, and producer's
+        # sentinel makes this invocation fail.
+        run(
+            path,
+            cores=1,
+            config={"s3_prefix": prefix},
+            storage_provider_settings=settings,
+            check_results=False,
+            cleanup=False,
+            tmpdir=tmpdir,
+        )
+
+        assert (tmpdir / "downstream.txt").read_text() == "producer\n"
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+@skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_storage_call(s3_storage):
     prefix, settings = s3_storage
 
