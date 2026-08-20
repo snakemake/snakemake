@@ -1493,8 +1493,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             files.update(
                                 f for f in job.products() if f in self.targetfiles
                             )
+                    canonical = {str(f): f for f in job.output}
+                    canonical_files = [canonical.get(str(f), f) for f in files]
                     reason.missing_output.update(
-                        [f async for f in job.missing_output(files)]
+                        [f async for f in job.missing_output(canonical_files)]
                     )
             if not reason:
                 output_mintime_ = output_mintime.get(job)
@@ -1636,7 +1638,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
                 for job_, files in dependencies[job].items():
                     if job_ in candidates_set:
-                        missing_output = [f async for f in job_.missing_output(files)]
+                        canonical = {str(f): f for f in job_.output}
+                        canonical_files = [canonical.get(str(f), f) for f in files]
+                        missing_output = [
+                            f async for f in job_.missing_output(canonical_files)
+                        ]
                         reason(job_).missing_output.update(missing_output)
                         if missing_output and job_ not in visited:
                             logger.debug(
