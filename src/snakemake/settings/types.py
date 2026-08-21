@@ -4,8 +4,8 @@ from functools import cached_property
 import os
 from pathlib import Path
 import re
-from typing import Any, Callable, Optional, TypeAlias, Union
-from typing import Mapping, Sequence, Set
+from typing import Callable, Optional, TypeAlias, Union
+from typing import Mapping, Sequence
 
 import immutables
 
