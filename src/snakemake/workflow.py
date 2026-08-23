@@ -1552,6 +1552,11 @@ class Workflow(WorkflowExecutorInterface):
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onerror(self.logger_manager.get_logfile())
                 self.logger_manager.logfile_hint()
+                if self.execution_settings.keep_incomplete:
+                    logger.warning(
+                        "--keep-incomplete mode is set, so incomplete output files "
+                        "and shadow directories of failed jobs are not removed."
+                    )
                 raise WorkflowError("At least one job did not complete successfully.")
 
     def log_metadata_info(self, metadata_attr, description):
