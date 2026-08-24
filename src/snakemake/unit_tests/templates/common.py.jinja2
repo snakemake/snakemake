@@ -5,7 +5,7 @@ Common code for unit testing of rules generated with Snakemake {{ version }}.
 import os
 import pytest
 from pathlib import Path
-from subprocess import check_output, CalledProcessError, PIPE
+from subprocess import check_output, CalledProcessError, STDOUT
 
 
 cmp_cmds = {
@@ -58,7 +58,8 @@ class OutputChecker:
             check_output(
                 cmp_cmds.get(expected_file.suffix, ["cmp"])
                 + [expected_file, generated_file],
-                stderr=PIPE,
+                stderr=STDOUT,
+                text=True,
             )
         except CalledProcessError as e:
             pytest.fail(
