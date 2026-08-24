@@ -1694,6 +1694,22 @@ def test_checkpoint_missing_output():
     run(dpath("test_checkpoint_missing_output"), cleanup=False, tmpdir=tmpdir)
 
 
+@skip_on_windows
+@pytest.mark.needs_s3
+def test_checkpoint_storage(s3_storage):
+    prefix, settings = s3_storage
+    storage_kwargs = dict(
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
+        check_results=False,
+        cleanup=False,
+    )
+    tmpdir = run(dpath("test_checkpoint_storage"), **storage_kwargs)
+    # second run fails currently
+    run(dpath("test_checkpoint_storage"), tmpdir=tmpdir, **storage_kwargs)
+
+
 def test_issue1092():
     run(dpath("test_issue1092"))
 

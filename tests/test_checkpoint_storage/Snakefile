@@ -1,0 +1,32 @@
+rule all:
+    input:
+        "result.txt"
+
+
+checkpoint items:
+    output:
+        "items.txt"
+    shell:
+        "printf 'a\\nb\\n' > {output}"
+
+
+rule item:
+    output:
+        "items/{name}.txt"
+    shell:
+        "touch {output}"
+
+
+def collect(wildcards):
+    with open(checkpoints.items.get().output[0]) as f:
+        names = f.read().split()
+    return expand("items/{name}.txt", name=names)
+
+
+rule result:
+    input:
+        collect
+    output:
+        "result.txt"
+    shell:
+        "cat {input} > {output}"
