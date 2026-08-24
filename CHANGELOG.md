@@ -1,6 +1,50 @@
 # Changelog
 
 
+## [9.25.2](https://github.com/snakemake/snakemake/compare/v9.25.1...v9.25.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* in scripts/wrappers using shell(), auto-infer thread count from … ([#4282](https://github.com/snakemake/snakemake/issues/4282)) ([3dbad53](https://github.com/snakemake/snakemake/commit/3dbad53fbfcbb48c7c71bdc3dab20bf2f4ba0a7e))
+* scoped module container directive ([#4184](https://github.com/snakemake/snakemake/issues/4184)) ([06656ef](https://github.com/snakemake/snakemake/commit/06656efee0dc14168b53830600ac1e5e88ff94bb))
+* touch and wildcard_constraints ([#4283](https://github.com/snakemake/snakemake/issues/4283)) ([500df04](https://github.com/snakemake/snakemake/commit/500df04c9c3419affb2054181bde3540a22ab244))
+
+## [9.25.1](https://github.com/snakemake/snakemake/compare/v9.25.0...v9.25.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* fix f-string parsing at file end ([#4269](https://github.com/snakemake/snakemake/issues/4269)) ([eab8d26](https://github.com/snakemake/snakemake/commit/eab8d2639b3bb7ff7737c68dd6d281d72c5630d2))
+
+## [9.25.0](https://github.com/snakemake/snakemake/compare/v9.24.0...v9.25.0) (2026-08-04)
+
+
+### Features
+
+* allow first positional parameter of lookup function to be used as both query and dpath ([#4263](https://github.com/snakemake/snakemake/issues/4263)) ([08d1d26](https://github.com/snakemake/snakemake/commit/08d1d26baa2e1f863e6a0b997fd823db9607bab6))
+
+### Bug Fixes
+
+* revert to defaulting to pandas <3.0 as optional dependency, in order to maintain compatibility with workflows that share pandas objects between the main workflow and python scripts
+
+## [9.24.0](https://github.com/snakemake/snakemake/compare/v9.23.1...v9.24.0) (2026-07-30)
+
+
+### Features
+
+* allow to combine cases with otherwise in branch function ([#4262](https://github.com/snakemake/snakemake/issues/4262)) ([000ff52](https://github.com/snakemake/snakemake/commit/000ff52112589fd0e02820bed6356f9946046188))
+
+
+### Bug Fixes
+
+* avoid config hash crash for non-serializable values ([#4241](https://github.com/snakemake/snakemake/issues/4241)) ([1a27746](https://github.com/snakemake/snakemake/commit/1a2774645a599d6c7d0589a048b64023b360c7d3))
+* compilation error when final line contains an f-string ([#4234](https://github.com/snakemake/snakemake/issues/4234)) ([9c5e7fe](https://github.com/snakemake/snakemake/commit/9c5e7fea607ecf30e7fbfa47bfc9d54565b170ef))
+* Group error log formatting ([#4256](https://github.com/snakemake/snakemake/issues/4256)) ([bb6dcde](https://github.com/snakemake/snakemake/commit/bb6dcde4d951bb495267258935dc21813e63f266))
+* leak of benchmark monitor threads ([#4259](https://github.com/snakemake/snakemake/issues/4259)) ([d37852e](https://github.com/snakemake/snakemake/commit/d37852e01f11206446c9618aa6c6f0dfa84ed9e5))
+* no benchmark warning when a process exits before it can be sampled ([#4260](https://github.com/snakemake/snakemake/issues/4260)) ([6738359](https://github.com/snakemake/snakemake/commit/6738359fb5c3f2b1a53d951595d44edd2bfd7ce9))
+* persistence starttime unset/defaults ([#4251](https://github.com/snakemake/snakemake/issues/4251)) ([56395c0](https://github.com/snakemake/snakemake/commit/56395c0edc2fb3eca5fc80b28b43a0113a5e6bc0))
+
 ## [9.23.1](https://github.com/snakemake/snakemake/compare/v9.23.0...v9.23.1) (2026-06-17)
 
 

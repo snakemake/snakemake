@@ -504,6 +504,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_config_non_json_serializable():
+    run(dpath("test_config"), config={"path_value": Path("data")})
+
+
 def test_update_config():
     run(dpath("test_update_config"))
 
@@ -1032,6 +1036,14 @@ def test_issue805():
 
 def test_issue823_1():
     run(dpath("test_issue823_1"))
+
+
+def test_function_f_string():
+    run(dpath("test_function_f_string"), executor="dryrun", check_results=False)
+
+
+def test_function_f_string_newline():
+    run(dpath("test_function_f_string_newline"), executor="dryrun", check_results=False)
 
 
 @skip_on_windows
@@ -2615,6 +2627,44 @@ def test_localrule():
 @skip_on_windows
 def test_module_wildcard_constraints():
     run(dpath("test_module_wildcard_constraints"))
+
+
+def test_module_global_container():
+    """Test that a module's top-level container: directive does not overwrite
+    the master workflow's container: directive, and that each scope's rules
+    get the correct container image."""
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    test_path = dpath("test_module_global_container")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            config_settings=settings.ConfigSettings(),
+            storage_settings=settings.StorageSettings(),
+            workflow_settings=settings.WorkflowSettings(),
+            deployment_settings=settings.DeploymentSettings(),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
+        )
+        workflow = workflow_api._workflow
+
+        rules_by_name = {rule.name: rule for rule in workflow.rules}
+
+        # The module rule should get the module's container image
+        assert rules_by_name["a"].container_img == "docker://module_image", (
+            f"Module rule 'a' has container_img={rules_by_name['a'].container_img!r}, "
+            f"expected 'docker://module_image'"
+        )
+
+        # The master rule should get the master's container image
+        assert rules_by_name["all"].container_img == "docker://master_image", (
+            f"Master rule 'all' has container_img={rules_by_name['all'].container_img!r}, "
+            f"expected 'docker://master_image'"
+        )
 
 
 @skip_on_windows

@@ -285,11 +285,11 @@ class Job(
         self._queue_input = set()
         for f in self.output:
             f_ = output_mapping[f]
-            if f_ in self.rule.temp_output:
+            if is_flagged(f_, "temp"):
                 self.temp_output.add(f)
-            if f_ in self.rule.protected_output:
+            if is_flagged(f_, "protected"):
                 self.protected_output.add(f)
-            if f_ in self.rule.touch_output:
+            if is_flagged(f_, "touch"):
                 self.touch_output.add(f)
             if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
                 self.pipe_or_service_output.add(f)

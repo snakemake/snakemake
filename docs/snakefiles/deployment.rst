@@ -574,7 +574,7 @@ For example, you can write
 
 .. code-block:: python
 
-    container: "docker://continuumio/miniconda3:4.4.10"
+    container: "docker://condaforge/miniforge3:26.3.2-3"
 
     rule NAME:
         input:
