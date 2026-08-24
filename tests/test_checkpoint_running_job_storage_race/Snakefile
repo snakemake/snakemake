@@ -1,6 +1,6 @@
 # Regression test for a race between checkpoint dependency resolution and an
 # unrelated, still-running job that has a storage output (see
-# DAG.sanitize_local_storage_copies() / DAG.running() in dag.py).
+# DAG.sanitize_local_storage_copies() / DAG.is_running() in dag.py).
 #
 # slow_storage_job writes its output immediately, then sleeps well past the
 # point where the checkpoint below will have finished and triggered a
