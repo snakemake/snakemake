@@ -9,7 +9,7 @@
 # slow_storage_job's shell process has not yet exited, Snakemake has not
 # called DAG.finish() on it -- so it is still "running" and not yet
 # "finished" -- while its local output file already exists on disk. Without
-# DAG.running() guarding sanitize_local_storage_copies(), that local copy
+# DAG.is_running() guarding sanitize_local_storage_copies(), that local copy
 # gets deleted out from under the still-running job, and the job later fails
 # with a spurious "output file ... (missing locally)" error.
 #
