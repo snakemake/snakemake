@@ -533,7 +533,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             )
                             cleaned.add(f)
 
-    def running(self, job) -> bool:
+    def is_running(self, job) -> bool:
         """
         Return whether the given job, or a running group containing it, is
         currently running.
