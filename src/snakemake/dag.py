@@ -549,7 +549,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         """Remove local copies of storage files that will be recreated in this run."""
         async with asyncio.TaskGroup() as tg:
             for job in self.needrun_jobs():
-                if not self.running(job):
+                if not self.is_running(job):
                     for f in job.output:
                         if f.is_storage and await f.exists_local():
                             tg.create_task(
