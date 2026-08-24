@@ -53,8 +53,14 @@ class OutputChecker:
             self.compare_files(self.expected_path / f, self.workdir / f, cmp_cmds)
 
     def compare_files(self, expected_file, generated_file, cmp_cmds):
-        check_output(
-            cmp_cmds.get(expected_file.suffix, ["cmp"])
-            + [expected_file, generated_file],
-            stderr=PIPE,
-        )
+        try:
+            check_output(
+                cmp_cmds.get(expected_file.suffix, ["cmp"])
+                + [expected_file, generated_file],
+                stderr=PIPE,
+            )
+        except CalledProcessError as e:
+            pytest.fail(
+                f"{expected_file} differs:\n\n{e.output}",
+                pytrace=False,
+            )
