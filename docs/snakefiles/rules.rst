@@ -2318,10 +2318,9 @@ unless you reference parent directories relative to your workdir in a rule.
         shadow: "shallow"
         shell: "somecommand --other_outputs other.txt {input} {output}"
 
-Shadow directories are stored one per rule execution in ``.snakemake/shadow/``,
-and are cleared on successful execution.
-Consider running with the ``--cleanup-shadow`` argument every now and then
-to remove any remaining shadow directories from aborted jobs.
+Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on successful execution.
+For debugging purposes, ``--keep-incomplete`` command line argument can be used to keep the shadow directories of failed jobs.
+Consider running with the ``--cleanup-shadow`` argument every now and then to remove any remaining shadow directories from aborted jobs.
 The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 .. _snakefiles_retries:
