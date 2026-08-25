@@ -897,21 +897,27 @@ class _IOFile(str, AnnotatedStringInterface):
                 pass
 
     def format(self, *args, **kwargs):
-        """Override str.format() to guard against silently dropping flags."""
-        from snakemake.path_modifier import PATH_MODIFIER_FLAG
+        """Override str.format() to carry flags (e.g. temp(), directory()) over to the
+        formatted result, instead of silently dropping them as plain str.format() would.
 
-        significant_flags = {
-            key: value for key, value in self.flags.items() if key != PATH_MODIFIER_FLAG
-        }
-        if significant_flags:
+        storage_object is excluded: it embeds its own query string, which apply_wildcards()
+        rebuilds consistently with the substituted wildcards. str.format() has no notion of
+        that, so a storage-flagged file cannot be formatted this way and must go through
+        apply_wildcards() instead.
+        """
+        if self.is_storage:
             raise WorkflowError(
-                f"Flags ({significant_flags}) on file '{self}' would be silently lost by "
-                "calling .format() on it (str.format() has no notion of flags such as "
-                "storage.s3(), temp(), or directory(), and does not preserve them). Use "
-                ".apply_wildcards(wildcards_dict) instead, which is the flag-preserving "
-                "equivalent for substituting wildcards into a single file pattern."
+                f"Cannot call .format() on storage file '{self}': str.format() has no "
+                "notion of storage.s3() and similar flags, and would leave the storage "
+                "query out of sync with the substituted wildcards. Use "
+                ".apply_wildcards(wildcards_dict) instead, which rebuilds the storage "
+                "query correctly."
             )
-        return super().format(*args, **kwargs)
+        formatted = super().format(*args, **kwargs)
+        if self.flags:
+            formatted = AnnotatedString(formatted)
+            formatted.flags = self.flags.copy()
+        return formatted
 
     def apply_wildcards(self, wildcards):
         f = self._file

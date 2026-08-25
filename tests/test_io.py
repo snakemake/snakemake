@@ -1,7 +1,16 @@
 from pathlib import PosixPath
 
-from snakemake.io import WILDCARD_REGEX, IOFile, expand, temp
+from snakemake.io import (
+    WILDCARD_REGEX,
+    IOFile,
+    directory,
+    expand,
+    flag,
+    is_flagged,
+    temp,
+)
 from snakemake.exceptions import WildcardError, WorkflowError
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 
 
 def test_wildcard_regex():
@@ -107,31 +116,69 @@ def test_expand():
     assert expand(PosixPath() / "{x}" / "{y}", x="Hello", y="world") == ["Hello/world"]
 
 
-def test_iofile_format_raises_on_flagged_file():
-    """.format() on a flagged _IOFile (e.g. temp(), storage.s3()) must not silently drop the
-    flag. It's an inherited plain str.format() call, which has no notion of flags at all and
-    returns a bare str -- unlike apply_wildcards(), which snakemake's own expand() uses
-    internally and which correctly preserves flags across wildcard substitution. Mirrors the
-    existing guard in expand() itself (see test_expand's lack of coverage for this -- expand()
-    raises WorkflowError for an already-flagged pattern rather than silently mishandling it;
-    .format() previously had no equivalent protection)."""
+def test_iofile_format_preserves_flags():
+    """.format() on a flagged _IOFile (e.g. temp(), directory()) is an inherited plain
+    str.format() call, which has no notion of flags and used to silently return a bare str
+    with the flag gone entirely. It must instead carry the flags over to the formatted
+    result, mirroring what apply_wildcards() already does for wildcard substitution."""
     flagged = IOFile(temp("results/{sample}.txt"), rule=None)
 
-    # apply_wildcards() is the correct, flag-preserving way to do this -- confirm it actually
-    # works as the baseline this test is protecting.
-    substituted = flagged.apply_wildcards({"sample": "foo"})
-    assert substituted == "results/foo.txt"
-    assert substituted.is_temp
+    formatted = flagged.format(sample="foo")
+    assert formatted == "results/foo.txt"
+    assert is_flagged(formatted, "temp")
 
-    # .format() must refuse rather than silently return an unflagged (and not even _IOFile)
-    # result.
-    try:
-        flagged.format(sample="foo")
-        assert False, ".format() on a flagged _IOFile should raise WorkflowError"
-    except WorkflowError:
-        pass
-
-    # a plain, unflagged file has nothing to lose, so .format() keeps working as ordinary
+    # a plain, unflagged file has nothing to preserve, so .format() keeps working as ordinary
     # str.format() -- this override must not affect the common, harmless case.
     unflagged = IOFile("results/{sample}.txt", rule=None)
     assert unflagged.format(sample="foo") == "results/foo.txt"
+    assert not is_flagged(unflagged.format(sample="foo"), "temp")
+
+
+def test_iofile_format_preserves_multiple_flags():
+    flagged = IOFile(directory(temp("results/{sample}")), rule=None)
+
+    formatted = flagged.format(sample="foo")
+    assert formatted == "results/foo"
+    assert is_flagged(formatted, "temp")
+    assert is_flagged(formatted, "directory")
+
+
+def test_iofile_format_preserves_path_modifier_flag():
+    """CodeRabbit flagged that a file carrying only PATH_MODIFIER_FLAG would previously lose
+    that marker on .format(), because a plain str result has no flags at all -- risking the
+    path modifier being (re-)applied a second time downstream."""
+    flagged = IOFile(flag("results/{sample}.txt", PATH_MODIFIER_FLAG), rule=None)
+
+    formatted = flagged.format(sample="foo")
+    assert formatted == "results/foo.txt"
+    assert is_flagged(formatted, PATH_MODIFIER_FLAG)
+
+
+def test_iofile_format_raises_on_storage_file():
+    """storage_object embeds its own query string, which apply_wildcards() rebuilds
+    consistently with the substituted wildcards. .format() has no notion of that, so naively
+    copying the (unmodified) storage_object flag over to the formatted result would leave the
+    formatted local path paired with a stale, unformatted storage query. Until .format()
+    learns to rebuild that query itself, it must refuse rather than silently produce an
+    inconsistent storage file."""
+
+    class FakeStorageObject:
+        def __init__(self, query):
+            self.query = query
+
+    flagged_storage = IOFile(
+        flag(
+            "results/{sample}.txt",
+            "storage_object",
+            FakeStorageObject("s3://bucket/{sample}.txt"),
+        ),
+        rule=None,
+    )
+
+    try:
+        flagged_storage.format(sample="foo")
+        raise AssertionError(
+            ".format() on a storage-flagged _IOFile should raise WorkflowError"
+        )
+    except WorkflowError:
+        pass
