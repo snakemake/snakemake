@@ -2,6 +2,7 @@ from pathlib import PosixPath
 
 from snakemake.io import (
     WILDCARD_REGEX,
+    AnnotatedString,
     IOFile,
     directory,
     expand,
@@ -175,5 +176,60 @@ def test_iofile_format_raises_on_storage_file():
         raise AssertionError(
             ".format() on a storage-flagged _IOFile should raise WorkflowError"
         )
-    except WorkflowError:
-        pass
+    except WorkflowError as e:
+        # _IOFile has an apply_wildcards() alternative that AnnotatedString lacks, so
+        # it must get the more specific message pointing users to it.
+        assert "apply_wildcards" in str(e)
+
+
+def test_annotated_string_format_preserves_flags():
+    """temp(), directory(), etc. attach flags to a plain AnnotatedString before it is
+    ever wrapped as an _IOFile, so .format() can be called on it directly."""
+    flagged = temp("results/{sample}.txt")
+    assert isinstance(flagged, AnnotatedString)
+
+    formatted = flagged.format(sample="foo")
+    assert formatted == "results/foo.txt"
+    assert is_flagged(formatted, "temp")
+
+    # a plain, unflagged AnnotatedString has nothing to preserve, so .format() keeps
+    # working as ordinary str.format() -- this override must not affect that case.
+    unflagged = AnnotatedString("results/{sample}.txt")
+    assert unflagged.format(sample="foo") == "results/foo.txt"
+    assert not is_flagged(unflagged.format(sample="foo"), "temp")
+
+
+def test_annotated_string_format_preserves_multiple_flags():
+    flagged = directory(temp("results/{sample}"))
+    assert isinstance(flagged, AnnotatedString)
+
+    formatted = flagged.format(sample="foo")
+    assert formatted == "results/foo"
+    assert is_flagged(formatted, "temp")
+    assert is_flagged(formatted, "directory")
+
+
+def test_annotated_string_format_raises_on_storage_flag():
+    """Mirrors test_iofile_format_raises_on_storage_file(), but for the AnnotatedString
+    that storage() returns directly, before it is ever wrapped in an _IOFile."""
+
+    class FakeStorageObject:
+        def __init__(self, query):
+            self.query = query
+
+    flagged_storage = flag(
+        "results/{sample}.txt",
+        "storage_object",
+        FakeStorageObject("s3://bucket/{sample}.txt"),
+    )
+    assert isinstance(flagged_storage, AnnotatedString)
+
+    try:
+        flagged_storage.format(sample="foo")
+        raise AssertionError(
+            ".format() on a storage-flagged AnnotatedString should raise WorkflowError"
+        )
+    except WorkflowError as e:
+        # AnnotatedString has no apply_wildcards(), so it must not get the _IOFile-
+        # specific message that points users to it.
+        assert "apply_wildcards" not in str(e)
