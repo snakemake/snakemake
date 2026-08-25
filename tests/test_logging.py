@@ -413,7 +413,7 @@ def test_rule_failure(
             LogEvent.SHELLCMD: 3,
             LogEvent.RESOURCES_INFO: 2,
             LogEvent.JOB_STARTED: None,
-            LogEvent.JOB_ERROR: 6,
+            LogEvent.JOB_ERROR: 3,
         },
     )
 
@@ -453,7 +453,7 @@ def test_group_job_failure_events(
         event_counts,
         {
             LogEvent.GROUP_INFO: 3,
-            LogEvent.GROUP_ERROR: 6,
+            LogEvent.GROUP_ERROR: 3,
         },
         partial=True,
     )
