@@ -1549,12 +1549,12 @@ class Workflow(WorkflowExecutorInterface):
                     if not self.execution_settings.no_hooks:
                         self._onsuccess(self.logger_manager.get_logfile())
                     self.logger_manager.logfile_hint()
-                    logger.info(f"Elapsed time: {datetime.now() - self.start_time}")
+                    self.log_workflow_runtime()
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onerror(self.logger_manager.get_logfile())
                 self.logger_manager.logfile_hint()
-                logger.info(f"Elapsed time: {datetime.now() - self.start_time}")
+                self.log_workflow_runtime()
                 if self.execution_settings.keep_incomplete:
                     logger.warning(
                         "--keep-incomplete mode is set, so incomplete output files "
@@ -1608,6 +1608,10 @@ class Workflow(WorkflowExecutorInterface):
             )
         self.log_missing_metadata_info()
         self.log_outdated_metadata_info()
+
+    def log_workflow_runtime(self):
+        """Logs workflow running time."""
+        logger.info(f"Elapsed time: {datetime.now() - self.start_time}")
 
     @property
     def current_basedir(self):
