@@ -156,6 +156,7 @@ def test_iofile_format_preserves_path_modifier_flag():
 def test_iofile_format_raises_on_storage_file():
     """Storage flags cannot be copied after formatting because their
     query must remain consistent with the formatted local path."""
+
     class FakeStorageObject:
         def __init__(self, query):
             self.query = query
