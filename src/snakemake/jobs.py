@@ -723,7 +723,14 @@ class Job(
         return mintime
 
     async def missing_output(self, requested):
+        """Yield requested outputs that are missing."""
+        # requested may hold path-equal copies of our own output that lost
+        # their flags (e.g. storage).
+        output_by_path = {str(f): f for f in self.output}
+
         async def handle_file(f):
+            f = output_by_path.get(str(f), f)
+
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
             if (

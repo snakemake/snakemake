@@ -858,7 +858,7 @@ def test_storage(s3_storage):
 @skip_on_windows  # no minio deployment on windows implemented in our CI
 @pytest.mark.needs_s3
 def test_storage_output_not_missing_via_unflagged_dependency_edge(s3_storage):
-    """A stale consumer edge must not override producer storage semantics."""
+    """An unflagged consumer edge must not override producer storage semantics."""
     prefix, settings = s3_storage
     path = dpath("test_storage_dependency_edge_flags")
 
