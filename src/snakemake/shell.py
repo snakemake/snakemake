@@ -222,6 +222,14 @@ class shell:
                 # If this comes from a rule, we expect certain information to be passed
                 # implicitly via the rule func context, which is added here.
                 context = func_context
+            elif "snakemake" in func_context and hasattr(
+                func_context["snakemake"], "threads"
+            ):
+                # We are called from a script/wrapper.
+                # Infer threads from snakemake object, so that env variables like
+                # OMP_NUM_THREADS have reasonable defaults instead of 1
+                context = {"threads": func_context["snakemake"].threads}
+
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
 

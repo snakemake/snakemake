@@ -2641,6 +2641,44 @@ def test_module_wildcard_constraints():
     run(dpath("test_module_wildcard_constraints"))
 
 
+def test_module_global_container():
+    """Test that a module's top-level container: directive does not overwrite
+    the master workflow's container: directive, and that each scope's rules
+    get the correct container image."""
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    test_path = dpath("test_module_global_container")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            config_settings=settings.ConfigSettings(),
+            storage_settings=settings.StorageSettings(),
+            workflow_settings=settings.WorkflowSettings(),
+            deployment_settings=settings.DeploymentSettings(),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
+        )
+        workflow = workflow_api._workflow
+
+        rules_by_name = {rule.name: rule for rule in workflow.rules}
+
+        # The module rule should get the module's container image
+        assert rules_by_name["a"].container_img == "docker://module_image", (
+            f"Module rule 'a' has container_img={rules_by_name['a'].container_img!r}, "
+            f"expected 'docker://module_image'"
+        )
+
+        # The master rule should get the master's container image
+        assert rules_by_name["all"].container_img == "docker://master_image", (
+            f"Master rule 'all' has container_img={rules_by_name['all'].container_img!r}, "
+            f"expected 'docker://master_image'"
+        )
+
+
 @skip_on_windows
 def test_config_yte():
     run(dpath("test_config_yte"))
@@ -2895,6 +2933,21 @@ def test_scheduler_sequential_all_cores():
 def test_checkpoint_open():
     run(
         dpath("test_checkpoint_open"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+    )
+
+
+@skip_on_windows  # the fs storage plugin used here shells out to rsync, same as test_checkpoint_open
+def test_checkpoint_running_job_storage_race():
+    """DAG.sanitize_local_storage_copies() must not delete the local storage
+    copy of a job that is still running, e.g. because DAG postprocessing for
+    a concurrently finishing checkpoint is running while that job's own
+    output already exists locally but its completion has not yet been
+    processed by Snakemake. See DAG.is_running()."""
+    run(
+        dpath("test_checkpoint_running_job_storage_race"),
+        cores=4,
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
