@@ -144,9 +144,8 @@ def test_iofile_format_preserves_multiple_flags():
 
 
 def test_iofile_format_preserves_path_modifier_flag():
-    """CodeRabbit flagged that a file carrying only PATH_MODIFIER_FLAG would previously lose
-    that marker on .format(), because a plain str result has no flags at all -- risking the
-    path modifier being (re-)applied a second time downstream."""
+    """Formatting must preserve PATH_MODIFIER_FLAG to avoid applying
+    path modifiers twice."""
     flagged = IOFile(flag("results/{sample}.txt", PATH_MODIFIER_FLAG), rule=None)
 
     formatted = flagged.format(sample="foo")
@@ -155,13 +154,8 @@ def test_iofile_format_preserves_path_modifier_flag():
 
 
 def test_iofile_format_raises_on_storage_file():
-    """storage_object embeds its own query string, which apply_wildcards() rebuilds
-    consistently with the substituted wildcards. .format() has no notion of that, so naively
-    copying the (unmodified) storage_object flag over to the formatted result would leave the
-    formatted local path paired with a stale, unformatted storage query. Until .format()
-    learns to rebuild that query itself, it must refuse rather than silently produce an
-    inconsistent storage file."""
-
+    """Storage flags cannot be copied after formatting because their
+    query must remain consistent with the formatted local path."""
     class FakeStorageObject:
         def __init__(self, query):
             self.query = query
