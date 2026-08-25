@@ -2926,6 +2926,21 @@ def test_checkpoint_open():
     )
 
 
+@skip_on_windows  # the fs storage plugin used here shells out to rsync, same as test_checkpoint_open
+def test_checkpoint_running_job_storage_race():
+    """DAG.sanitize_local_storage_copies() must not delete the local storage
+    copy of a job that is still running, e.g. because DAG postprocessing for
+    a concurrently finishing checkpoint is running while that job's own
+    output already exists locally but its completion has not yet been
+    processed by Snakemake. See DAG.is_running()."""
+    run(
+        dpath("test_checkpoint_running_job_storage_race"),
+        cores=4,
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+    )
+
+
 def test_toposort():
     run(dpath("test_toposort"), check_results=False, executor="dryrun")
 
