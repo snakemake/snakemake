@@ -67,11 +67,9 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
 
     if isinstance(dict_like, (Namedlist, Mapping)):
         items = dict_like.items()
-
     else:
-        raise ValueError(
-            "bug: format_dict applied to something neither a dict nor a Namedlist"
-        )
+        raise ValueError("bug: format_dict applied to neither a dict nor a Namedlist")
+
     return ", ".join(
         f"{name}={value}"
         for name, value in items
@@ -91,7 +89,7 @@ def format_params(params) -> str:
     elif isinstance(params, Mapping):
         items = params.items()
     else:
-        raise ValueError("params neither a dict nor a Namedlist")
+        raise ValueError("bug: format_params applied to neither a dict nor a Namedlist")
 
     return ", ".join(f"{name}={value}" if name else str(value) for name, value in items)
 
