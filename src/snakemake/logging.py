@@ -81,6 +81,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
 format_wildcards = format_dict
+format_params = format_dict
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
@@ -280,7 +281,7 @@ SNAKEMAKE
         if wildcards:
             output.append(f"    wildcards: {wildcards}")
 
-        params = format_dict(msg["params"])
+        params = format_params(msg["params"])
         if params:
             output.append(f"    params: {params}")
 
