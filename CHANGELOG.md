@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [9.26.0](https://github.com/snakemake/snakemake/compare/v9.25.2...v9.26.0) (2026-08-26)
+
+
+### Features
+
+* output workflow total elapsed time to log ([#4279](https://github.com/snakemake/snakemake/issues/4279)) ([2dd3f2f](https://github.com/snakemake/snakemake/commit/2dd3f2fdd77968f46191e3428dbccdfe3b6927a4))
+
+
+### Bug Fixes
+
+* don't delete local storage copies of currently running jobs ([#4284](https://github.com/snakemake/snakemake/issues/4284)) ([49cc1d5](https://github.com/snakemake/snakemake/commit/49cc1d5ac37a4e6258c6fa77bd43a28c71b7f29f))
+* preserve flags when formatting _IOFile ([#4286](https://github.com/snakemake/snakemake/issues/4286)) ([4cbb7a6](https://github.com/snakemake/snakemake/commit/4cbb7a6ac1a1ae3b72452bee3027d29844a10166))
+* Snakemake sometimes checks the wrong copy of an output file's info, causing spurious reruns ([#4285](https://github.com/snakemake/snakemake/issues/4285)) ([66ee0ac](https://github.com/snakemake/snakemake/commit/66ee0acbf23f9841c8a223142e277e25bd77553d))
+* update shadow directory handling and logging for incomplete jobs ([#4288](https://github.com/snakemake/snakemake/issues/4288)) ([3080698](https://github.com/snakemake/snakemake/commit/3080698ee519ad7013b82527cfd9c924483da427))
+
 ## [9.25.2](https://github.com/snakemake/snakemake/compare/v9.25.1...v9.25.2) (2026-08-18)
 
 
