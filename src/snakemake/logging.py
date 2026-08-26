@@ -280,6 +280,10 @@ SNAKEMAKE
         if wildcards:
             output.append(f"    wildcards: {wildcards}")
 
+        params = format_dict(msg["params"])
+        if params:
+            output.append(f"    params: {params}")
+
         for item, omit in zip("priority threads".split(), [0, 1]):
             fmt = format_item(item, omit=omit)
             if fmt:

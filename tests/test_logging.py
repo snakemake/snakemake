@@ -383,6 +383,7 @@ def test_log_events(
             "SNAKEMAKE",  # WORKFLOW_STARTED
             "Job stats:",  # RUN_INFO
             "localrule all:",  # JOB_INFO
+            "params: value=0",  # JOB_INFO
             "Shell command:",  # SHELLCMD
             "Provided cores:",  # RESOURCES_INFO
             re.compile(r"\d+ of \d+ steps \(\d+%\) done"),  # PROGRESS
