@@ -81,7 +81,19 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
 format_wildcards = format_dict
-format_params = format_dict
+
+
+def format_params(params) -> str:
+    from snakemake.iocontainers import Namedlist
+
+    if isinstance(params, Namedlist):
+        items = params._allitems()
+    elif isinstance(params, Mapping):
+        items = params.items()
+    else:
+        raise ValueError("params neither a dict nor a Namedlist")
+
+    return ", ".join(f"{name}={value}" if name else str(value) for name, value in items)
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
