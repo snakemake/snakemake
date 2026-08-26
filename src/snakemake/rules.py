@@ -933,7 +933,9 @@ class Rule(RuleInterface):
             )
         return False
 
-    def expand_params(self, wildcards, input, output, job, omit_callable=False):
+    def expand_params(
+        self, wildcards, input, output, job, attempt, omit_callable=False
+    ):
         def concretize_param(p, wildcards, is_from_callable, incomplete):
             if not is_from_callable:
                 if isinstance(p, str):
@@ -986,6 +988,7 @@ class Rule(RuleInterface):
                     "resources": resources,
                     "output": output._plainstrings(),
                     "threads": threads,
+                    "attempt": attempt,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
                 non_derived_items=non_derived_params,
