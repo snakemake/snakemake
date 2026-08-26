@@ -2667,16 +2667,13 @@ def test_module_global_container():
         rules_by_name = {rule.name: rule for rule in workflow.rules}
 
         # The module rule should get the module's container image
-        assert rules_by_name["a"].container_img == "docker://module_image", (
-            f"Module rule 'a' has container_img={rules_by_name['a'].container_img!r}, "
-            f"expected 'docker://module_image'"
-        )
-
-        # The master rule should get the master's container image
-        assert rules_by_name["all"].container_img == "docker://master_image", (
-            f"Master rule 'all' has container_img={rules_by_name['all'].container_img!r}, "
-            f"expected 'docker://master_image'"
-        )
+        for rname, dversion in (("a", "module"), ("all", "master")):
+            container_img = rules_by_name[rname].software_env_specs.legacy_container_img
+            expected = f"docker://{dversion}_image"
+            assert container_img == expected, (
+                f"Module rule '{rname}' has {container_img=!r}, "
+                f"expected '{expected}'"
+            )
 
 
 @skip_on_windows
