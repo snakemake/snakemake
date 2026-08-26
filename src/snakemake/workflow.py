@@ -20,6 +20,7 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
+from datetime import datetime
 import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union
@@ -177,6 +178,7 @@ class Workflow(WorkflowExecutorInterface):
     _rundir = str(Path.cwd().absolute())
     _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
     injected_conda_envs: List = field(default_factory=list)
+    start_time: datetime = field(default_factory=datetime.now)
 
     def __post_init__(self):
         """
@@ -271,7 +273,6 @@ class Workflow(WorkflowExecutorInterface):
         import sys
         import shutil
         import getpass
-        from datetime import datetime
         from snakemake.common import __version__
         import uuid
         import json
@@ -286,7 +287,7 @@ class Workflow(WorkflowExecutorInterface):
             config_md5 = "unavailable"
 
         return {
-            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "datetime": self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
             "snakemake_version": __version__,
             "platform": platform.platform(),
             "host": platform.node(),
@@ -1545,13 +1546,15 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
+                    if not self.execution_settings.no_hooks:
+                        self._onsuccess(self.logger_manager.get_logfile())
                     self.logger_manager.logfile_hint()
-                if not self.dryrun and not self.execution_settings.no_hooks:
-                    self._onsuccess(self.logger_manager.get_logfile())
+                    self.log_workflow_runtime()
             else:
                 if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onerror(self.logger_manager.get_logfile())
                 self.logger_manager.logfile_hint()
+                self.log_workflow_runtime()
                 if self.execution_settings.keep_incomplete:
                     logger.warning(
                         "--keep-incomplete mode is set, so incomplete output files "
@@ -1605,6 +1608,10 @@ class Workflow(WorkflowExecutorInterface):
             )
         self.log_missing_metadata_info()
         self.log_outdated_metadata_info()
+
+    def log_workflow_runtime(self):
+        """Logs workflow running time."""
+        logger.info(f"Elapsed time: {datetime.now() - self.start_time}")
 
     @property
     def current_basedir(self):
