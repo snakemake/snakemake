@@ -1612,6 +1612,7 @@ class Workflow(WorkflowExecutorInterface):
     def log_workflow_runtime(self):
         """Logs workflow running time."""
         from datetime import datetime
+
         logger.info(f"Elapsed time: {datetime.now() - self.start_time}")
 
     @property
