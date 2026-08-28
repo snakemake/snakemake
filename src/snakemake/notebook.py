@@ -268,13 +268,11 @@ class MarimoNotebook(PythonScript):
 
         if not re.search("def snakemake_preamble", notebook_with_preamble):
             raise ValueError(
-                dedent(
-                    """\
+                dedent("""\
                     Could not inject Snakemake preamble into marimo notebook.
                     Are you sure it is a valid marimo notebook?
                     Hint: Use `marimo check` to check the format of the file.
-                    """
-                )
+                    """)
             )
 
         return notebook_with_preamble
