@@ -2009,6 +2009,10 @@ def test_jupyter_notebook_draft():
     )
 
 
+def test_marimo_notebook():
+    run(dpath("test_marimo_notebook"), deployment_method={DeploymentMethod.CONDA})
+
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 
