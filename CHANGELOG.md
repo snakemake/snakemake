@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-08-28)
+
+
+### Features
+
+* show diffs in unit tests ([#4289](https://github.com/snakemake/snakemake/issues/4289)) ([d6f82cb](https://github.com/snakemake/snakemake/commit/d6f82cbaa782fce2153b220c75bb149912f2c6e6))
+
 ## [9.26.1](https://github.com/snakemake/snakemake/compare/v9.26.0...v9.26.1) (2026-08-27)
 
 
