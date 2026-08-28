@@ -1,16 +1,16 @@
-from abc import abstractmethod
 import os
-from pathlib import Path
-import subprocess as sp
-import shutil
-import tempfile
 import re
+import shutil
+import subprocess as sp
+import tempfile
+from abc import abstractmethod
+from pathlib import Path
+from textwrap import dedent
 
+from snakemake.common import ON_WINDOWS, is_local_file
 from snakemake.exceptions import WorkflowError
-from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
-from snakemake.common import is_local_file
-from snakemake.common import ON_WINDOWS
+from snakemake.script import PythonScript, RScript, ScriptBase, get_source
 from snakemake.sourcecache import SourceCache, infer_source_file
 from snakemake.utils import format
 
@@ -88,8 +88,9 @@ class JupyterNotebook(ScriptBase):
                 else:
                     output_parameter = "{fname_out}"
                 cmd = (
-                    "papermill --log-level ERROR {{fname:q}} "
-                    "{output_parameter}".format(output_parameter=output_parameter)
+                    "papermill --log-level ERROR {{fname:q}} {output_parameter}".format(
+                        output_parameter=output_parameter
+                    )
                 )
             else:
                 if fname_out is None:
@@ -240,13 +241,92 @@ class RJupyterNotebook(JupyterNotebook):
         return "RScript"
 
 
+class MarimoNotebook(PythonScript):
+    editable = True
+
+    def get_interpreter_exec(self):
+        return "marimo"
+
+    def insert_preamble(self, preamble, notebook):
+        fixed_preamble = re.sub(
+            "__real_file__ = __file__", "__real_file__ = __name__", preamble
+        )
+        preamble_cell = "\n".join(
+            [
+                "@app.cell(hide_code=True)",
+                "def _():",
+                *[f"    {line}" for line in fixed_preamble.splitlines()],
+                "    return",
+            ]
+        ).replace("\\", r"\\")
+
+        notebook_with_preamble = re.sub(
+            '(if __name__ == "__main__":)', rf"{preamble_cell}\n\n\g<1>", notebook
+        )
+
+        return notebook_with_preamble
+
+    def draft(self):
+        minimal_notebook = dedent("""\
+            import marimo
+
+            app = marimo.App()
+
+            @app.cell
+            def _():
+                # start coding here
+                return
+
+            if __name__ == "__main__":
+                app.run()
+        """)
+        notebook_with_preamble = self.insert_preamble(
+            self.get_preamble(), minimal_notebook
+        )
+
+        os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
+
+        with open(self.local_path, "wb") as out:
+            out.write(notebook_with_preamble.encode())
+
+    def write_script(self, preamble, fd):
+        source_with_preamble = self.insert_preamble(preamble, self.source)
+        if source_with_preamble == self.source:
+            raise ValueError(
+                "\n".join(
+                    [
+                        "Could not inject Snakemake preamble into marimo notebook.",
+                        "Are you sure it is a valid marimo notebook?",
+                        "Hint: Use `marimo check` to check the format of the file.",
+                    ]
+                )
+            )
+
+        fd.write(source_with_preamble.encode())
+
+    def execute_script(self, fname, edit=None):
+        if edit:
+            cmd = "marimo edit {fname:q} --port {edit.port}"
+        else:
+            cmd = "python {fname:q}"
+
+        if fname_out := self.log.get("notebook", None):
+            fname_out = os.path.abspath(fname_out)
+            cmd = "cat {fname:q} > {fname_out:q}; " + cmd
+
+        self._execute_cmd(cmd, fname=fname, fname_out=fname_out, edit=edit)
+
+
 def get_exec_class(language):
     exec_class = {
         "jupyter_python": PythonJupyterNotebook,
         "jupyter_r": RJupyterNotebook,
+        "marimo_python": MarimoNotebook,
     }.get(language, None)
     if exec_class is None:
-        raise ValueError("Unsupported notebook: Expecting Jupyter Notebook (.ipynb).")
+        raise ValueError(
+            "Unsupported notebook: Expecting Jupyter (.ipynb) or marimo (.py) notebook."
+        )
     return exec_class
 
 
@@ -299,6 +379,8 @@ def notebook(
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):
                     language = "jupyter_r"
+                elif path.endswith(".marimo.py"):
+                    language = "marimo_python"
                 else:
                     raise WorkflowError(
                         "Notebook to edit has to end on .py.ipynb or .r.ipynb in order "
@@ -366,10 +448,17 @@ def notebook(
                     str(Path(conda_env) / "bin" / executor.get_interpreter_exec())
                 )
             )
-            msg += (
-                "\nEditing with Jupyter CLI:"
-                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
-            )
+            if language in ["jupyter_python", "jupyter_r"]:
+                msg += (
+                    "\nEditing with Jupyter CLI:"
+                    "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
+                )
+            elif language in ["marimo_python"]:
+                msg += (
+                    "\nEditing with marimo CLI:"
+                    "\nconda activate {}\nmarimo edit {}\n".format(conda_env, path)
+                )
+
         logger.info(msg)
     elif draft:
         executor.draft_and_edit(listen=edit)

@@ -2006,14 +2006,17 @@ For technical reasons, scripts are executed in ``.snakemake/scripts``. The origi
 
 .. _snakefiles_notebook-integration:
 
-Jupyter notebook integration
-----------------------------
+Notebook integration
+--------------------
 
-Instead of plain scripts (see above), one can integrate Jupyter_ Notebooks.
+Instead of plain scripts (see above), one can integrate notebooks.
 This enables the interactive development of data analysis components (e.g. for plotting).
-Integration works as follows (note the use of `notebook:` instead of `script:`):
 
-.. _Jupyter: https://jupyter.org/
+Using notebooks
+~~~~~~~~~~~~~~~
+
+Notebook integration works using the ``notebook:`` directive (instead of ``script:``):
+
 
 .. code-block:: python
 
@@ -2028,33 +2031,48 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
 
 .. note::
 
-    Consider Jupyter notebook integration as a way to get the best of both worlds.
-    A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
-    The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
+    It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
-It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
-In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles-external_scripts>`.
-In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
-Optionally it is possible to automatically store the processed notebook.
-This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
+
+* The filename determines the type of notebook:
+  
+  * Jupyter_: It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
+  * Marimo_: The filename must end in ``.marimo.py``.
+
+.. _Jupyter: https://jupyter.org/
+.. _Marimo: https://marimo.io/
+
+* In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles-external_scripts>`.
+  In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case), etc.
+
+* Optionally it is possible to automatically store the processed notebook.
+  This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
 
 .. note::
 
-    It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
+    Consider notebook integration as a way to get the best of both scripts and notebooks.
+    A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data. 
+    The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
-Normally, notebooks are executed headlessly (without a Jupyter interface being presented to you).
-This is achieved with Papermill_ if that is installed in your software environment,
-or `nbconvert`_ otherwise.
-The latter will be installed automatically along with Jupyter, but will not output
-an executed (logfile) notebook until the entire execution is complete, and won't output
-a notebook if execution encounters an error.
+Normally, notebooks are executed headlessly (without an interface being presented to you).
 
-.. _Papermill: https://github.com/nteract/papermill
+* **Jupyter notebooks**: Headless execution is achieved with Papermill_ if that is installed in your software environment,
+  or `nbconvert`_ otherwise. The latter will be installed automatically along with Jupyter, but will not output
+  an executed (logfile) notebook until the entire execution is complete, and won't output a notebook if execution encounters an error.
 
-.. _nbconvert: https://nbconvert.readthedocs.io/en/latest/
+  .. _Papermill: https://github.com/nteract/papermill
+
+  .. _nbconvert: https://nbconvert.readthedocs.io/en/latest/
+
+* **Marimo notebooks**: The notebook is executed as a regular Python script.
+
+
+Editing notebooks interactively
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
-Let us assume you have written above rule, but the notebook does not yet exist.
+Let us assume you have written a rule, but the notebook does not yet exist.
 By running
 
 .. code-block:: console
@@ -2063,10 +2081,10 @@ By running
 
 you instruct Snakemake to allow interactive editing of the notebook needed to create the file ``test.txt``.
 Snakemake will run all dependencies of the notebook rule, such that all input files are present.
-Then, it will start a jupyter notebook server with an empty draft of the notebook, in which you can interactively program everything needed for this particular step.
-Once done, you should save the notebook from the jupyter web interface, go to the jupyter dashboard and hit the ``Quit`` button on the top right in order to shut down the jupyter server.
+Then, it will start a notebook server with an empty draft of the notebook, in which you can interactively program everything needed for this particular step.
+Once done, you should save the notebook and shut down the server.
 Snakemake will detect that the server is closed and automatically store the drafted notebook into the path given in the rule (here ``hello.py.ipynb``).
-If the notebook already exists, above procedure can be used to easily modify it.
+If the notebook already exists, the above procedure can be used to easily modify it.
 Note that Snakemake requires local execution for the notebook edit mode.
 On a cluster or the cloud, you can generate all dependencies of the notebook rule via
 
@@ -2075,7 +2093,8 @@ On a cluster or the cloud, you can generate all dependencies of the notebook rul
     snakemake --cluster ... --jobs 100 --until test.txt
 
 Then, the notebook rule can easily be executed locally.
-An demo of the entire interactive editing process can be found by clicking below:
+
+A demo of the entire interactive editing process can be found by clicking below:
 
 .. image:: images/snakemake-notebook-demo.gif
     :scale: 20%
@@ -2083,7 +2102,7 @@ An demo of the entire interactive editing process can be found by clicking below
     :align: center
 
 Finally, it is advisable to combine the ``notebook`` directive with the ``conda`` directive (see :ref:`integrated_package_management`) in order to define a software stack to use.
-At least, this software stack should contain jupyter and the language to use (e.g. Python or R).
+For example, this software stack should contain Jupyter and the language to use (e.g. Python or R).
 For the above case, this means
 
 .. code-block:: python
@@ -2110,7 +2129,7 @@ with
 The last dependency is advisable in order to enable autoformatting of notebook cells when editing.
 When using other languages than Python in the notebook, one needs to additionally add the respective kernel, e.g. ``r-irkernel`` for R support.
 
-When using an IDE with built-in Jupyter support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
+When using an IDE with built-in notebook support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
 Instead of firing up a notebook server, ``--draft-notebook`` just creates a skeleton notebook for editing within the IDE.
 In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the
 Conda environment defined in the corresponding rule.
@@ -2120,16 +2139,11 @@ For example, running
 
     snakemake --cores 1 --draft-notebook test.txt --software-deployment-method conda
 
-or the short form
-
-.. code-block:: console
-
-    snakemake -c 1 --draft-notebook test.txt --sdm conda
-
-will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
+will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.  
 
 
 .. _snakefiles_protected_temp:
+
 
 Protected and Temporary Files
 -----------------------------
