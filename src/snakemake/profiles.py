@@ -9,13 +9,23 @@ from snakemake_interface_common.exceptions import WorkflowError
 class ProfileConfigFileParser(YAMLConfigFileParser):
     def parse(self, stream):
         # taken from configargparse and modified to add special handling for key-value pairs
-        import yte
+        import yaml
 
-        profile_dir = Path(stream.name).parent
         try:
-            parsed_obj = yte.process_yaml(stream, require_use_yte=True)
+            text = stream.read()
+            parsed_obj = yaml.load(text, Loader=yaml.FullLoader)
+            if isinstance(parsed_obj, dict) and parsed_obj.get("__use_yte__"):
+                try:
+                    import yte
+
+                    parsed_obj = yte.process_yaml(text, require_use_yte=True)
+                except ImportError as e:
+                    raise ConfigFileParserException(
+                        "The config file requires the 'yte' package to be installed. "
+                        "Please install it with 'pip install yte'."
+                    ) from e
         except Exception as e:
-            raise ConfigFileParserException("Couldn't parse config file: %s" % e)
+            raise ConfigFileParserException(f"Couldn't parse config file: {e}")
 
         if not isinstance(parsed_obj, dict):
             raise ConfigFileParserException(
@@ -53,6 +63,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                 for key2, val2 in val.items()
             ]
 
+        profile_dir = Path(stream.name).parent
         result = OrderedDict()
         for key, value in parsed_obj.items():
             if isinstance(value, list):
