@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.26.1](https://github.com/snakemake/snakemake/compare/v9.26.0...v9.26.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* missing import ([#4296](https://github.com/snakemake/snakemake/issues/4296)) ([3519bed](https://github.com/snakemake/snakemake/commit/3519bed15e38bba132eb7f85247730aaddb0cea9))
+
 ## [9.26.0](https://github.com/snakemake/snakemake/compare/v9.25.2...v9.26.0) (2026-08-26)
 
 
