@@ -14,26 +14,30 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
         try:
             text = stream.read()
             parsed_obj = yaml.load(text, Loader=yaml.FullLoader)
-            if isinstance(parsed_obj, dict) and parsed_obj.get("__use_yte__"):
+
+            if not isinstance(parsed_obj, dict):
+                raise ConfigFileParserException(
+                    "The config file doesn't appear to "
+                    "contain 'key: value' pairs (aka. a YAML mapping). "
+                    "yaml.load('%s') returned type '%s' instead of 'dict'."
+                    % (getattr(stream, "name", "stream"), type(parsed_obj).__name__)
+                )
+
+            is_use_yte = parsed_obj.pop("__use_yte__", None)
+            if is_use_yte:
                 try:
                     import yte
 
                     parsed_obj = yte.process_yaml(text, require_use_yte=True)
-                except ImportError as e:
-                    raise ConfigFileParserException(
-                        "The config file requires the 'yte' package to be installed. "
-                        "Please install it with 'pip install yte'."
-                    ) from e
+                except ImportError:
+                    raise
+        except ImportError as e:
+            raise WorkflowError(
+                "The config file requires the 'yte' package to be installed. "
+                "Please install it with 'pip install yte'."
+            ) from e
         except Exception as e:
             raise ConfigFileParserException(f"Couldn't parse config file: {e}")
-
-        if not isinstance(parsed_obj, dict):
-            raise ConfigFileParserException(
-                "The config file doesn't appear to "
-                "contain 'key: value' pairs (aka. a YAML mapping). "
-                "yaml.load('%s') returned type '%s' instead of 'dict'."
-                % (getattr(stream, "name", "stream"), type(parsed_obj).__name__)
-            )
 
         def format_val(val):
             def repr_if_numeric(val, numtype):
