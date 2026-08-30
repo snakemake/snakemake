@@ -448,7 +448,7 @@ class Job(
 
     def _expand_params(self):
         self._params, self._non_derived_params = self.rule.expand_params(
-            self.wildcards_dict, self.input, self.output, self
+            self.wildcards_dict, self.input, self.output, self, self.attempt
         )
 
     @property
@@ -484,8 +484,10 @@ class Job(
 
     @attempt.setter
     def attempt(self, attempt):
-        # reset resources
+        # reset properties that can depend on the attempt
         self._resources = None
+        self._params = None
+        self._non_derived_params = None
         self._attempt = attempt
 
     @property
