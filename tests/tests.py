@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir, serve_directory
+from .common import run, dpath, connected, prepare_tmpdir, serve_directory
 from .conftest import (
     skip_on_windows,
     skip_on_macos,
