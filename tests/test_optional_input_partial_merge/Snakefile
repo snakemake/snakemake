@@ -1,0 +1,53 @@
+"""
+Optional input allows partial merge when missing file comes from successful upstream job.
+
+Scenario:
+- 3 chunks
+- count_letters for chunk 002 exits with code 0 but intentionally does not create counts_002.json
+- merge_counts uses optional(expand(...)) for inputs
+
+Expected:
+- succeeds
+- letter_counts.json is created
+- merged content includes only chunks 000 and 001
+- no hard failure because missing file was optional and upstream job succeeded (code 0)
+"""
+
+chunks = ["000", "001", "002"]
+
+
+rule all:
+    input:
+        "letter_counts.json"
+
+
+rule count_letters:
+    output:
+        "counts_{chunk}.json"
+    run:
+        import json
+        from pathlib import Path
+
+        if wildcards.chunk == "002":
+            pass  # intentionally do not create output and exits with code 0
+        else:
+            data = {"000": {"a": 2}, "001": {"b": 3}}.get(wildcards.chunk, {})
+            Path(output[0]).write_text(json.dumps(data))
+
+
+rule merge_counts:
+    input:
+        counts=optional(expand("counts_{chunk}.json", chunk=chunks))
+    output:
+        "letter_counts.json"
+    run:
+        import json
+        from pathlib import Path
+
+        merged = {}
+        for counts_file in input.counts:
+            data = json.loads(Path(counts_file).read_text())
+            for key, value in data.items():
+                merged[key] = merged.get(key, 0) + value
+
+        Path(output[0]).write_text(json.dumps(merged, sort_keys=True))
