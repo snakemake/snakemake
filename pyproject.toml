@@ -264,11 +264,8 @@ xorg-libxdmcp = "*"
 xorg-libsm = "*"
 stress-ng = "*"
 nodejs = "*"
-squashfuse = ">=0.6.2"  # enable conda installation in container.
 cwltool = "*"
 cwl-utils = "*"
-# # moved to pixi from main.yaml installing via apt
-apptainer = "*"
 git = "*"
 wget = "*"
 dash = "*"

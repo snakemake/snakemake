@@ -941,15 +941,13 @@ def test_profile_double_dash():
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity():
+def test_container_a():
     run(dpath("test_singularity"), deployment_method={"container"})
 
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity_cluster():
+def test_container_cluster():
     run(
         dpath("test_singularity"),
         deployment_method={"container"},
@@ -958,8 +956,7 @@ def test_singularity_cluster():
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_invalid():
+def test_container_invalid():
     run(
         dpath("test_singularity"),
         targets=["invalid.txt"],
@@ -969,8 +966,7 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_module_invalid():
+def test_container_module_invalid():
     run(
         dpath("test_singularity_module"),
         targets=["invalid.txt"],
@@ -982,15 +978,13 @@ def test_singularity_module_invalid():
 @skip_on_windows
 @skip_on_macos
 @connected
-@apptainer
-def test_singularity_none():
+def test_container_none():
     run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity_global():
+def test_container_global():
     run(
         dpath("test_singularity_global"),
         deployment_method={"container"},
@@ -999,8 +993,7 @@ def test_singularity_global():
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity_source_cache():
+def test_container_source_cache():
     run(
         dpath("test_singularity_source_cache"),
         deployment_method={"container"},
@@ -1927,13 +1920,11 @@ def test_env_modules():
 
 @skip_on_windows
 @connected
-@apptainer
-def test_container():
+def test_container_b():
     run(dpath("test_container"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 def test_dynamic_container():
     run(dpath("test_dynamic_container"), deployment_method={"container"})
 
@@ -3322,7 +3313,6 @@ def test_cyclic_dependency_single():
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_issue3958():
     run(

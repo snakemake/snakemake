@@ -437,7 +437,7 @@ def run(
         if software_deployment_provider_settings is None:
             software_deployment_provider_settings = {
                 "container": ContainerDeploymentSettings(
-                    runtime=ContainerRuntime.APPTAINER,
+                    runtime=ContainerRuntime.UDOCKER,
                 )
             }
 
