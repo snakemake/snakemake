@@ -1,0 +1,62 @@
+# This test case is similar to test_scatter_gather_tolerance, but with an extra
+# step between split and gather.
+
+scattergather:
+    split={"items": 4, "tolerance": 0.25}
+
+
+rule all:
+    input:
+        "gathered/all.txt"
+
+
+rule split:
+    output:
+        scatter.split("splitted/{scatteritem}.txt")
+    shell:
+        r"""
+        mkdir -p splitted
+        for output in {output}; do
+            printf '%s\n' "$output" | sed 's#^splitted/##; s#\.txt$##' > "$output"
+        done
+        """
+
+
+rule intermediate_step1:
+    input:
+        "splitted/{scatteritem}.txt"
+    output:
+        "step1/{scatteritem}.txt"
+    shell:
+        r"""
+        mkdir -p step1
+        # Fail branch 2 at step 1.
+        case "{input}" in
+            *2-of-4.txt)
+                exit 1
+                ;;
+        esac
+        cp {input} {output}
+        """
+
+
+rule intermediate_step2:
+    input:
+        "step1/{scatteritem}.txt"
+    output:
+        "step2/{scatteritem}.txt"
+    shell:
+        r"""
+        mkdir -p step2
+        # This will be safely skipped for 2-of-4.
+        cp {input} {output}
+        """
+
+
+rule gather:
+    input:
+        gather.split("step2/{scatteritem}.txt")
+    output:
+        "gathered/all.txt"
+    shell:
+        "mkdir -p gathered && cat {input} > {output}"
