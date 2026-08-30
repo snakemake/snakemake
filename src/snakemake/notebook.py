@@ -258,31 +258,35 @@ class MarimoNotebook(PythonScript):
                 "@app.cell(hide_code=True)",
                 "def snakemake_preamble():",
                 *[f"    {line}" for line in fixed_preamble.splitlines()],
-                "    return",
+                "    return\n\n",
             ]
         )
 
         notebook_with_preamble = re.sub(
-            '(if __name__ == "__main__":)', rf"{preamble_cell}\n\n\g<1>", notebook
+            '(if __name__ == "__main__":)', rf"{preamble_cell}\g<1>", notebook
         )
 
         if not re.search("def snakemake_preamble", notebook_with_preamble):
-            raise ValueError(
-                dedent("""\
+            raise ValueError(dedent("""\
                     Could not inject Snakemake preamble into marimo notebook.
                     Are you sure it is a valid marimo notebook?
                     Hint: Use `marimo check` to check the format of the file.
-                    """)
-            )
+                    """))
 
         return notebook_with_preamble
 
     def remove_preamble_cell(self, notebook):
         return re.sub(
-            r"@app\.cell[^\n]*\ndef snakemake_preamble.*return[^\n]*\n\s*",
+            r"""
+            ^@app\.cell.*\n
+            def\ snakemake_preamble.*\n
+            (?:(?!\s{4}return).*\n)+
+            \s{4}return.*$
+            \s+
+            """,
             "",
             notebook,
-            flags=re.M | re.S,
+            flags=re.M | re.X,
         )
 
     def draft(self):
@@ -332,7 +336,7 @@ class MarimoNotebook(PythonScript):
 
         if edit is not None:
             assert not edit.draft_only
-            cmd = "marimo edit {fname:q} --port {edit.port}"
+            cmd = "marimo edit {fname:q} --port {edit.port} --host {edit.ip}"
             if fname_out is not None:
                 cmd += f" && {export_cmd}"
         elif fname_out is not None:
