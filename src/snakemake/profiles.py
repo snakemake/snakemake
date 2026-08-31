@@ -11,33 +11,33 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
         # taken from configargparse and modified to add special handling for key-value pairs
         import yaml
 
+        profile_name = getattr(stream, "name", "<stream>")
         try:
             text = stream.read()
             parsed_obj = yaml.load(text, Loader=yaml.FullLoader)
 
-            if not isinstance(parsed_obj, dict):
-                raise ConfigFileParserException(
-                    "The config file doesn't appear to "
-                    "contain 'key: value' pairs (aka. a YAML mapping). "
-                    "yaml.load('%s') returned type '%s' instead of 'dict'."
-                    % (getattr(stream, "name", "stream"), type(parsed_obj).__name__)
-                )
-
-            is_use_yte = parsed_obj.pop("__use_yte__", None)
-            if is_use_yte:
+            if parsed_obj.pop("__use_yte__", False):
                 try:
                     import yte
+                except ImportError as e:
+                    raise WorkflowError(
+                        f"Config file '{profile_name}' requires the missing package 'yte'. "
+                        f"Please install it with 'pip install yte'."
+                    ) from e
 
-                    parsed_obj = yte.process_yaml(text, require_use_yte=True)
-                except ImportError:
-                    raise
-        except ImportError as e:
-            raise WorkflowError(
-                "The config file requires the 'yte' package to be installed. "
-                "Please install it with 'pip install yte'."
-            ) from e
+                parsed_obj = yte.process_yaml(text, require_use_yte=True)
+
+            if not isinstance(parsed_obj, dict):
+                raise KeyError(
+                    f"It doesn't appear to contain 'key: value' pairs (aka. a YAML mapping). "
+                    f"Got '{type(parsed_obj).__name__}' instead of 'dict'."
+                )
+        except WorkflowError:
+            raise
         except Exception as e:
-            raise ConfigFileParserException(f"Couldn't parse config file: {e}")
+            raise ConfigFileParserException(
+                f"Couldn't parse config file '{profile_name}'."
+            ) from e
 
         def format_val(val):
             def repr_if_numeric(val, numtype):
@@ -67,7 +67,26 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                 for key2, val2 in val.items()
             ]
 
-        profile_dir = Path(stream.name).parent
+        def resolve_path(raw):
+            """
+            Adjust path if it exists in the profile dir.
+            Otherwise value is not a file or not existing in the profile dir.
+
+            Cache files in the profile directory for performance.
+            Otherwise fall back to search in the filesystem.
+            """
+            value = os.path.expanduser(os.path.expandvars(str(raw)))
+            file = profile_dir / value
+            if file.parent == profile_dir:
+                if not profile_cache:
+                    profile_cache.update(os.listdir(profile_dir))
+                if value in profile_cache:
+                    return str(file)
+            elif file.exists():
+                return str(file)
+
+        profile_dir = Path(profile_name).parent
+        profile_cache = set()
         result = OrderedDict()
         for key, value in parsed_obj.items():
             if isinstance(value, list):
@@ -93,13 +112,8 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     elif key == "set-resources":
                         result[key] = format_two_level_dict(value, "set-resources")
                 else:
-                    value = os.path.expanduser(os.path.expandvars(str(value)))
-
-                    # Adjust path if it exists in the profile dir.
-                    # Otherwise value is not a file or not existing in the profile dir.
-                    if (profile_dir / value).exists():
-                        value = str(profile_dir / value)
-
-                    result[key] = value
+                    value = resolve_path(value)
+                    if value:
+                        result[key] = value
 
         return result
