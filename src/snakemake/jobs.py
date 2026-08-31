@@ -205,6 +205,7 @@ class Job(
         "_input",
         "dependencies",
         "_output",
+        "_output_by_path",
         "_params",
         "_log",
         "_benchmark",
@@ -353,6 +354,14 @@ class Job(
     @output.setter
     def output(self, value):
         self._output = value
+        if hasattr(self, "_output_by_path"):
+            del self._output_by_path
+
+    @lazy_property
+    def output_by_path(self):
+        # requested may hold path-equal copies of our own output that lost
+        # their flags (e.g. storage). We look them up here by path instead.
+        return {str(f): f for f in self.output}
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
@@ -682,7 +691,11 @@ class Job(
         return mintime
 
     async def missing_output(self, requested):
+        """Yield requested outputs that are missing."""
+
         async def handle_file(f):
+            f = self.output_by_path.get(str(f), f)
+
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
             if (
