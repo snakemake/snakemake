@@ -67,7 +67,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                 for key2, val2 in val.items()
             ]
 
-        def resolve_path(raw):
+        def resolve_path(value: str):
             """
             Adjust path if it exists in the profile dir.
             Otherwise value is not a file or not existing in the profile dir.
@@ -75,15 +75,15 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             Cache files in the profile directory for performance.
             Otherwise fall back to search in the filesystem.
             """
-            value = os.path.expanduser(os.path.expandvars(str(raw)))
             file = profile_dir / value
             if file.parent == profile_dir:
                 if not profile_cache:
                     profile_cache.update(os.listdir(profile_dir))
-                if value in profile_cache:
+                if file.name in profile_cache:
                     return str(file)
             elif file.exists():
                 return str(file)
+            return value
 
         profile_dir = Path(profile_name).parent
         profile_cache = set()
@@ -112,8 +112,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
                     elif key == "set-resources":
                         result[key] = format_two_level_dict(value, "set-resources")
                 else:
-                    value = resolve_path(value)
-                    if value:
-                        result[key] = value
+                    value = os.path.expanduser(os.path.expandvars(str(value)))
+                    result[key] = resolve_path(value)
 
         return result
