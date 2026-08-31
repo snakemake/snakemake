@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, connected, prepare_tmpdir, serve_directory
+from .common import run, dpath, connected, prepare_tmpdir, serve_directory, apptainer
 from .conftest import (
     skip_on_windows,
     skip_on_macos,
@@ -941,8 +941,13 @@ def test_profile_double_dash():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_container_a():
-    run(dpath("test_singularity"), deployment_method={"container"})
+    run(
+        dpath("test_singularity"),
+        deployment_method={"container"},
+        container_runtime="apptainer"
+    )
 
 
 @skip_on_windows
@@ -984,19 +989,23 @@ def test_container_none():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_container_global():
     run(
         dpath("test_singularity_global"),
         deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
 @skip_on_windows
 @connected
+@apptainer
 def test_container_source_cache():
     run(
         dpath("test_singularity_source_cache"),
         deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 

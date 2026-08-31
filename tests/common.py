@@ -305,6 +305,7 @@ def run(
     software_deployment_provider_settings=None,
     persistence_backend: PersistenceBackend = PersistenceBackend.FILE,
     persistence_backend_db_url: str | None = None,
+    container_runtime: str = "udocker",
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -437,7 +438,7 @@ def run(
         if software_deployment_provider_settings is None:
             software_deployment_provider_settings = {
                 "container": ContainerDeploymentSettings(
-                    runtime=ContainerRuntime.UDOCKER,
+                    runtime=getattr(ContainerRuntime, container_runtime.upper()),
                 )
             }
 
