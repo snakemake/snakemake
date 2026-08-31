@@ -5,6 +5,7 @@ import subprocess as sp
 import shutil
 import tempfile
 import re
+from textwrap import dedent
 
 from snakemake.exceptions import WorkflowError
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
@@ -88,8 +89,9 @@ class JupyterNotebook(ScriptBase):
                 else:
                     output_parameter = "{fname_out}"
                 cmd = (
-                    "papermill --log-level ERROR {{fname:q}} "
-                    "{output_parameter}".format(output_parameter=output_parameter)
+                    "papermill --log-level ERROR {{fname:q}} {output_parameter}".format(
+                        output_parameter=output_parameter
+                    )
                 )
             else:
                 if fname_out is None:
@@ -240,13 +242,128 @@ class RJupyterNotebook(JupyterNotebook):
         return "RScript"
 
 
+class MarimoNotebook(PythonScript):
+    editable = True
+
+    def get_interpreter_exec(self):
+        return "marimo"
+
+    def insert_preamble_cell(self, preamble, notebook):
+        fixed_preamble = re.sub(
+            "__real_file__ = __file__", "__real_file__ = __name__", preamble
+        ).replace("\\", r"\\")
+
+        preamble_cell = "\n".join(
+            [
+                "@app.cell(hide_code=True)",
+                "def snakemake_preamble():",
+                *[f"    {line}" for line in fixed_preamble.splitlines()],
+                "    return\n\n",
+            ]
+        )
+
+        notebook_with_preamble = re.sub(
+            '(if __name__ == "__main__":)', rf"{preamble_cell}\g<1>", notebook
+        )
+
+        if not re.search("def snakemake_preamble", notebook_with_preamble):
+            raise ValueError(dedent("""\
+                    Could not inject Snakemake preamble into marimo notebook.
+                    Are you sure it is a valid marimo notebook?
+                    Hint: Use `marimo check` to check the format of the file.
+                    """))
+
+        return notebook_with_preamble
+
+    def remove_preamble_cell(self, notebook):
+        return re.sub(
+            r"""
+            ^@app\.cell.*\n
+            def\ snakemake_preamble.*\n
+            (?:(?!\s{4}return).*\n)+
+            \s{4}return.*$
+            \s+
+            """,
+            "",
+            notebook,
+            flags=re.M | re.X,
+        )
+
+    def draft(self):
+        minimal_notebook = dedent("""\
+            import marimo
+
+            app = marimo.App()
+
+            @app.cell
+            def _():
+                # start coding here
+                return
+
+            if __name__ == "__main__":
+                app.run()
+        """)
+        notebook_with_preamble = self.insert_preamble_cell(
+            self.get_preamble(), minimal_notebook
+        )
+
+        os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
+
+        with open(self.local_path, "wb") as out:
+            out.write(notebook_with_preamble.encode())
+
+    def draft_and_edit(self, listen):
+        self.draft()
+        self.source = open(self.local_path).read()
+        self.evaluate(edit=listen)
+
+    def write_script(self, preamble, fd):
+        source_without_preamble = self.remove_preamble_cell(self.source)
+        source_with_preamble = self.insert_preamble_cell(
+            preamble, source_without_preamble
+        )
+        fd.write(source_with_preamble.encode())
+
+    def execute_script(self, fname, edit=None):
+        fname_out = self.log.get("notebook", None)
+        if fname_out is not None:
+            if not fname_out.endswith(".html"):
+                raise ValueError(
+                    "Only `html` is supported for saving processed marimo notebooks."
+                )
+            fname_out = os.path.abspath(fname_out)
+        export_cmd = "marimo export html {fname:q} -o {fname_out:q}"
+
+        if edit is not None:
+            assert not edit.draft_only
+            cmd = "marimo edit {fname:q} --port {edit.port} --host {edit.ip}"
+            if fname_out is not None:
+                cmd += f" && {export_cmd}"
+        elif fname_out is not None:
+            cmd = export_cmd
+        else:
+            cmd = "python {fname:q}"
+
+        self._execute_cmd(cmd, fname=fname, fname_out=fname_out, edit=edit)
+
+        if edit:
+            logger.info("Saving modified notebook.")
+            with open(fname, "r") as file:
+                notebook = self.remove_preamble_cell(file.read())
+            with open(self.local_path, "w") as out_file:
+                out_file.write(notebook)
+
+
 def get_exec_class(language):
     exec_class = {
         "jupyter_python": PythonJupyterNotebook,
         "jupyter_r": RJupyterNotebook,
+        "marimo_python": MarimoNotebook,
     }.get(language, None)
     if exec_class is None:
-        raise ValueError("Unsupported notebook: Expecting Jupyter Notebook (.ipynb).")
+        raise ValueError(
+            "Unsupported notebook: Expecting Jupyter (.ipynb) or marimo (.py) notebook."
+        )
     return exec_class
 
 
@@ -299,6 +416,8 @@ def notebook(
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):
                     language = "jupyter_r"
+                elif path.endswith(".marimo.py"):
+                    language = "marimo_python"
                 else:
                     raise WorkflowError(
                         "Notebook to edit has to end on .py.ipynb or .r.ipynb in order "
@@ -366,10 +485,17 @@ def notebook(
                     str(Path(conda_env) / "bin" / executor.get_interpreter_exec())
                 )
             )
-            msg += (
-                "\nEditing with Jupyter CLI:"
-                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
-            )
+            if language in ["jupyter_python", "jupyter_r"]:
+                msg += (
+                    "\nEditing with Jupyter CLI:"
+                    "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
+                )
+            elif language in ["marimo_python"]:
+                msg += (
+                    "\nEditing with marimo CLI:"
+                    "\nconda activate {}\nmarimo edit {}\n".format(conda_env, path)
+                )
+
         logger.info(msg)
     elif draft:
         executor.draft_and_edit(listen=edit)
