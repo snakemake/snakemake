@@ -19,7 +19,6 @@ from collections import defaultdict
 import hashlib
 from pathlib import Path
 import numbers
-from yte import process_yaml
 
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
@@ -751,8 +750,9 @@ async def auto_report(
     if global_report_settings.metadata_template:
         # parse metadata from yte template
         with open(global_report_settings.metadata_template, "r") as template:
-            metadata = process_yaml(template)
+            import yte
 
+            metadata = yte.process_yaml(template)
             # ensure that metadata is a key value dictionary
             # allowed values: str, int, float, list[str|int|float]
             if not _validate_flat_dict(metadata):

@@ -1,2 +1,5 @@
+__use_yte__: true
+cores: ?1+1
+
 default-resources:
   runtime: 10
