@@ -1,0 +1,8 @@
+
+rule a:
+    output:
+        "test.out"
+    software: conda(envfile="test-env.yaml", within=container(image="docker://continuumio/miniconda3"))
+    shell:
+        "ls /singularity; "
+        "bwa 2> {output} || true"
