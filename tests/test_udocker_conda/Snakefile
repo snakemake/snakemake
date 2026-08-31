@@ -1,0 +1,12 @@
+
+
+container: "docker://condaforge/miniforge3:26.3.2-3"
+
+
+rule a:
+    output:
+        "test.out",
+    conda:
+        "test-env.yaml"
+    shell:
+        "bwa 2> {output} || true"
