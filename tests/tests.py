@@ -26,7 +26,7 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir, serve_directory
+from .common import run, dpath, connected, prepare_tmpdir, serve_directory
 from .conftest import (
     skip_on_windows,
     skip_on_macos,
@@ -857,6 +857,51 @@ def test_storage(s3_storage):
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
 @pytest.mark.needs_s3
+def test_storage_output_not_missing_via_unflagged_dependency_edge(s3_storage):
+    """An unflagged consumer edge must not override producer storage semantics."""
+    prefix, settings = s3_storage
+    path = dpath("test_storage_dependency_edge_flags")
+
+    # First invocation materializes producer.txt in S3 and records metadata.
+    tmpdir = run(
+        path,
+        cores=1,
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+        check_results=False,
+        cleanup=False,
+    )
+    assert tmpdir is not None
+
+    try:
+        assert (tmpdir / "producer.ran").exists()
+
+        # Model a fresh machine/invocation: provenance remains, but the local
+        # storage staging cache does not. Force only the consumer to needrun.
+        shutil.rmtree(tmpdir / ".snakemake" / "storage", ignore_errors=True)
+        (tmpdir / "downstream.txt").unlink()
+
+        # Correct behavior: consumer reruns, producer is recognized as already
+        # present in storage. Buggy behavior: update_needrun() checks the stale
+        # unflagged edge locally, schedules producer again, and producer's
+        # sentinel makes this invocation fail.
+        run(
+            path,
+            cores=1,
+            config={"s3_prefix": prefix},
+            storage_provider_settings=settings,
+            check_results=False,
+            cleanup=False,
+            tmpdir=tmpdir,
+        )
+
+        assert (tmpdir / "downstream.txt").read_text() == "producer\n"
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+@skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_storage_call(s3_storage):
     prefix, settings = s3_storage
 
@@ -941,15 +986,13 @@ def test_profile_double_dash():
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity():
+def test_container_a():
     run(dpath("test_singularity"), deployment_method={"container"})
 
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity_cluster():
+def test_container_cluster():
     run(
         dpath("test_singularity"),
         deployment_method={"container"},
@@ -958,8 +1001,7 @@ def test_singularity_cluster():
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_invalid():
+def test_container_invalid():
     run(
         dpath("test_singularity"),
         targets=["invalid.txt"],
@@ -969,8 +1011,7 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_module_invalid():
+def test_container_module_invalid():
     run(
         dpath("test_singularity_module"),
         targets=["invalid.txt"],
@@ -982,15 +1023,13 @@ def test_singularity_module_invalid():
 @skip_on_windows
 @skip_on_macos
 @connected
-@apptainer
-def test_singularity_none():
+def test_container_none():
     run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity_global():
+def test_container_global():
     run(
         dpath("test_singularity_global"),
         deployment_method={"container"},
@@ -999,8 +1038,7 @@ def test_singularity_global():
 
 @skip_on_windows
 @connected
-@apptainer
-def test_singularity_source_cache():
+def test_container_source_cache():
     run(
         dpath("test_singularity_source_cache"),
         deployment_method={"container"},
@@ -1927,13 +1965,11 @@ def test_env_modules():
 
 @skip_on_windows
 @connected
-@apptainer
-def test_container():
+def test_container_b():
     run(dpath("test_container"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 def test_dynamic_container():
     run(dpath("test_dynamic_container"), deployment_method={"container"})
 
@@ -3322,7 +3358,6 @@ def test_cyclic_dependency_single():
 
 
 @skip_on_windows
-@apptainer
 @connected
 def test_issue3958():
     run(

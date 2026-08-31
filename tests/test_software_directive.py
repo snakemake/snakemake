@@ -349,7 +349,7 @@ class TestCrossKindFallback:
 
 from .common import run, dpath, conda
 from .conftest import skip_on_windows
-from .common import apptainer, connected
+from .common import connected
 
 
 @skip_on_windows
