@@ -628,7 +628,8 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     def is_draft_notebook_job(self, job):
         return (
-            self.workflow.execution_settings.edit_notebook
+            self.workflow.execution_settings is not None
+            and self.workflow.execution_settings.edit_notebook
             and self.workflow.execution_settings.edit_notebook.draft_only
             and job.targetfile in self.targetfiles
         )
