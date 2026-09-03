@@ -3524,7 +3524,7 @@ class ScriptProcessor(DAGProcessorBase):
             )
             if not self.dag.workflow.sourcecache.exists(script_sourcefile):
                 raise WorkflowError(
-                    f"{self.script_type.capitalize()} {job.rule.script} not accessible. "
+                    f"{self.script_type.capitalize()} {script_entry} not accessible. "
                     "Please check the path to the script."
                 )
 
