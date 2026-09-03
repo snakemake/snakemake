@@ -1364,6 +1364,7 @@ def get_source_file(
     wildcards=None,
     params=None,
 ):
+    """Get source file for a job"""
     if wildcards is not None and params is not None:
         if isinstance(path, SourceFile):
             path = path.format(wildcards=wildcards, params=params)
@@ -1384,6 +1385,7 @@ def get_source(
     wildcards=None,
     params=None,
 ):
+    """Get source file, source, language, local state, and cached path for a job"""
     source_file = get_source_file(path, basedir, wildcards, params)
     with sourcecache.open(source_file) as f:
         source = f.read()
