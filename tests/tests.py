@@ -3608,3 +3608,10 @@ def test_delete_temp_fs():
         temp_file
     ), "temp file was not removed in main working directory"
     shutil.rmtree(outdir)
+
+
+def test_missing_script_file():
+    run(
+        dpath("test_missing_script_file"),
+        shouldfail=True,
+    )
