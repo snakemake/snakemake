@@ -1358,13 +1358,13 @@ def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     return head, tail
 
 
-def get_source(
+def get_source_file(
     path,
-    sourcecache: SourceCache,
     basedir=None,
     wildcards=None,
     params=None,
 ):
+    """Get source file for a job"""
     if wildcards is not None and params is not None:
         if isinstance(path, SourceFile):
             path = path.format(wildcards=wildcards, params=params)
@@ -1375,6 +1375,18 @@ def get_source(
         basedir = infer_source_file(basedir)
 
     source_file = infer_source_file(path, basedir)
+    return source_file
+
+
+def get_source(
+    path,
+    sourcecache: SourceCache,
+    basedir=None,
+    wildcards=None,
+    params=None,
+):
+    """Get source file, source, language, local state, and cached path for a job"""
+    source_file = get_source_file(path, basedir, wildcards, params)
     with sourcecache.open(source_file) as f:
         source = f.read()
 
