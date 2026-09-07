@@ -1984,7 +1984,7 @@ def test_container_b():
 
 @skip_on_windows
 def test_dynamic_container():
-    run(dpath("test_dynamic_container"), deployment_method={"container"})
+    run(dpath("test_dynamic_container"), deployment_method={"container"}, cores=1)
 
 
 @skip_on_windows
