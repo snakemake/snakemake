@@ -249,7 +249,7 @@ conda = ">=26.5.3,<27"
 graphviz = ">=12.2.1,<13"
 glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
-packaging = ">=24.0,<26"
+packaging = ">=26.1,<27"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 docutils = ">=0.20,<0.23"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
