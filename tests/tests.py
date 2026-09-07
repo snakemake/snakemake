@@ -991,7 +991,7 @@ def test_container_a():
     run(
         dpath("test_singularity"),
         deployment_method={"container"},
-        container_runtime="apptainer"
+        container_runtime="apptainer",
     )
 
 
