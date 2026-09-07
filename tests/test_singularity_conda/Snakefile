@@ -9,5 +9,5 @@ rule a:
     conda:
         "test-env.yaml"
     shell:
-        "ls /singularity; " # this fails if not in singularity container
+        "grep -q '/.udocker/' /proc/self/mountinfo 2> /dev/null; "
         "bwa 2> {output} || true"
