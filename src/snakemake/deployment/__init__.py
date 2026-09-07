@@ -234,6 +234,7 @@ class SoftwareDeploymentManager:
             mountpoints=[self.workflow.source_cache_path, Path(os.getcwd())]
             + get_snakemake_searchpaths()
             + mountpoints,
+            envvars=self.workflow.envvars,
             cache_prefix=cache_prefix,
             deployment_prefix=deployment_prefix,
             pinfile_prefix=pinfile_prefix,
