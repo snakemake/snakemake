@@ -1975,7 +1975,11 @@ def test_env_modules():
 @skip_on_windows
 @connected
 def test_container_b():
-    run(dpath("test_container"), deployment_method={"container"})
+    run(
+        dpath("test_container"),
+        deployment_method={"container"},
+        container_runtime="apptainer",
+    )
 
 
 @skip_on_windows
@@ -3371,7 +3375,7 @@ def test_cyclic_dependency_single():
 def test_issue3958():
     run(
         dpath("test_issue3958"),
-        shellcmd="snakemake --sdm container --cores 1",
+        shellcmd="snakemake --sdm container --sdm-container-runtime apptainer --cores 1",
         targets=["all"],
     )
 
