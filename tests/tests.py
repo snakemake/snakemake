@@ -996,6 +996,7 @@ def test_container_a():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 def test_container_cluster():
     run(
@@ -1973,6 +1974,7 @@ def test_env_modules():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 def test_container_b():
     run(
@@ -1983,6 +1985,7 @@ def test_container_b():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_dynamic_container():
     run(dpath("test_dynamic_container"), deployment_method={"container"})
 
@@ -3371,6 +3374,7 @@ def test_cyclic_dependency_single():
 
 
 @skip_on_windows
+@skip_on_macos
 @connected
 def test_issue3958():
     run(
