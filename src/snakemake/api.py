@@ -530,7 +530,7 @@ class DAGApi(ApiBase):
         # that direct API calls using executor="dryrun" or executor="touch"
         # (without a pseudo_executor) still trigger the greedy-scheduler
         # optimisation below.
-        execution_executor = pseudo_executor or executor
+        actual_executor = pseudo_executor or executor
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
@@ -624,9 +624,9 @@ class DAGApi(ApiBase):
                 raise ApiError("debug mode cannot be used with non-local execution")
 
         # Note: use_threads is derived from the validation executor's
-        # CommonSettings (executor_plugin), not from the execution executor
+        # CommonSettings (executor_plugin), not from the actual executor
         # (run_executor_plugin, resolved later below). When executor is a
-        # remote plugin (local_exec=False) but execution_executor is "dryrun"
+        # remote plugin (local_exec=False) but actual_executor is "dryrun"
         # or "touch" (local_exec=True), use_threads will be forced True even
         # though no real work is done. This is semantically imprecise but
         # harmless in practice: threading overhead is irrelevant when
@@ -643,7 +643,7 @@ class DAGApi(ApiBase):
             greedy_scheduler_settings = GreedySchedulerSettings()
 
         if (
-            execution_executor in ("touch", "dryrun")
+            actual_executor in ("touch", "dryrun")
             or remote_execution_settings.immediate_submit
         ):
             greedy_scheduler_settings.omit_prioritize_by_temp_and_input = True
@@ -677,9 +677,9 @@ class DAGApi(ApiBase):
         # swap to the execution plugin for actual execution. All validation
         # above was performed against the intended executor so that dry-run
         # and touch accurately reflect the real execution environment.
-        if execution_executor != executor:
+        if actual_executor != executor:
             run_executor_plugin = executor_plugin_registry.get_plugin(
-                execution_executor
+                actual_executor
             )
             run_executor_settings = None
         else:
