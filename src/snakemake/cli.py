@@ -2015,11 +2015,7 @@ def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
     # handle legacy executor names
-    if args.dryrun:
-        args.executor = "dryrun"
-    elif args.touch:
-        args.executor = "touch"
-    elif args.executor is None:
+    if args.executor is None:
         args.executor = "local"
 
     if args.report:
@@ -2064,12 +2060,11 @@ def args_to_api(args, parser):
         report_settings = None
 
     if args.cores is None:
-        if executor_plugin.common_settings.local_exec:
+        if args.dryrun or args.touch:
+            args.cores = 1
+        elif executor_plugin.common_settings.local_exec:
             # use --jobs as an alias for --cores
             args.cores = args.jobs
-            args.jobs = None
-        elif executor_plugin.common_settings.dryrun_exec:
-            args.cores = 1
             args.jobs = None
 
     # start profiler if requested
@@ -2256,8 +2251,20 @@ def args_to_api(args, parser):
                     elif args.delete_temp_output:
                         dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
                     else:
+                        # Determine the pseudo-executor override for
+                        # dryrun/touch. The intended executor (args.executor)
+                        # is used for validation, while the override is used
+                        # for the actual (non-)execution.
+                        if args.dryrun:
+                            pseudo_executor = "dryrun"
+                        elif args.touch:
+                            pseudo_executor = "touch"
+                        else:
+                            pseudo_executor = None
+
                         dag_api.execute_workflow(
                             executor=args.executor,
+                            pseudo_executor=pseudo_executor,
                             execution_settings=ExecutionSettings(
                                 keep_going=args.keep_going,
                                 debug=args.debug,
