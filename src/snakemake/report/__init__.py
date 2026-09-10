@@ -60,6 +60,13 @@ from snakemake_interface_report_plugins.interfaces import (
     FileRecordInterface,
 )
 from snakemake.exceptions import WorkflowError
+import ssl
+import urllib3
+# Allow legacy renegotiation for servers that don't support secure renegotiation.
+ssl_context = ssl.create_default_context()
+ssl_context.options |= ssl.OP_LEGACY_SERVER_CONNECT
+urllib3.disable_warnings()  # optional: suppress related warnings
+urllib3.util.ssl_.SSLContext = lambda: ssl_context  # monkey-patch
 
 
 class EmbeddedMixin(object):
