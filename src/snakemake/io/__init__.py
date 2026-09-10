@@ -275,7 +275,35 @@ def iocache(
     return wrapper
 
 
-class _IOFile(str, AnnotatedStringInterface):
+class AnnotatedStringFormatMixin(AnnotatedStringInterface):
+    """Mixin for str subclasses that carry flags (e.g. temp(), directory()) via
+    AnnotatedStringInterface. Overrides str.format() to carry those flags over to the
+    formatted result, instead of silently dropping them as plain str.format() would.
+
+    Must precede str in the MRO of the concrete class (i.e. `class Foo(Mixin, str)`,
+    not `class Foo(str, Mixin)`), otherwise str.format() would shadow this override.
+    """
+
+    def _storage_format_error_msg(self) -> str:
+        return (
+            f"Cannot call .format() on storage-flagged value '{self}': str.format() "
+            "has no notion of storage.s3() and similar flags, and would leave the "
+            "storage query out of sync with the substituted wildcards."
+        )
+
+    def format(self, *args, **kwargs):
+        if self.is_flagged("storage_object"):
+            raise WorkflowError(self._storage_format_error_msg())
+        # narrows self for the type checker: this mixin is only valid on str subclasses
+        assert isinstance(self, str)
+        formatted = str.format(self, *args, **kwargs)
+        if self.flags:
+            formatted = AnnotatedString(formatted)
+            formatted.flags = self.flags.copy()
+        return formatted
+
+
+class _IOFile(AnnotatedStringFormatMixin, str):
     """
     A file that is either input or output of a rule.
     """
@@ -896,6 +924,17 @@ class _IOFile(str, AnnotatedStringInterface):
             with open(file, "w") as f:
                 pass
 
+    def _storage_format_error_msg(self) -> str:
+        # storage_object is excluded from format(): it embeds its own query string,
+        # which apply_wildcards() rebuilds consistently with the substituted wildcards.
+        # str.format() has no notion of that, so a storage-flagged file cannot be
+        # formatted this way and must go through apply_wildcards() instead.
+        return (
+            super()._storage_format_error_msg()
+            + " Use .apply_wildcards(wildcards_dict) instead, which rebuilds the "
+            "storage query correctly."
+        )
+
     def apply_wildcards(self, wildcards):
         f = self._file
 
@@ -1007,7 +1046,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-class AnnotatedString(str, AnnotatedStringInterface):
+class AnnotatedString(AnnotatedStringFormatMixin, str):
     def __init__(self, value):
         self._flags = {}
         self.callable = value if is_callable(value) else None
