@@ -3516,16 +3516,15 @@ class ScriptProcessor(DAGProcessorBase):
             if isinstance(script_entry, Path):
                 script_entry = str(script_entry)
 
-            script_sourcefile, _, _, _, _ = script.get_source(
+            script_sourcefile = script.get_source_file(
                 script_entry,
-                self.dag.workflow.sourcecache,
                 job.rule.basedir,
                 job.wildcards,
                 job.params,
             )
             if not self.dag.workflow.sourcecache.exists(script_sourcefile):
                 raise WorkflowError(
-                    f"{self.script_type.capitalize()} {job.rule.script} not accessible. "
+                    f"{self.script_type.capitalize()} {script_entry} not accessible. "
                     "Please check the path to the script."
                 )
 
