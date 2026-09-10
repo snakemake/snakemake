@@ -3546,6 +3546,14 @@ def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
 
 
+@skip_on_windows
+def test_github_issue3560():
+    """Test that the :q format flag of an empty string list quotes the
+    empty string the same way shlex.join does.
+    Test for https://github.com/snakemake/snakemake/issues/3560"""
+    run(dpath("test_github_issue3560"))
+
+
 # On Windows this test output is emitted with
 # quotes around the output string what cause these tests to fail
 @skip_on_windows
