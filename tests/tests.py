@@ -1974,6 +1974,7 @@ def test_env_modules():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_container_b():
     run(
         dpath("test_container"),
@@ -3372,6 +3373,7 @@ def test_cyclic_dependency_single():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_issue3958():
     run(
         dpath("test_issue3958"),

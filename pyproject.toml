@@ -274,12 +274,6 @@ dash = "*"
 openmpi = "*"
 xrootd = ">=5.7.3,<6"
 
-[tool.pixi.feature.test.target.osx-64.dependencies]
-apptainer = "*"
-
-[tool.pixi.feature.test.target.osx-arm64.dependencies]
-apptainer = "*"
-
 # Docs
 [tool.pixi.feature.docs.pypi-dependencies]
 sphinx = ">=9.0,<10"
