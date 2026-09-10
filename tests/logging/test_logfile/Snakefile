@@ -9,5 +9,8 @@ rule all:
 rule a:
     output:
         "results/{i}.txt",
+    params:
+        "fixed",
+        value=lambda wildcards: wildcards.i,
     shell:
         "echo {wildcards.i} > {output}"
