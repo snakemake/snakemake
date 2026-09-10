@@ -240,7 +240,7 @@ snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
 snakemake-software-deployment-plugin-conda = ">=0.8.1,<1.0.0"
-snakemake-software-deployment-plugin-container = ">=0.7.2,<1.0.0"
+snakemake-software-deployment-plugin-container = ">=0.7.3,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
 
@@ -267,13 +267,18 @@ nodejs = "*"
 squashfuse = ">=0.6.2"  # enable conda installation in container.
 cwltool = "*"
 cwl-utils = "*"
-# # moved to pixi from main.yaml installing via apt
 apptainer = "*"
 git = "*"
 wget = "*"
 dash = "*"
 openmpi = "*"
 xrootd = ">=5.7.3,<6"
+
+[tool.pixi.feature.test.target.osx-64.dependencies]
+apptainer = "*"
+
+[tool.pixi.feature.test.target.osx-arm64.dependencies]
+apptainer = "*"
 
 # Docs
 [tool.pixi.feature.docs.pypi-dependencies]
