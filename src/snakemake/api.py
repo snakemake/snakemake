@@ -678,9 +678,7 @@ class DAGApi(ApiBase):
         # above was performed against the intended executor so that dry-run
         # and touch accurately reflect the real execution environment.
         if actual_executor != executor:
-            run_executor_plugin = executor_plugin_registry.get_plugin(
-                actual_executor
-            )
+            run_executor_plugin = executor_plugin_registry.get_plugin(actual_executor)
             run_executor_settings = None
         else:
             run_executor_plugin = executor_plugin
