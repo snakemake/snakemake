@@ -240,7 +240,7 @@ snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
 snakemake-software-deployment-plugin-conda = ">=0.8.1,<1.0.0"
-snakemake-software-deployment-plugin-container = ">=0.7.3,<1.0.0"
+snakemake-software-deployment-plugin-container = ">=0.7.4,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
 
