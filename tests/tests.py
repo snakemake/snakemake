@@ -3546,6 +3546,24 @@ def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
 
 
+@skip_on_windows
+def test_github_issue3306():
+    """Test that --keep-going still completes jobs that are not affected by
+    a missing input file of another job.
+    Test for https://github.com/snakemake/snakemake/issues/3306"""
+    tmpdir = run(
+        dpath("test_github_issue3306"),
+        shellcmd="snakemake -c1 --keep-going a.out b.out c.out || true",
+        check_results=False,
+        cleanup=False,
+    )
+    try:
+        assert os.path.isfile(os.path.join(tmpdir, "a.out"))
+        assert os.path.isfile(os.path.join(tmpdir, "b.out"))
+    finally:
+        shutil.rmtree(tmpdir)
+
+
 # On Windows this test output is emitted with
 # quotes around the output string what cause these tests to fail
 @skip_on_windows
