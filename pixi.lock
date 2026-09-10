@@ -880,6 +880,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -905,7 +906,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e5/43/9f0e9bfb3ce02cbf7747aa2185c48a9d6e42ba95736a5e8f511a5054d976/sphinx_argparse-0.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -1208,6 +1208,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/6e/9a0927ac24bd33a0a9af834d89e0abc7cfd8e13bed17a86407a66773cc0e/websockets-16.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
@@ -1241,7 +1242,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e5/43/9f0e9bfb3ce02cbf7747aa2185c48a9d6e42ba95736a5e8f511a5054d976/sphinx_argparse-0.5.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -1503,6 +1503,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -1535,7 +1536,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e5/43/9f0e9bfb3ce02cbf7747aa2185c48a9d6e42ba95736a5e8f511a5054d976/sphinx_argparse-0.5.2-py3-none-any.whl
@@ -1805,6 +1805,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/5d/c9ab3534374a4a67450696905d6ef16a04405448b8dc52bd752ae50423d4/watchfiles-1.2.0-cp314-cp314-macosx_11_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -1835,7 +1836,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/32/10ac51b4be7cdecd7e93d069251c86dfbf70b7adbd7c67b48ccea6c49e1c/sqlalchemy-2.0.50-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
@@ -2104,6 +2104,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -2136,7 +2137,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dc/b9/be539854f93a70dfbeec69117f33ec70dc42ff0b65b5b07ab8d40d04228e/coverage-7.14.1-cp314-cp314-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/be/b90df95297cdae2cbd5a83fddf429a304b17a0e9c277ca02190d995cbe09/uv-0.11.33-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/df/ac/46de6dda46478f7942f839e094970be2d4a861e005c4b3bf07c92e291a09/numpy-2.4.6-cp314-cp314-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
@@ -3726,6 +3726,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -3752,7 +3753,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -4024,6 +4024,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -4052,7 +4053,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/4f/744132a7b2fbefa6b81118ec5942eca5fc2e9a129f9055a0c5e46885a549/wrapt-2.2.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -4285,6 +4285,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -4313,7 +4314,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/36/5ee6e05c9bd427237b11b3937ad82bb8ad2752d72c6969314590dd0c2f6e/psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl
@@ -4544,6 +4544,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -4573,7 +4574,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -4807,6 +4807,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -4838,7 +4839,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/e3/ea007450a105ae919a72393cb06f122f288ef60bba2dc64b26e2646fa315/pyyaml-6.0.3-cp311-cp311-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/be/b90df95297cdae2cbd5a83fddf429a304b17a0e9c277ca02190d995cbe09/uv-0.11.33-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -5227,6 +5227,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -5249,7 +5250,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e3/cc/e0c352624c1f2faad270aeb5cce6e173977ef66b9b5e918aa6f32af896bf/siphash24-1.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/e5/63/cd7d615331b328e287d8233ba9fdf191a9c2d11b6af0c7a59cfcec23de68/pandas-2.3.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
@@ -5523,6 +5523,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/0b/76b601ee309a8bd556af0eecb184394c20b3c49aa9c8e085aa1ffacc2568/wrapt-2.2.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -5550,7 +5551,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -5784,6 +5784,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -5813,7 +5814,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/36/5ee6e05c9bd427237b11b3937ad82bb8ad2752d72c6969314590dd0c2f6e/psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl
@@ -6047,6 +6047,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -6073,7 +6074,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -6307,6 +6307,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ab/ca/feab00bd44aa5fe1ad2c18f08b4d3bb92e26484b0b1d1443897809ed528c/numpy-2.4.6-cp312-cp312-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
@@ -6337,7 +6338,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/be/b90df95297cdae2cbd5a83fddf429a304b17a0e9c277ca02190d995cbe09/uv-0.11.33-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -6725,6 +6725,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/77/b88b4a24ec747a0147993a61a8dabc9c69b45aa2459ea4b6e100b4ea613b/siphash24-1.8-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
@@ -6748,7 +6749,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -7022,6 +7022,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -7050,7 +7051,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -7280,6 +7280,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -7309,7 +7310,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/36/5ee6e05c9bd427237b11b3937ad82bb8ad2752d72c6969314590dd0c2f6e/psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl
@@ -7543,6 +7543,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/ca/f36ccb82d7c96dee3858d26ed08e67de1767c309f285dbb2f76eceeaba48/yappi-1.7.6-cp313-cp313-macosx_11_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -7570,7 +7571,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -7806,6 +7806,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -7834,7 +7835,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/be/b90df95297cdae2cbd5a83fddf429a304b17a0e9c277ca02190d995cbe09/uv-0.11.33-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
@@ -8228,6 +8228,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -8247,7 +8248,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -8520,6 +8520,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -8547,7 +8548,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/bb/61b2062f4d59af0d6acc8b820633104b2819df02158e4f9eee04621699b2/snakemake_storage_plugin_http-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl
@@ -8779,6 +8779,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -8806,7 +8807,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/36/5ee6e05c9bd427237b11b3937ad82bb8ad2752d72c6969314590dd0c2f6e/psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl
@@ -9042,6 +9042,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -9066,7 +9067,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/df/32/10ac51b4be7cdecd7e93d069251c86dfbf70b7adbd7c67b48ccea6c49e1c/sqlalchemy-2.0.50-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/df/3d/01f6dd9190170a5a241e0e98c2d04be3664a9e6f5b9b872cde63aff1c3dd/cryptography-48.0.0-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
@@ -9305,6 +9305,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/43/cfdaf562303012024c8f48efebdfe258eef3d895665bd7e0000fdeb2411d/snakemake_interface_logger_plugins-2.1.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/f6/54de5d115447a5c2d98a12c9adcf43452a58efe076003bdac459fce76f07/eido-0.2.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ae/b9/a0284debbe1b125c3402976029d3f67e5b678701ff7b1fa8145693fa2b1d/snakemake_executor_plugin_cluster_generic-1.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/af/56/dce8413a48934065e6dcb814a58aba3f592b6109d149c2bdb4214aab4bca/logmuse-0.3.0-py3-none-any.whl
@@ -9330,7 +9331,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d9/04/45a7aa44f8ac591801709c705dd6ac1ac849768b455fac17ad51e16ad493/snakemake_software_deployment_plugin_conda-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/98/a9937a969d018a23badfea0b381f66783649d48e0ea6c41923265c3cbeb3/traitlets-5.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dc/b9/be539854f93a70dfbeec69117f33ec70dc42ff0b65b5b07ab8d40d04228e/coverage-7.14.1-cp314-cp314-win_amd64.whl
-      - pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/be/b90df95297cdae2cbd5a83fddf429a304b17a0e9c277ca02190d995cbe09/uv-0.11.33-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/df/ac/46de6dda46478f7942f839e094970be2d4a861e005c4b3bf07c92e291a09/numpy-2.4.6-cp314-cp314-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
@@ -28840,6 +28840,15 @@ packages:
   requires_dist:
   - gevent>=20.6.2 ; extra == 'test'
   requires_python: '>=3.6'
+- pypi: https://files.pythonhosted.org/packages/aa/d3/c169e0a62be70ae6c436848490e31724956ee26cfac36d83b8fc96947bfc/snakemake_software_deployment_plugin_container-0.7.3-py3-none-any.whl
+  name: snakemake-software-deployment-plugin-container
+  version: 0.7.3
+  sha256: 6d517b4e8fce764e880d9cbf32c35f8f03428fba8b079fcb7edafd2172a2616f
+  requires_dist:
+  - snakemake-interface-common>=1.23.0,<2.0.0
+  - snakemake-interface-software-deployment-plugins>=0.19.2,<1.0
+  - udocker>=1.3.17,<2.0.0
+  requires_python: '>=3.11,<4.0'
 - pypi: https://files.pythonhosted.org/packages/ab/ca/feab00bd44aa5fe1ad2c18f08b4d3bb92e26484b0b1d1443897809ed528c/numpy-2.4.6-cp312-cp312-win_amd64.whl
   name: numpy
   version: 2.4.6
@@ -30135,15 +30144,6 @@ packages:
   requires_dist:
   - tomli ; python_full_version <= '3.11' and extra == 'toml'
   requires_python: '>=3.10'
-- pypi: https://files.pythonhosted.org/packages/dd/13/7e05e58ed0882bac050ffe40940575cbd767ddd4c27827580c57a6839c27/snakemake_software_deployment_plugin_container-0.7.2-py3-none-any.whl
-  name: snakemake-software-deployment-plugin-container
-  version: 0.7.2
-  sha256: 042fb5d1919f2f74c8d76ac30fd31b66046e340790136659d2dcf6bcd6e324f7
-  requires_dist:
-  - snakemake-interface-common>=1.23.0,<2.0.0
-  - snakemake-interface-software-deployment-plugins>=0.19.2,<1.0
-  - udocker>=1.3.17,<2.0.0
-  requires_python: '>=3.11,<4.0'
 - pypi: https://files.pythonhosted.org/packages/dd/6e/d674f1dde91c71e2ac19e5e5cf1ee6d5845e3aefecd9c39ed9c4b0c9a696/pulp-3.3.2-py3-none-any.whl
   name: pulp
   version: 3.3.2
