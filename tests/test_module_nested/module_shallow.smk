@@ -11,6 +11,9 @@ module A:
 use rule * from A as A_*
 
 
+checkpoints.A_run
+
+
 if "bb" not in config:
 
     use rule run from A as A_run with:
