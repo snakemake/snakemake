@@ -1,11 +1,13 @@
 rule a:
     output:
-        "test.txt"
-    resources:
-        shouldfail=lambda w, attempt: attempt < 3
+        "test.txt",
     retries: 3
+    resources:
+        shouldfail=lambda w, attempt: attempt < 3,
+    params:
+        shouldfail=lambda w, attempt: attempt < 3,
     run:
-        if resources.shouldfail:
+        if resources.shouldfail and params.shouldfail:
             raise ValueError("not enough attempts")
         with open(output[0], "w") as out:
             print("test", file=out)
