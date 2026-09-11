@@ -7,7 +7,7 @@ import asyncio
 from builtins import ExceptionGroup
 import os
 import base64
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import tempfile
 import json
 import shutil
@@ -900,7 +900,7 @@ class Job(
         elif self.rule.shadow_depth == "copy-full":
             # Relative paths to workdir not allowed in copy-full
             for f in chain(self.input, self.output, self.log):
-                if not os.path.isabs(f) and os.path.relpath(f).startswith(".."):
+                if not os.path.isabs(f) and PurePosixPath(os.path.relpath(f)).parts[0] == "..":
                     raise RuleException(
                         "The following file name references a parent directory relative to your workdir.\n"
                         'This isn\'t supported for shadow: "copy-full". '
