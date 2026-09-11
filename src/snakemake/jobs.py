@@ -331,6 +331,11 @@ class Job(
     def shadow_dir(self, value):
         self._shadow_dir = value
 
+    def _is_shadow_path(self, path_real, shadow_dir_real):
+        return path_real == shadow_dir_real or path_real.startswith(
+            shadow_dir_real + os.sep
+        )
+
     @property
     def wildcards(self):
         return self._wildcards
@@ -912,9 +917,7 @@ class Job(
 
                 # Do not copy shadow dir itself if inside current working directory.
                 src_real = os.path.realpath(src_path)
-                if shadow_dir_real == src_real:
-                    continue
-                if shadow_dir_real.startswith(src_real + os.sep):
+                if self._is_shadow_path(src_real, shadow_dir_real):
                     continue
 
                 dst_path = os.path.join(self.shadow_dir, source)
@@ -928,7 +931,20 @@ class Job(
                     shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
                     os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
                     if os.path.isdir(f):
-                        shutil.copytree(f, shadow_f, symlinks=True, dirs_exist_ok=True)
+                        shutil.copytree(
+                            f,
+                            shadow_f,
+                            symlinks=True,
+                            dirs_exist_ok=True,
+                            ignore=lambda d, entries: {
+                                e
+                                for e in entries
+                                if self._is_shadow_path(
+                                    os.path.realpath(os.path.join(d, e)),
+                                    shadow_dir_real,
+                                )
+                            },
+                        )
                     else:
                         shutil.copy2(f, shadow_f)
             # Create the parent directories for output and log
@@ -948,9 +964,7 @@ class Job(
 
                 # Skip the shadow dir and its descendants (reachable via --shadow-prefix).
                 dirpath_real = os.path.realpath(dirpath)
-                if dirpath_real == shadow_dir_real:
-                    continue
-                if dirpath_real.startswith(shadow_dir_real + os.sep):
+                if self._is_shadow_path(dirpath_real, shadow_dir_real):
                     continue
 
                 for dirname in dirnames:
