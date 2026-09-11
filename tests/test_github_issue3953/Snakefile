@@ -1,0 +1,17 @@
+# https://github.com/snakemake/snakemake/issues/3953
+
+def failing_function():
+    raise Exception("ERROR - good!")
+
+rule all:
+    input: "file2"
+
+rule make_file1:
+    input: lambda w: failing_function()
+    output: "file1"
+    shell: "touch {output}"
+
+rule make_file2:
+    input: "file1"
+    output: "file2"
+    shell: "touch {output}"
