@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import asyncio
 from builtins import ExceptionGroup
-from collections import defaultdict
 import os
 import base64
 from pathlib import Path
@@ -41,7 +40,6 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import (
     _IOFile,
     IOFile,
-    is_callable,
     is_flagged,
     get_flag_value,
     wait_for_files,
@@ -65,7 +63,6 @@ from snakemake.exceptions import (
 
 from snakemake.logging import logger
 from snakemake.common import (
-    get_function_params,
     get_uuid,
     IO_PROP_LIMIT,
 )
@@ -697,8 +694,14 @@ class Job(
         """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
             return f
-        f_path = f.lstrip("/") if self.rule.shadow_depth == "copy-full" else f
-        f_ = IOFile(os.path.join(self.shadow_dir, f_path), self.rule)
+
+        if self.rule.shadow_depth == "copy-full":
+            shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
+        else:
+            # Absolute paths pass through unchanged (os.path.join discards the prefix).
+            shadow_f = os.path.join(self.shadow_dir, f)
+        f_ = IOFile(shadow_f, self.rule)
+
         # The shadowed path does not need the storage object, storage will be handled
         # after shadowing.
         f_.clone_flags(f, skip_storage_object=True)
