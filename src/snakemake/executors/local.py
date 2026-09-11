@@ -360,18 +360,12 @@ def run_wrapper(run_args: RunArgs):
             write_benchmark_records,
         )
 
-    # Change workdir if shadow defined and not using singularity.
-    # Otherwise, we do the change from inside the container.
-    passed_shadow_dir = None
-    if use_singularity and container_img:
-        passed_shadow_dir = shadow_dir
-        shadow_dir = None
 
-    if shadow_dir and job_rule.shadow_depth == "copy-full":
-        for seq in (input, output, log):
+    if run_args.shadow_dir and run_args.job_rule.shadow_depth == "copy-full":
+        for seq in (run_args.input, run_args.output, run_args.log):
             for i, f in enumerate(seq):
                 if os.path.isabs(f):
-                    seq[i] = os.path.join(shadow_dir, f.lstrip("/"))
+                    seq[i] = os.path.join(run_args.shadow_dir, f.lstrip("/"))
 
     try:
         with change_working_directory(run_args.shadow_dir):
