@@ -997,10 +997,12 @@ def test_container_a():
 
 @skip_on_windows
 @connected
+@apptainer
 def test_container_cluster():
     run(
         dpath("test_singularity"),
         deployment_method={"container"},
+        container_runtime="apptainer",
         cluster="./qsub",
     )
 
