@@ -33,6 +33,5 @@ rule copy_full_absolute:
             exit 1
         fi
 
-        cat {input} > /dev/null
-        touch {output}
+        cat {input} > {output}
         """
