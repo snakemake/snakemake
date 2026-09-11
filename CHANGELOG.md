@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
+
+
+### Features
+
+* show diffs in unit tests ([#4289](https://github.com/snakemake/snakemake/issues/4289)) ([d6f82cb](https://github.com/snakemake/snakemake/commit/d6f82cbaa782fce2153b220c75bb149912f2c6e6))
+
+
+### Bug Fixes
+
+* guard is_edit_notebook_job check to prevent crash ([#4305](https://github.com/snakemake/snakemake/issues/4305)) ([c214a97](https://github.com/snakemake/snakemake/commit/c214a9735c394eda25d846663e65fc198537ffef))
+* Use intended executor for workflow validation in 'dryrun/touch' modes ([#3975](https://github.com/snakemake/snakemake/issues/3975)) ([73927a4](https://github.com/snakemake/snakemake/commit/73927a486340d597cc236f922d0275f0641f1fee))
+
 ## [9.26.1](https://github.com/snakemake/snakemake/compare/v9.26.0...v9.26.1) (2026-08-27)
 
 
