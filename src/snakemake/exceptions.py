@@ -707,3 +707,7 @@ def is_file_not_found_error(exc, considered_files):
         return True
     else:
         return False
+
+
+class ExpandSoftwareEnvRequiresWildcardsError(Exception):
+    pass

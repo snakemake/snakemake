@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Union
 
-from snakemake.common import get_function_params, overwrite_function_params
+from snakemake.common.misc import get_function_params, overwrite_function_params
 from snakemake.io import is_callable
 from snakemake.ioutils.rule_items_proxy import RuleItemProxy
 

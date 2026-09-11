@@ -36,7 +36,7 @@ import humanfriendly
 from humanfriendly import InvalidTimespan, InvalidSize, parse_size, parse_timespan
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
-from snakemake.common import (
+from snakemake.common.misc import (
     get_input_function_aux_params,
     mb_to_mib,
     mib_to_mb,

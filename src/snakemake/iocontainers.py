@@ -1,19 +1,16 @@
-__author__ = "Johannes Köster"
-__copyright__ = "Copyright 2022, Johannes Köster"
-__email__ = "johannes.koester@uni-due.de"
-__license__ = "MIT"
-
-# Only modules from python standard library should be imported here (except for methods
+# compat: python 3.7 (script support)
+# Must be kept compatible to Python 3.7 because it is used in Snakemake's
+# Python script support.
+# Only modules from python standard library or other Snakemake modules that are
+# Python 3.7 compatible should be imported here (except for methods
 # that are only called by Snakemake itself)!
-# Further, the code here has to be kept compatible with Python 3.7.
-# THe reason is that objects from this module are unpickled in scripts that might still
-# run in older Python versions than Snakemake itself.
 
 import os
 import urllib.parse
 from pathlib import Path
 
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     List,
@@ -26,9 +23,14 @@ from typing import (
     Optional,
 )
 
+from snakemake.common.report import get_report_id
+
 PathLike = Union[str, Path, os.PathLike]
 
 FILE_HASH_PREFIX_LEN = 16
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 class ReportHref:
@@ -39,8 +41,6 @@ class ReportHref:
         url_args: Optional[Dict[str, str]] = None,
         anchor: Optional[str] = None,
     ):
-        from snakemake.common import get_report_id
-
         self._parent = parent
         if parent is None:
             self._id = get_report_id(path)
@@ -53,13 +53,13 @@ class ReportHref:
         )
         self._anchor = anchor
 
-    def child_path(self, path: Union[str, Path]):
+    def child_path(self, path: Union[str, Path]) -> "Self":
         return self.__class__(path, parent=self)
 
-    def url_args(self, **args: str):
+    def url_args(self, **args: str) -> "Self":
         return self.__class__(path=self._path, parent=self._parent, url_args=args)
 
-    def anchor(self, anchor: str):
+    def anchor(self, anchor: str) -> "Self":
         return self.__class__(
             path=self._path, parent=self._parent, url_args=self._url_args, anchor=anchor
         )
@@ -289,7 +289,7 @@ class Namedlist(list, Generic[_TNamedList]):
 
 class InputFiles(Namedlist):
     def _predicated_size_files(self, predicate: Callable) -> List[int]:
-        from snakemake.common import async_run as async_run_fallback
+        from snakemake.common.misc import async_run as async_run_fallback
 
         async def sizes() -> List[int]:
             import asyncio
