@@ -980,7 +980,7 @@ def test_profile_double_dash():
     """Test that -- target separator works correctly with --profile (issue #3642)."""
     run(
         dpath("test_profile_double_dash"),
-        shellcmd="snakemake -c1 --profile profile -- done.txt",
+        shellcmd="snakemake --profile profile -- done.txt",
     )
 
 
