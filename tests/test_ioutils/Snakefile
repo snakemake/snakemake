@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 samples = pd.read_csv("samples.tsv", sep="\t")
@@ -23,7 +24,21 @@ assert flatten([1, "a", [2, "b"], ["c", "d", ["e", 3]]]) == [
     "e",
     "3",
 ]
-
+none_df = pd.DataFrame(
+    {
+        "sample": [1, 2, 3, 4, 5, 6, 7],
+        "val": [pd.NA, pd.NaT, np.nan, None, "", 0, False]
+    }
+)
+for s in none_df["sample"]:
+    assert (
+        branch(
+            lookup(query=f"sample == {s}", within=none_df, cols="val"),
+            then="foo",
+            otherwise="bar"
+        )
+        == "bar"
+    )
 
 rule all:
     input:
