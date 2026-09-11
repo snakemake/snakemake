@@ -942,10 +942,19 @@ class Job(
                         rule=self.rule,
                     )
             # Copy the cwd (current working directory)
+            shadow_dir_real = os.path.realpath(self.shadow_dir)
             for source in os.listdir(cwd):
                 if source == ".snakemake":
                     continue
                 src_path = os.path.join(cwd, source)
+
+                # Do not copy shadow dir itself if inside current working directory.
+                src_real = os.path.realpath(src_path)
+                if shadow_dir_real == src_real:
+                    continue
+                if shadow_dir_real.startswith(src_real + os.sep):
+                    continue
+
                 dst_path = os.path.join(self.shadow_dir, source)
                 if os.path.isdir(src_path):
                     shutil.copytree(src_path, dst_path, symlinks=True)
@@ -957,7 +966,7 @@ class Job(
                     shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
                     os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
                     if os.path.isdir(f):
-                        shutil.copytree(f, shadow_f, symlinks=True)
+                        shutil.copytree(f, shadow_f, symlinks=True, dirs_exist_ok=True)
                     else:
                         shutil.copy2(f, shadow_f)
             # Create the parent directories for output and log
@@ -967,12 +976,21 @@ class Job(
                     os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
         elif self.rule.shadow_depth == "full":
             snakemake_dir = os.path.join(cwd, ".snakemake")
+            shadow_dir_real = os.path.realpath(self.shadow_dir)
             for dirpath, dirnames, filenames in os.walk(cwd, followlinks=True):
                 # a link should not point to a parent directory of itself, else can cause infinite recursion
                 # Must exclude .snakemake and its children to avoid infinite
                 # loop of symlinks.
                 if os.path.commonprefix([snakemake_dir, dirpath]) == snakemake_dir:
                     continue
+
+                # Skip the shadow dir and its descendants (reachable via --shadow-prefix).
+                dirpath_real = os.path.realpath(dirpath)
+                if dirpath_real == shadow_dir_real:
+                    continue
+                if dirpath_real.startswith(shadow_dir_real + os.sep):
+                    continue
+
                 for dirname in dirnames:
                     if dirname == ".snakemake":
                         continue

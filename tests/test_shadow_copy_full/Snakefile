@@ -14,6 +14,12 @@ rule copy_full:
             exit 1
         fi
 
+        # Verify undeclared file was copied (proves full cwd copy)
+        if [ ! -f extra.txt ]; then
+            echo "Undeclared file extra.txt not found, cwd was not fully copied"
+            exit 1
+        fi
+
         # Verify junk files don't leak to workdir
         echo junk > junk.out
         cat {input} >> {output}
@@ -27,7 +33,13 @@ rule copy_full_absolute:
     shadow: "copy-full"
     shell:
         """
-        # Verify absolute input was copied into the shadow dir
+        # Verify absolute input was remapped into the shadow dir
+        case "{input}" in
+            "$PWD"/*) ;;
+            *) echo "Input not remapped into shadow dir: {input}"; exit 1 ;;
+        esac
+
+        # Verify absolute input was copied, not symlinked
         if [ -L "{input}" ]; then
             echo "Absolute input file is a symbolic link, expected a copy"
             exit 1
