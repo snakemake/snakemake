@@ -626,6 +626,12 @@ def test_shadow_copy_full():
     run(dpath("test_shadow_copy_full"))
 
 
+@skip_on_windows
+def test_shadow_copy_full_prefix():
+    # Shadow prefix inside the workdir must not be copied into the shadow dir itself.
+    run(dpath("test_shadow_copy_full"), shadow_prefix="shadowdir")
+
+
 @skip_on_windows  # Symbolic link privileges needed to work
 def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir")

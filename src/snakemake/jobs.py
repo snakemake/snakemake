@@ -911,21 +911,35 @@ class Job(
                         f"{f}",
                         rule=self.rule,
                     )
+            # Skip the shadow root (all jobs' shadow dirs), also when nested in a copied dir.
+            shadow_root_real = os.path.realpath(
+                self.rule.workflow.persistence.shadow_path
+            )
+
+            def ignore_shadow(d, entries):
+                return {
+                    e
+                    for e in entries
+                    if self._is_shadow_path(
+                        os.path.realpath(os.path.join(d, e)), shadow_root_real
+                    )
+                }
+
             # Copy the cwd (current working directory)
-            shadow_dir_real = os.path.realpath(self.shadow_dir)
             for source in os.listdir(cwd):
                 if source == ".snakemake":
                     continue
                 src_path = os.path.join(cwd, source)
 
-                # Do not copy shadow dir itself if inside current working directory.
                 src_real = os.path.realpath(src_path)
-                if self._is_shadow_path(src_real, shadow_dir_real):
+                if self._is_shadow_path(src_real, shadow_root_real):
                     continue
 
                 dst_path = os.path.join(self.shadow_dir, source)
                 if os.path.isdir(src_path):
-                    shutil.copytree(src_path, dst_path, symlinks=True)
+                    shutil.copytree(
+                        src_path, dst_path, symlinks=True, ignore=ignore_shadow
+                    )
                 else:
                     shutil.copy2(src_path, dst_path)
             # Copy the absolute paths from the inputs
@@ -939,14 +953,7 @@ class Job(
                             shadow_f,
                             symlinks=True,
                             dirs_exist_ok=True,
-                            ignore=lambda d, entries: {
-                                e
-                                for e in entries
-                                if self._is_shadow_path(
-                                    os.path.realpath(os.path.join(d, e)),
-                                    shadow_dir_real,
-                                )
-                            },
+                            ignore=ignore_shadow,
                         )
                     else:
                         shutil.copy2(f, shadow_f)
