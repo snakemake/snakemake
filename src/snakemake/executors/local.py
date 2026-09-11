@@ -347,6 +347,12 @@ def run_wrapper(
         passed_shadow_dir = shadow_dir
         shadow_dir = None
 
+    if shadow_dir and job_rule.shadow_depth == "copy-full":
+        for seq in (input, output, log):
+            for i, f in enumerate(seq):
+                if os.path.isabs(f):
+                    seq[i] = os.path.join(shadow_dir, f.lstrip("/"))
+
     try:
         with change_working_directory(shadow_dir):
             if benchmark:
