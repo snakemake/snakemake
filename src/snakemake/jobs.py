@@ -697,10 +697,8 @@ class Job(
         """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
             return f
-        if os.path.isabs(f) and self.rule.shadow_depth == "copy-full":
-            f_ = IOFile(os.path.join(self.shadow_dir, f.lstrip("/")), self.rule)
-        else:
-            f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+        f_path = f.lstrip("/") if self.rule.shadow_depth == "copy-full" else f
+        f_ = IOFile(os.path.join(self.shadow_dir, f_path), self.rule)
         # The shadowed path does not need the storage object, storage will be handled
         # after shadowing.
         f_.clone_flags(f, skip_storage_object=True)
