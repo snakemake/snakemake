@@ -710,3 +710,193 @@ This mechanism requires that you use Mamba_ or Conda and activate conda-based so
     --software-deployment-method conda
     # or the shorthand version
     --sdm conda
+
+.. _software_directive:
+
+----------------------------------------------
+Unified software directive (``software:``)
+----------------------------------------------
+
+.. note::
+
+   The ``software:`` directive is available starting with Snakemake 9.x.
+   It provides a unified, composable way to specify software environments,
+   superseding the separate ``conda:``, ``container:``, and ``envmodules:``
+   directives.
+
+In addition to the legacy ``conda:``, ``container:``, and ``envmodules:``
+directives, Snakemake offers a unified ``software:`` directive that uses
+**plugin-based deployment**. Instead of hardcoding a deployment method in the
+Snakefile, the ``software:`` directive calls a factory function that corresponds
+to an installed software deployment plugin.
+
+The available factory functions are determined by which plugins are loaded.
+Activate plugins via the CLI:
+
+.. code-block:: bash
+
+    snakemake --sdm conda
+    snakemake --sdm conda apptainer
+    snakemake --sdm conda apptainer envmodules
+
+Basic usage
+~~~~~~~~~~~
+
+Use the ``software:`` directive with a plugin-provided factory function:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: conda(envfile="envs/bwa.yaml")
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+This is equivalent to using the legacy ``conda:`` directive:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        conda:
+            "envs/bwa.yaml"
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+The ``software:`` directive also supports callables (like the legacy directives):
+
+.. code-block:: python
+
+    def get_envfile(wildcards):
+        return f"envs/{wildcards.tool}.yaml"
+
+    rule analysis:
+        output:
+            "result/{tool}.out"
+        software: conda(envfile=get_envfile)
+        shell:
+            "analyze --output {output}"
+
+Composition with ``within``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``within`` keyword argument allows nesting one deployment method inside
+another. The most common pattern is deploying a conda environment **within**
+a container:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: conda(envfile="envs/bwa.yaml", within=container(image="ubuntu:22.04"))
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+When executed with ``--sdm conda apptainer``, Snakemake will:
+
+1. Pull the container image
+2. Create the conda environment from inside the container
+3. Execute the job inside the container with the conda environment activated
+
+This replaces the legacy pattern of combining ``conda:`` and ``container:``
+directives on the same rule.
+
+Fallback chains with ``or``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``or`` operator allows specifying fallback deployment methods.
+If the primary method is unavailable, Snakemake tries the next one:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: envmodules("bio/bwa/0.7.9", "bio/samtools/1.9") or conda(envfile="envs/bwa.yaml")
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+When executed with ``--sdm envmodules conda``:
+
+* On HPC systems with environment modules, Snakemake loads ``bio/bwa/0.7.9`` and ``bio/samtools/1.9``
+* On systems without those modules, Snakemake falls back to the conda environment
+
+This replaces the legacy pattern of combining ``envmodules:`` with ``conda:``
+directives, and is the recommended way to write portable workflows.
+
+Combining ``within`` and fallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Composition and fallback can be combined:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: envmodules("bio/bwa/0.7.9") or conda(envfile="envs/bwa.yaml", within=container(image="ubuntu:22.04"))
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+This tries environment modules first. If unavailable, it falls back to a
+conda environment deployed inside a container.
+
+Available factory functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following factory functions are provided by the official plugins:
+
+============== ============ =====================================================
+Factory        Plugin        Description
+============== ============ =====================================================
+``conda``      conda        Conda environment from YAML file or name
+``container``  container    Docker/Apptainer/Podman container
+``envmodules`` envmodules   Environment modules (Lmod)
+============== ============ =====================================================
+
+Additional plugins may be provided by the community.
+
+Plugin arguments:
+
+* ``conda(envfile=..., directory=..., name=..., pinfile=..., within=...)``
+* ``container(image=..., within=...)``
+* ``envmodules(*names, within=...)``
+
+All factory functions accept the ``within`` keyword for composition.
+
+Migration from legacy directives
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The legacy directives continue to work. To migrate:
+
++-----------------------------------+---------------------------------------------------------------+
+| Legacy                            | New                                                           |
++===================================+===============================================================+
+| ``conda: "env.yaml"``             | ``software: conda(envfile="env.yaml")``                       |
++-----------------------------------+---------------------------------------------------------------+
+| ``container: "docker://img"``     | ``software: container(image="docker://img")``                 |
++-----------------------------------+---------------------------------------------------------------+
+| ``envmodules: "m1", "m2"``        | ``software: envmodules("m1", "m2")``                          |
++-----------------------------------+---------------------------------------------------------------+
+| ``conda:`` + ``container:``       | ``software: conda(envfile=..., within=container(image=...))`` |
++-----------------------------------+---------------------------------------------------------------+
+| ``envmodules:`` + ``conda:``      | ``software: envmodules(...) or conda(envfile=...)``           |
++-----------------------------------+---------------------------------------------------------------+
