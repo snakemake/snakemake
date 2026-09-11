@@ -1,0 +1,38 @@
+rule all:
+    input: "copy_full.out", "copy_full_absolute.out"
+
+
+rule copy_full:
+    input: "test.in"
+    output: "copy_full.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify input is a copy, not a symlink
+        if [ -L "{input}" ]; then
+            echo "Input file is a symbolic link, expected a copy"
+            exit 1
+        fi
+
+        # Verify junk files don't leak to workdir
+        echo junk > junk.out
+        cat {input} >> {output}
+        echo copy_full >> {output}
+        """
+
+
+rule copy_full_absolute:
+    input: os.path.join(os.getcwd(), "test.in")
+    output: "copy_full_absolute.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify absolute input was copied into the shadow dir
+        if [ -L "{input}" ]; then
+            echo "Absolute input file is a symbolic link, expected a copy"
+            exit 1
+        fi
+
+        cat {input} > /dev/null
+        touch {output}
+        """

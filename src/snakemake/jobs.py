@@ -697,7 +697,10 @@ class Job(
         """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
             return f
-        f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
+        if os.path.isabs(f) and self.rule.shadow_depth == "copy-full":
+            f_ = IOFile(os.path.join(self.shadow_dir, f.lstrip("/")), self.rule)
+        else:
+            f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
         # The shadowed path does not need the storage object, storage will be handled
         # after shadowing.
         f_.clone_flags(f, skip_storage_object=True)
@@ -925,6 +928,42 @@ class Job(
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)
+
+        elif self.rule.shadow_depth == "copy-full":
+            # Relative paths to workdir not allowed in copy-full
+            for f in chain(self.input, self.output, self.log):
+                if not os.path.isabs(f) and os.path.relpath(f).startswith(".."):
+                    raise RuleException(
+                        "The following file name references a parent directory relative to your workdir.\n"
+                        'This isn\'t supported for shadow: "copy-full". '
+                        "Consider using an absolute path instead.\n"
+                        f"{f}",
+                        rule=self.rule,
+                    )
+            # Copy the cwd (current working directory)
+            for source in os.listdir(cwd):
+                if source == ".snakemake":
+                    continue
+                src_path = os.path.join(cwd, source)
+                dst_path = os.path.join(self.shadow_dir, source)
+                if os.path.isdir(src_path):
+                    shutil.copytree(src_path, dst_path, symlinks=True)
+                else:
+                    shutil.copy2(src_path, dst_path)
+            # Copy the absolute paths from the inputs
+            for f in self.input:
+                if os.path.isabs(f):
+                    shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
+                    os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
+                    if os.path.isdir(f):
+                        shutil.copytree(f, shadow_f, symlinks=True)
+                    else:
+                        shutil.copy2(f, shadow_f)
+            # Create the parent directories for output and log
+            for f in chain(self.output, self.log):
+                if os.path.isabs(f):
+                    shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
+                    os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
         elif self.rule.shadow_depth == "full":
             snakemake_dir = os.path.join(cwd, ".snakemake")
             for dirpath, dirnames, filenames in os.walk(cwd, followlinks=True):

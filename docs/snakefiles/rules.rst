@@ -2305,6 +2305,9 @@ so that any relative paths in a subdirectory will be real paths in the filesyste
 The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir.
 The setting ``shadow: "minimal"`` only symlinks the inputs to the rule,
 and ``shadow: "copy-minimal"`` copies the inputs instead of just creating symlinks.
+The setting ``shadow: "copy-full"`` copies the entire working directory and also copies absolute-path inputs into the shadow directory.
+Except for ``copy-full`` the other modes leave absolute paths alone.
+The ``copy-full`` command is use-full for I/O heavy commands where ``---shadow-prefix`` is set to an I/O optimized filesystem.
 Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
 Typically, you will not need to modify your rule for compatibility with ``shadow``,
