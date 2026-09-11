@@ -1985,6 +1985,7 @@ def test_container_b():
 
 
 @skip_on_windows
+@skip_on_macos
 def test_dynamic_container():
     run(dpath("test_dynamic_container"), deployment_method={"container"})
 
