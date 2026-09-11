@@ -936,12 +936,13 @@ class Job(
                     continue
 
                 dst_path = os.path.join(self.shadow_dir, source)
-                if os.path.isdir(src_path):
+                # Keep symlinks as symlinks (like cp -a), also for dirs.
+                if os.path.isdir(src_path) and not os.path.islink(src_path):
                     shutil.copytree(
                         src_path, dst_path, symlinks=True, ignore=ignore_shadow
                     )
                 else:
-                    shutil.copy2(src_path, dst_path)
+                    shutil.copy2(src_path, dst_path, follow_symlinks=False)
             # Copy the absolute paths from the inputs
             for f in self.input:
                 if os.path.isabs(f):
