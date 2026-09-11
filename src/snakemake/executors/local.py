@@ -360,7 +360,6 @@ def run_wrapper(run_args: RunArgs):
             write_benchmark_records,
         )
 
-
     if run_args.shadow_dir and run_args.job_rule.shadow_depth == "copy-full":
         for seq in (run_args.input, run_args.output, run_args.log):
             for i, f in enumerate(seq):
