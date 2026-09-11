@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import logging
 import os
 import shutil
 import sys
@@ -559,8 +560,12 @@ def test_input_generator():
     run(dpath("test_input_generator"))
 
 
-def test_github_issue3953():
-    run(dpath("test_github_issue3953"), shouldfail=True)
+def test_github_issue3953(caplog):
+    with caplog.at_level(logging.WARNING):
+        run(dpath("test_github_issue3953"), check_results=False)
+    assert any(
+        "InputFunctionException" in record.message for record in caplog.records
+    )
 
 
 def test_symlink_time_handling():

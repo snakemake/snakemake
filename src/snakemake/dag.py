@@ -1322,10 +1322,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                     if not file_exists:
                         self.delete_job(job, recursive=False)  # delete job from tree
                         raise ex
-                    elif isinstance(ex, InputFunctionException):
-                        # These indicate a broken workflow definition.
-                        self.delete_job(job, recursive=False)
-                        raise ex
                     else:
                         logger.debug(
                             msg=f"No producers found, but file: {res.file} is present on disk.",
@@ -1336,8 +1332,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             ),
                         )
                         known_producers[res.file] = None
-                    if isinstance(ex, CyclicGraphException) or isinstance(
-                        ex, PeriodicWildcardError
+                    if isinstance(
+                        ex,
+                        (
+                            CyclicGraphException,
+                            PeriodicWildcardError,
+                            InputFunctionException,
+                        ),
                     ):
                         print_exception_warning(ex, self.workflow.linemaps)
 
