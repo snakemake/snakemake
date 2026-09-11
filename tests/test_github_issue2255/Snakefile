@@ -1,0 +1,11 @@
+rule all:
+    input: ["file.txt", "test.txt"],
+
+rule touch:
+    """Touch a file"""
+    output: "file.txt"
+    shell: """ touch {output} """
+
+use rule touch as touche_test with:
+    """The pipeline only runs when this comment is removed"""
+    output: "test.txt"

@@ -1,5 +1,13 @@
-rule:
+rule all:
+    input:
+        "test.out",
+
+
+rule name:
     output:
-        touch("test.out")
+        touch("{name}.out"),
     shell:
         "exit 0"
+
+wildcard_constraints:
+    name="test",

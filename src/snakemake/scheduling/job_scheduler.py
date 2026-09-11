@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -6,14 +8,14 @@ __license__ = "MIT"
 import asyncio
 from bisect import bisect
 from collections import deque
-import signal
-import sys
+import copy
+import signal, sys
 import threading
 
 from itertools import chain, accumulate, filterfalse, repeat
 from contextlib import ContextDecorator
 import time
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, TYPE_CHECKING
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -32,6 +34,9 @@ from snakemake.scheduling.greedy import SchedulerSettings as GreedySchedulerSett
 from snakemake.settings.enums import Quietness
 from snakemake.settings.types import MaxJobsPerTimespan, SharedFSUsage
 
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
+
 registry = ExecutorPluginRegistry()
 
 
@@ -40,7 +45,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. Look below for error messages"
+    "Exiting because a job execution failed. Look above for error messages"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -60,7 +65,7 @@ class DummyRateLimiter(ContextDecorator):
 class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
-        workflow,
+        workflow: Workflow,
         executor_plugin: ExecutorPlugin,
         scheduler: SchedulerBase,
         greedy_scheduler_settings: GreedySchedulerSettings,
@@ -93,20 +98,23 @@ class JobScheduler(JobSchedulerExecutorInterface):
             else None
         )
 
-        nodes_unset = workflow.global_resources["_nodes"] is None
-
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
-            for name, res in workflow.global_resources.items()
+            for name, res in workflow.global_resources.expand_items(
+                constraints={},
+                evaluate=None,
+                expand_sized=False,
+            )
+            if not isinstance(res, str)
         }
 
-        if not nodes_unset:
+        if workflow.global_resources["_nodes"].value is not None:
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
         # register job count resource (always initially unrestricted)
         self.global_resources["_job_count"] = sys.maxsize
 
-        self.resources = dict(self.global_resources)
+        self.resources = copy.copy(self.global_resources)
 
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
@@ -244,8 +252,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self._executor.shutdown()
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
-                            for job in self.failed:
-                                job.log_error()
                         return False
                     continue
 
@@ -261,8 +267,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
-                        for job in self.failed:
-                            job.log_error()
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs and not self.keepgoing:
@@ -345,7 +349,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 f"{', '.join(j.name for j in local_runjobs)}."
                             )
                         else:
-                            if not self.dryrun and not self.workflow.subprocess_exec:
+                            if (
+                                not (self.dryrun or self.touch)
+                                and not self.workflow.subprocess_exec
+                            ):
                                 # retrieve storage inputs for local jobs
                                 self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
@@ -579,10 +586,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
             with self._lock:
                 if self.resources["_cores"] == 0:
                     return []
-                if len(jobs) == 1:
-                    return self.job_selector_greedy(
-                        jobs, self.remaining_jobs, self.resources, self._input_sizes
-                    )
                 selected = job_selector(
                     jobs, self.remaining_jobs, self.resources, self._input_sizes
                 )

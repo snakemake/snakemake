@@ -498,7 +498,7 @@ Moreover, some options have been renamed:
                         Specify a custom executor, available via an executor
                         plugin: snakemake_executor_<name> (default: None)
      - New designed: Now if you want to use ``--cluster CMD``, please use ``--executor cluster-generic --cluster-generic-submit-cmd CMD`` instead.
-        Note you should install ``cluster-generic`` using command ``pip install snakemake-executor-cluster-generic``
+        Note you should install ``cluster-generic`` using command ``pip install snakemake-executor-plugin-cluster-generic``
    * - --cluster CMD
      -
                         Execute snakemake rules with the given submit command,

@@ -12,7 +12,6 @@ with open(snakemake.output[0], "w") as f:
             <a href={snakemake.report_href("subdir").child_path("subdir/test3.html")}>Link to subdir/test3.html</a>
         </body>
         </html>
-          """
-        ),
+          """),
         file=f,
     )

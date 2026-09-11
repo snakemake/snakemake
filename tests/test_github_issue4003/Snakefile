@@ -1,0 +1,61 @@
+rule all:
+    input:
+        expand(
+            "{name}.out",
+            name=[
+                "default_name",
+                "non_default_name",
+                "no_name",
+                "call_script_fails",
+                "using_script_block_fails",
+            ],
+        )
+
+
+rule test_with_default_name:
+    params:
+        module=as_py_module(),
+    input:
+        script="some_package/some_subpackage/some_module.py",
+    output:
+        "default_name.out"
+    shell:
+        "python -m {params.module} > {output}"
+
+
+rule test_with_non_default_name:
+    params:
+        module=as_py_module(input.script_name),
+    input:
+        script_name="some_package/some_subpackage/some_module.py",
+    output:
+        "non_default_name.out"
+    shell:
+        "python -m {params.module} > {output}"
+
+
+rule test_with_non_default_non_name:
+    params:
+        module=as_py_module(input),
+    input:
+        "some_package/some_subpackage/some_module.py",
+    output:
+        "no_name.out"
+    shell:
+        "python -m {params.module} > {output}"
+
+
+rule test_expect_fail:
+    input:
+        script="some_package/some_subpackage/some_module.py",
+    output:
+        "call_script_fails.out"
+    shell:
+        "python {input.script} > {output}"
+
+
+rule test_expect_fail_script:
+    output:
+        stdout="using_script_block_fails.out"
+    script:
+        "some_package/some_subpackage/some_module.py"

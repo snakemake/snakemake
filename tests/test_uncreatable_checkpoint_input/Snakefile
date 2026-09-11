@@ -1,0 +1,21 @@
+with open("a.txt", "w") as f:
+    f.write("a\nb\n")
+
+def get_a_output(wildcards):
+  print("get_a_output")
+  chk = checkpoints.a.get(**wildcards).output[0]
+  print(chk)
+  return [i for i in open(chk).read().strip().split("\n")]
+
+rule all:
+  input:
+    lambda wildcards: [f"file/{i}" for i in get_a_output(wildcards)]
+
+checkpoint a:
+  input: "not-even-exists"
+  output: "a.txt"
+  run: pass
+
+rule i:
+  output:
+    touch("file/{i}")

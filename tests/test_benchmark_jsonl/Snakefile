@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 
 
 rule all:
@@ -16,6 +17,8 @@ rule bench_shell:
     benchmark:
         repeat("{name}.benchmark_shell.{ext}", 2)
     params:
+        path = Path(),
+        string = "foobar",
         timeout = 4,
     threads: 2
     shell:

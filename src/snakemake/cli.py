@@ -8,17 +8,19 @@ import os
 import re
 import sys
 import logging
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Tuple, Union
+from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-from snakemake_interface_executor_plugins.utils import is_quoted, maybe_base64
+from snakemake_interface_executor_plugins.utils import maybe_base64
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_software_deployment_plugins.registry import (
+    SoftwareDeploymentPluginRegistry,
+)
 
 
 import snakemake.common.argparse
@@ -26,9 +28,9 @@ from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
 )
-from snakemake.common import (
-    SNAKEFILE_CHOICES,
-    __version__,
+from snakemake.common.constants import SNAKEFILE_CHOICES
+from snakemake import __version__
+from snakemake.common.misc import (
     async_run,
     get_appdirs,
     get_container_image,
@@ -40,18 +42,15 @@ from snakemake.exceptions import (
     print_exception,
 )
 from snakemake.resources import (
-    DefaultResources,
-    ParsedResource,
+    Resource,
+    Resources,
     ResourceScopes,
-    eval_resource_expression,
-    parse_resources,
 )
+from snakemake.settings.enums import PersistenceBackend
 from snakemake.settings.types import (
     Batch,
-    ChangeType,
     ConfigSettings,
     DAGSettings,
-    DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     GroupSettings,
@@ -71,6 +70,7 @@ from snakemake.settings.types import (
     PrintDag,
     GlobalReportSettings,
 )
+from snakemake.settings.enums import ChangeType
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
 from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
@@ -110,15 +110,18 @@ def optional_str(arg):
 
 
 def parse_set_threads(args):
-    def fallback(orig_value):
-        value = eval_resource_expression(orig_value, threads_arg=False)
-        return ParsedResource(value=value, orig_arg=orig_value)
+    def wrapper(orig_value):
+        if isinstance(orig_value, int):
+            return Resource("_cores", orig_value)
+        return Resource.from_cli_expression(
+            "_cores", str(orig_value), with_threads_arg=False
+        )
 
     return parse_set_ints(
         args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
-        fallback=fallback,
+        wrapper=wrapper,
     )
 
 
@@ -164,38 +167,32 @@ def parse_consider_ancient(
     return consider_ancient
 
 
-def parse_set_resources(args):
+def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
     errmsg = (
-        "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
-        "VALUE being a positive integer a quoted string, or a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
+        "Invalid resource definition: entries have to be defined as "
+        "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
+        "a Python expression (e.g. min(max(2*input.size_mb, 1000), 8000))."
     )
 
     from collections import defaultdict
 
-    assignments = defaultdict(dict)
-    if args is not None:
-        for entry in args:
-            key, orig_value = parse_key_value_arg(
-                entry, errmsg=errmsg, strip_quotes=False
-            )
-            key = key.split(":")
-            if len(key) != 2:
-                raise ValueError(errmsg)
-            rule, resource = key
-            if is_quoted(orig_value):
-                # value is a string, just keep it but remove surrounding quotes
-                value = orig_value[1:-1]
-            else:
-                try:
-                    value = int(orig_value)
-                except ValueError:
-                    value = eval_resource_expression(orig_value)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[rule][resource] = ParsedResource(
-                value=value, orig_arg=orig_value
-            )
-    return assignments
+    if args is None:
+        return {}
+
+    assignments: Dict[str, List[str]] = defaultdict(list)
+
+    for entry in args:
+        rule, assign = entry.split(":", maxsplit=1)
+        assignments[rule].append(assign)
+
+    try:
+        return {
+            rule: Resources.parse(assigns, allow_expressions=True)
+            for rule, assigns in assignments.items()
+        }
+
+    except ValueError as err:
+        raise ValueError(errmsg) from err
 
 
 def parse_set_scatter(args):
@@ -225,7 +222,7 @@ def parse_set_resource_scope(args):
     return ResourceScopes()
 
 
-def parse_set_ints(arg, errmsg, fallback=None):
+def parse_set_ints(arg, errmsg, wrapper=None):
     assignments = dict()
     if arg is not None:
         for entry in arg:
@@ -233,16 +230,20 @@ def parse_set_ints(arg, errmsg, fallback=None):
             try:
                 value = int(value)
             except ValueError:
-                if fallback is not None:
-                    try:
-                        value = fallback(value)
-                    except Exception as e:
-                        raise ValueError(f"{errmsg} Cause: {e}")
-                else:
+                if wrapper is None:
                     raise ValueError(errmsg)
-            if isinstance(value, int) and value < 0:
-                raise ValueError(errmsg)
-            assignments[key] = value
+            else:
+                if value < 0:
+                    raise ValueError(errmsg)
+
+            if wrapper is None:
+                assignments[key] = value
+                continue
+
+            try:
+                assignments[key] = wrapper(value)
+            except Exception as e:
+                raise ValueError(f"{errmsg} Cause: {e}") from e
     return assignments
 
 
@@ -354,10 +355,12 @@ def parse_jobs(jobs):
 
 
 def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
-    config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
+    config_pattern = re.compile(
+        r"(?P<main_file_name>profile|config)(?:\.v(?P<min_major>\d+)\+)?.yaml"
+    )
 
     def get_config_min_major(filename):
-        m = config_pattern.match(filename)
+        m = config_pattern.fullmatch(filename)
         if m:
             min_major = m.group("min_major")
             if min_major is None:
@@ -370,13 +373,19 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
     dirs = get_appdirs()
     if os.path.exists(profile):
         parent_dir = os.path.dirname(profile) or "."
+        # short circuit if the file path exists
+        if os.path.isfile(profile):
+            return Path(parent_dir), Path(profile)
         search_dirs = [parent_dir]
         profile = os.path.basename(profile)
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
     for d in search_dirs:
         profile_candidate = Path(d) / profile
-        if profile_candidate.exists():
+        # short circuit if the file path exists in a search_dir
+        if profile_candidate.is_file():
+            return profile_candidate.parent, profile_candidate
+        if profile_candidate.is_dir():
             files = os.listdir(profile_candidate)
             # If versioneer cannot get the real version it will return something
             # like "0+untagged.5410.g40ffe59" - this should only occur in testing scenarios
@@ -409,11 +418,14 @@ def get_argument_parser(profiles=None):
                 config_files.append(config_file)
             else:
                 print(
-                    "Error: profile given but no config.yaml found. "
+                    "Error: profile directory given ({profile}), but no profile.yaml (or config.yaml) found. "
                     "Profile has to be given as either absolute path, relative "
                     "path or name of a directory available in either "
-                    "{site} or {user}.".format(
-                        site=dirs.site_config_dir, user=dirs.user_config_dir
+                    "{site} or {user}. "
+                    "Alternatively, you can explicitly specify a path and file name.".format(
+                        profile=profile,
+                        site=dirs.site_config_dir,
+                        user=dirs.user_config_dir,
                     ),
                     file=sys.stderr,
                 )
@@ -449,13 +461,70 @@ def get_argument_parser(profiles=None):
 
     group_exec.add_argument(
         "--profile",
-        help=f"Name of profile to use for configuring Snakemake. Snakemake will search for a corresponding folder in `{dirs.site_config_dir}` and `{dirs.user_config_dir}`. Alternatively, this can be an absolute or relative path. The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--cluster qsub` becomes `cluster: qsub` in the YAML file. Profiles can be obtained from https://github.com/snakemake-profiles. The profile can also be set via the environment variable `$SNAKEMAKE_PROFILE`. To override this variable and use no profile at all, provide the value `none` to this argument.",
+        help="Profile to use for configuring the Snakemake run with settings "
+        "regarding the compute environment. Every key in this YAML file gets "
+        "parsed into the respective command line argument: `executor: slurm` "
+        "gets parsed to `--executor slurm`, `default-resources: mem_mb: 16000` "
+        "is interpreted as `--default-resources mem_mb=16000`, etc. You can "
+        "specify a Snakemake profile as (i) a profile name, (ii) a relative "
+        "path to a folder or (iii) the relative path to the profile YAML file "
+        "itself. Snakemake will look for a folder with the profile name or "
+        f"the existence of the relative path in `{dirs.site_config_dir}`, "
+        f"`{dirs.user_config_dir}` and the current working directory. "
+        "Alternatively, you can also specify absolute paths. If a profile "
+        "name or folder is given, it has to contain a file `profile.yaml` "
+        "(or a `config.yaml` file, for backwards compatibility). This file "
+        "can have an optional infix specifying a minimal snakemake version "
+        "(for example `profile.v9+.yaml`). The profile can also be set via "
+        "the environment variable `$SNAKEMAKE_PROFILE`. However, once you "
+        "provide a profile via the command line argument `--profile`, this "
+        "environment variable is ignored. And to override this variable "
+        "without setting another one, provide the value `none` to this "
+        "argument. Finally, you can specify this argument multiple times. In "
+        "this case, the profiles get merged with the later `--profile` "
+        "instances overriding top-level entries in profiles specified "
+        "earlier. For example, if the last `--profile` specifies the top "
+        "level `default-resources:` keyword, all entries under that keyword "
+        "from previous `--profile`s will be ignored. Similarly, also "
+        "specifying any of the top-level keys from your profile as a command "
+        "line argument will overwrite this whole top-level key. Example "
+        "profiles for certain compute infrastructure can be obtained at "
+        "https://github.com/snakemake/snakemake-cluster-profiles.",
         env_var="SNAKEMAKE_PROFILE",
+        action="append",
     )
 
     group_exec.add_argument(
         "--workflow-profile",
-        help="Path (relative to current directory) to workflow specific profile folder to use for configuring Snakemake with parameters specific for this workflow (like resources). If this flag is not used, Snakemake will by default use `profiles/default` if present (searched both relative to current directory and relative to Snakefile, in this order). For skipping any workflow specific profile provide the special value `none`. Settings made in the workflow profile will override settings made in the general profile (see `--profile`). The profile folder has to contain a file `config.yaml`. This file can be used to set default values for command line options in YAML format. For example, `--executor slurm` becomes `executor: slurm` in the YAML file. It is advisable to use the workflow profile to set or overwrite e.g. workflow specific resources like the amount of threads of a particular rule or the amount of memory needed. Note that in such cases, the arguments may be given as nested YAML mappings in the profile, e.g. `set-threads: myrule: 4` instead of `set-threads: myrule=4`.",
+        help="Profile to use for configuring this Snakemake run with "
+        "parameters specific for this workflow (like resources). For settings "
+        "specific to the compute environment (for example a specific compute "
+        "cluster), use global `--profile`s. Generally, an entry like "
+        "`set-resources: a: mem_mb=8` in the YAML file, will become "
+        "`--set-resources a:mem_mb=8` for the `snakemake` run. The profile "
+        "can be specified as a file name with a full relative path from the "
+        "current working directory. In this case, the YAML profile file can "
+        "be named arbitrarily. In all other cases the respective folder(s) "
+        "will be searched for a `profile.yaml` file (or a `config.yaml` file, "
+        "for backwards compatibility). This file can have an optional infix "
+        "specifying a minimal snakemake version (for example "
+        "`profile.v9+.yaml`). And any of the following options will always "
+        "search relative to both the current working directory and the "
+        "location of the Snakefile: (i) If this option is not provided, the "
+        "directory `profiles/default/` will be searched (and used, if a "
+        "profile is present; override this implicit usage with "
+        "`--workflow-profile none`). (ii) If a profile name is given, the "
+        "subdirectory of that name under `profiles/` will be searched. "
+        "(iii) If a full relative path is given, this directory will be "
+        "searched. Settings made in the workflow profile will override "
+        "settings made in the general profile (see `--profile`) on a per-key "
+        "basis. For example, if you specify `default-resources:` in the "
+        "workflow profile, all `default-resources:` entries from other "
+        "profiles will be ignored; but if you don't specify "
+        "`default-resources` in your workflow profile, `default-resources` "
+        "from other profiles will get passed through. Similarly, also "
+        "specifying any of the top-level keys from your workflow specific "
+        "profile via command line arguments will completely overwrite their entries.",
     )
 
     group_exec.add_argument(
@@ -475,7 +544,6 @@ def get_argument_parser(profiles=None):
         "--snakefile",
         "-s",
         metavar="FILE",
-        type=Path,
         help=(
             "The workflow definition in form of a snakefile. "
             "Usually, you should not need to specify this. "
@@ -531,8 +599,8 @@ def get_argument_parser(profiles=None):
         "--res",
         nargs="+",
         metavar="NAME=INT",
-        default=dict(),
-        parse_func=parse_resources,
+        default=Resources(),
+        parse_func=Resources.parser_factory(allow_expressions=False),
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to `--cores` (see above). A resource is defined as "
@@ -610,7 +678,9 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        parse_func=maybe_base64(DefaultResources),
+        parse_func=maybe_base64(
+            Resources.parser_factory(defaults="full", allow_expressions=True)
+        ),
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. `2*input.size_mb`). "
@@ -1017,9 +1087,12 @@ def get_argument_parser(profiles=None):
     )
     group_utils.add_argument(
         "--containerize",
-        action="store_true",
-        help="Print a Dockerfile that provides an execution environment for the workflow, including all "
-        "conda environments.",
+        nargs="?",
+        const="dockerfile",
+        default=None,
+        choices=["dockerfile", "apptainer"],
+        help="Print a container definition that provides an execution environment for the workflow, including all "
+        "conda environments. Supported formats: dockerfile (default), apptainer.",
     )
     group_utils.add_argument(
         "--export-cwl",
@@ -1442,7 +1515,6 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--wrapper-prefix",
-        default="https://github.com/snakemake/snakemake-wrappers/raw/",
         help="URL prefix for wrapper directive. Set this to use your fork or a local clone of the repository, "
         "e.g., use a git URL like `git+file://path/to/your/local/clone@`.",
     )
@@ -1567,6 +1639,22 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help="Write extended benchmarking metrics.",
     )
+    group_behavior.add_argument(
+        "--persistence-backend",
+        choices=PersistenceBackend.choices(),
+        default=PersistenceBackend.FILE,
+        parse_func=PersistenceBackend.parse_choice,
+        help="The backend to use for Snakemake's metadata persistence. "
+        "The 'file' backend uses a file system directory structure. "
+        "The 'db' backend uses a relational database via SQLAlchemy.",
+    )
+    group_behavior.add_argument(
+        "--persistence-backend-db-url",
+        default=None,
+        help="The database URL to use for the 'db' persistence backend "
+        "(e.g., 'sqlite:///.snakemake/metadata.db', 'postgresql://user@host/db'). "
+        "Only used if --persistence-backend is 'db'.",
+    )
 
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
@@ -1616,134 +1704,86 @@ def get_argument_parser(profiles=None):
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
+        "--software-deployment-methods",
         "--software-deployment-method",
+        "--deployment-methods",
         "--deployment-method",
         "--deployment",
         "--sdm",
         nargs="+",
-        choices=DeploymentMethod.choices(),
-        parse_func=DeploymentMethod.parse_choices_set,
+        # manually add legacy options and map to plugin names in API
+        choices=SoftwareDeploymentPluginRegistry().plugins.keys(),
         default=set(),
-        help="Specify software environment deployment method.",
+        help="Specify software environment deployment method. "
+        "Refer to Snakemake plugin catalog for choices.",
     )
     group_deployment.add_argument(
-        "--container-cleanup-images",
+        "--not-block-search-path-envvars",
         action="store_true",
-        help="Remove unused containers",
+        help="Do not block global environment variables that modify the search path "
+        "(R_LIBS, PYTHONPATH, PERL5LIB, PERLLIB) when using software environments "
+        "(e.g. conda, container, envmodules).",
     )
-
-    group_conda = parser.add_argument_group("CONDA")
-
-    group_conda.add_argument(
-        "--use-conda",
-        action="store_true",
-        help="If defined in the rule, run job in a conda environment. "
-        "If this flag is not set, the conda directive is ignored.",
-    )
-    group_conda.add_argument(
-        "--conda-not-block-search-path-envvars",
-        action="store_true",
-        help="Do not block environment variables that modify the search path "
-        "(R_LIBS, PYTHONPATH, PERL5LIB, PERLLIB) when using conda environments.",
-    )
-    group_conda.add_argument(
-        "--list-conda-envs",
-        action="store_true",
-        help="List all conda environments and their location on disk.",
-    )
-    group_conda.add_argument(
-        "--conda-prefix",
+    group_deployment.add_argument(
+        "--software-deployment-prefix",
+        "--sdm-prefix",
         metavar="DIR",
-        default=os.environ.get("SNAKEMAKE_CONDA_PREFIX", None),
-        help="Specify a directory in which the `conda` and `conda-archive` "
-        "directories are created. These are used to store conda environments "
-        "and their archives, respectively. If not supplied, the value is set "
-        "to the `.snakemake` directory relative to the invocation directory. "
-        "If supplied, the `--use-conda` flag must also be set. The value may "
-        "be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path. The value can also be "
-        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX. "
-        "In any case, the prefix may contain environment "
-        "variables which will be properly expanded. "
+        default=DeploymentSettings().deployment_prefix,
+        type=maybe_base64(expandvars(Path)),
+        help="Specify a directory under which Snakemake shall deploy software "
+        "environments. "
+        "The prefix may contain environment "
+        "variables and the user home (~), which will be properly expanded. "
         "Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
-    group_conda.add_argument(
-        "--conda-cleanup-envs",
-        action="store_true",
-        help="Cleanup unused conda environments.",
-    )
-
-    from snakemake.deployment.conda import CondaCleanupMode
-
-    group_conda.add_argument(
-        "--conda-cleanup-pkgs",
-        type=CondaCleanupMode,
-        const=CondaCleanupMode.tarballs,
-        choices=list(CondaCleanupMode),
-        default="tarballs",
-        nargs="?",
-        help="Cleanup conda packages after creating environments. "
-        "In case of `tarballs` mode, will clean up all downloaded package tarballs. "
-        "In case of `cache` mode, will additionally clean up unused package caches.",
-    )
-    group_conda.add_argument(
-        "--conda-create-envs-only",
-        action="store_true",
-        help="If specified, only creates the job-specific "
-        "conda environments then exits. The `--use-conda` "
-        "flag must also be set.",
-    )
-    group_conda.add_argument(
-        "--conda-frontend",
-        default="conda",
-        choices=["conda", "mamba"],
-        help="Choose the conda frontend for installing environments.",
-    )
-
-    group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
-
-    group_singularity.add_argument(
-        "--use-apptainer",
-        "--use-singularity",
-        action="store_true",
-        help="If defined in the rule, run job within a apptainer/singularity container. "
-        "If this flag is not set, the singularity directive is ignored.",
-    )
-    group_singularity.add_argument(
-        "--apptainer-prefix",
-        "--singularity-prefix",
+    group_deployment.add_argument(
+        "--software-deployment-cache-prefix",
+        "--sdm-cache-prefix",
         metavar="DIR",
-        help="Specify a directory in which apptainer/singularity images will be stored."
-        "If not supplied, the value is set "
-        "to the `.snakemake` directory relative to the invocation directory. "
-        "If supplied, the `--use-apptainer` flag must also be set. The value "
-        "may be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path. If not supplied, "
-        "APPTAINER_CACHEDIR is used. In any case, the prefix may contain environment "
-        "variables which will be properly expanded. Note that if you use remote execution "
+        default=DeploymentSettings().cache_prefix,
+        type=maybe_base64(expandvars(Path)),
+        help="Specify a directory under which Snakemake shall cache assets of software "
+        "environments. "
+        "The prefix may contain environment "
+        "variables and the user home (~), which will be properly expanded. "
+        "Note that if you use remote execution "
+        "e.g. on a cluster and you have node specific values for this, you should "
+        "disable assuming shared fs for software-deployment-cache (see `--shared-fs-usage`).",
+    )
+    group_deployment.add_argument(
+        "--software-deployment-pinfile-prefix",
+        "--sdm-pinfile-prefix",
+        metavar="DIR",
+        default=DeploymentSettings().pinfile_prefix,
+        type=maybe_base64(expandvars(Path)),
+        help="Specify a directory under which Snakemake shall store pinfiles of software "
+        "environments. "
+        "The prefix may contain environment "
+        "variables and the user home (~), which will be properly expanded. "
+        "Note that if you use remote execution "
         "e.g. on a cluster and you have node specific values for this, you should "
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
-    group_singularity.add_argument(
-        "--apptainer-args",
-        "--singularity-args",
-        default="",
-        metavar="ARGS",
-        parse_func=maybe_base64(str),
-        help="Pass additional args to apptainer/singularity.",
-    )
-
-    group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
-
-    group_env_modules.add_argument(
-        "--use-envmodules",
+    group_deployment.add_argument(
+        "--list-software-envs",
         action="store_true",
-        help="If defined in the rule, run job within the given environment "
-        "modules, loaded in the given order. This can be combined with "
-        "`--use-conda` and `--use-singularity`, which will then be only used as a "
-        "fallback for rules which don't define environment modules.",
+        help="List software environments.",
+    )
+    group_deployment.add_argument(
+        "--cleanup-software-envs",
+        "--sdm-cleanup",
+        action="store_true",
+        help="Cleanup unused software environments.",
+    )
+    group_deployment.add_argument(
+        "--deploy-software-envs",
+        "--sdm-deploy",
+        action="store_true",
+        help="If specified, only creates the job-specific "
+        "software environments or caches the assets required by the environments, "
+        "then exits.",
     )
 
     def help_internal(text):
@@ -1796,6 +1836,7 @@ def get_argument_parser(profiles=None):
     ReportPluginRegistry().register_cli_args(parser)
     LoggerPluginRegistry().register_cli_args(parser)
     SchedulerPluginRegistry().register_cli_args(parser)
+    SoftwareDeploymentPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1819,28 +1860,45 @@ def parse_args(argv):
     workflow_profile = None
     if args.workflow_profile != "none":
         if args.workflow_profile:
-            workflow_profile = args.workflow_profile
-        elif snakefile is not None:
-            # checking for default profile
-            default_path = Path("profiles/default")
+            workflow_profile = Path(args.workflow_profile)
+        if snakefile is not None and (
+            workflow_profile is None or not workflow_profile.is_file()
+        ):
+            if workflow_profile is None:
+                workflow_profile = Path("default")
+            # checking for default profile locations
+            default_workflow_profile_path = Path("profiles") / workflow_profile
             workflow_profile_candidates = [
-                default_path,
-                Path(snakefile).parent.joinpath(default_path),
+                workflow_profile,
+                default_workflow_profile_path,
             ]
+            if isinstance(snakefile, Path):
+                workflow_profile_candidates.append(
+                    snakefile.parent.joinpath(default_workflow_profile_path)
+                )
+            # reset here, in case we just added the `default` path to search it
+            # but there is nothing there
+            workflow_profile = None
             for profile in workflow_profile_candidates:
                 if profile.exists():
                     workflow_profile = profile
                     break
 
-    if args.profile == "none":
-        args.profile = None
+    if args.profile is not None:
+        if args.profile == ["none"]:
+            args.profile = None
+        elif "none" in args.profile:
+            raise CliException(
+                "The special value 'none' cannot be combined with other --profile entries. \n"
+                f"You provided: '{args.profile}'.\n"
+            )
 
     if (args.profile or workflow_profile) and args.mode == ExecMode.DEFAULT:
         # Reparse args while inferring config file from profile.
         # But only do this if the user has invoked Snakemake (ExecMode.DEFAULT)
         profiles = []
         if args.profile:
-            profiles.append(args.profile)
+            profiles.extend(args.profile)
         if workflow_profile:
             workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
@@ -1861,7 +1919,18 @@ def parse_args(argv):
             )
 
         parser = get_argument_parser(profiles=profiles)
-        args = parser.parse_args(argv)
+
+        # configargparse appends the profile args to the end of argv
+        # anything after '--' gets interpreted as a positional arg
+        # fix by splitting args at '--' and placing explicit targets at the end
+        effective_argv = argv if argv is not None else sys.argv[1:]
+        if "--" in effective_argv:
+            sep_idx = effective_argv.index("--")
+            explicit_targets = effective_argv[sep_idx + 1 :]
+            args = parser.parse_args(effective_argv[:sep_idx])
+            args.targets = list(args.targets) + explicit_targets
+        else:
+            args = parser.parse_args(argv)
 
     return parser, args
 
@@ -1946,11 +2015,7 @@ def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
     # handle legacy executor names
-    if args.dryrun:
-        args.executor = "dryrun"
-    elif args.touch:
-        args.executor = "touch"
-    elif args.executor is None:
+    if args.executor is None:
         args.executor = "local"
 
     if args.report:
@@ -1976,6 +2041,11 @@ def args_to_api(args, parser):
         for name in args.logger
     }
 
+    software_deployment_provider_settings = {
+        name: SoftwareDeploymentPluginRegistry().get_plugin(name).get_settings(args)
+        for name in args.software_deployment_methods
+    }
+
     scheduler_plugin = SchedulerPluginRegistry().get_plugin(args.scheduler)
     scheduler_settings = scheduler_plugin.get_settings(args)
     if args.scheduler == "ilp":
@@ -1990,12 +2060,11 @@ def args_to_api(args, parser):
         report_settings = None
 
     if args.cores is None:
-        if executor_plugin.common_settings.local_exec:
+        if args.dryrun or args.touch:
+            args.cores = 1
+        elif executor_plugin.common_settings.local_exec:
             # use --jobs as an alias for --cores
             args.cores = args.jobs
-            args.jobs = None
-        elif executor_plugin.common_settings.dryrun_exec:
-            args.cores = 1
             args.jobs = None
 
     # start profiler if requested
@@ -2009,13 +2078,7 @@ def args_to_api(args, parser):
     wait_for_files = parse_wait_for_files(args)
     output_settings = create_output_settings(args, log_handler_settings)
     with SnakemakeApi(output_settings) as snakemake_api:
-        deployment_method = args.software_deployment_method
-        if args.use_conda:
-            deployment_method.add(DeploymentMethod.CONDA)
-        if args.use_apptainer:
-            deployment_method.add(DeploymentMethod.APPTAINER)
-        if args.use_envmodules:
-            deployment_method.add(DeploymentMethod.ENV_MODULES)
+        deployment_methods = args.software_deployment_methods
 
         try:
             storage_settings = StorageSettings(
@@ -2069,17 +2132,17 @@ def args_to_api(args, parser):
                         cache=args.cache,
                         consider_ancient=args.consider_ancient,
                         runtime_source_cache_path=args.runtime_source_cache_path,
+                        persistence_backend=args.persistence_backend,
+                        persistence_backend_db_url=args.persistence_backend_db_url,
                     ),
                     deployment_settings=DeploymentSettings(
-                        deployment_method=deployment_method,
-                        conda_prefix=args.conda_prefix,
-                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-                        conda_base_path=args.conda_base_path,
-                        conda_frontend=args.conda_frontend,
-                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-                        apptainer_args=args.apptainer_args,
-                        apptainer_prefix=args.apptainer_prefix,
+                        deployment_methods=deployment_methods,
+                        cache_prefix=args.software_deployment_cache_prefix,
+                        deployment_prefix=args.software_deployment_prefix,
+                        pinfile_prefix=args.software_deployment_pinfile_prefix,
+                        not_block_search_path_envvars=args.not_block_search_path_envvars,
                     ),
+                    software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=args.snakefile,
                     workdir=args.directory,
                 )
@@ -2096,7 +2159,6 @@ def args_to_api(args, parser):
                 elif args.print_compilation:
                     workflow_api.print_compilation()
                 else:
-
                     print_dag_as = None
                     if args.dag:
                         print_dag_as = args.dag
@@ -2138,8 +2200,8 @@ def args_to_api(args, parser):
                     else:
                         preemptible_rules = PreemptibleRules()
 
-                    if args.containerize:
-                        dag_api.containerize()
+                    if args.containerize is not None:
+                        dag_api.containerize(fmt=args.containerize)
                     elif report_plugin is not None and not args.report_after_run:
                         dag_api.create_report(
                             reporter=args.reporter,
@@ -2162,16 +2224,14 @@ def args_to_api(args, parser):
                         dag_api.unlock()
                     elif args.cleanup_metadata:
                         dag_api.cleanup_metadata(args.cleanup_metadata)
-                    elif args.conda_cleanup_envs:
-                        dag_api.conda_cleanup_envs()
-                    elif args.conda_create_envs_only:
-                        dag_api.conda_create_envs()
-                    elif args.list_conda_envs:
-                        dag_api.conda_list_envs()
+                    elif args.cleanup_software_envs:
+                        dag_api.cleanup_software_envs()
+                    elif args.deploy_software_envs:
+                        dag_api.cache_or_deploy_software_envs()
+                    elif args.list_software_envs:
+                        dag_api.list_software_envs()
                     elif args.cleanup_shadow:
                         dag_api.cleanup_shadow()
-                    elif args.container_cleanup_images:
-                        dag_api.container_cleanup_images()
                     elif args.list_changes:
                         dag_api.list_changes(args.list_changes)
                     elif args.list_input_changes:
@@ -2191,8 +2251,20 @@ def args_to_api(args, parser):
                     elif args.delete_temp_output:
                         dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
                     else:
+                        # Determine the pseudo-executor override for
+                        # dryrun/touch. The intended executor (args.executor)
+                        # is used for validation, while the override is used
+                        # for the actual (non-)execution.
+                        if args.dryrun:
+                            pseudo_executor = "dryrun"
+                        elif args.touch:
+                            pseudo_executor = "touch"
+                        else:
+                            pseudo_executor = None
+
                         dag_api.execute_workflow(
                             executor=args.executor,
+                            pseudo_executor=pseudo_executor,
                             execution_settings=ExecutionSettings(
                                 keep_going=args.keep_going,
                                 debug=args.debug,

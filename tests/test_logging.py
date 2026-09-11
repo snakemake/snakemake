@@ -1,11 +1,55 @@
+"""Tests of logging system.
+
+
+LogEvent types
+--------------
+
+Several tests check that specific LogEvent types have been generated, and verify that
+all were formatted correctly with no errors. Together they should cover nearly the
+entire set of events.
+
+test_log_events (and others):
+
+* WORKFLOW_STARTED
+* RUN_INFO
+* JOB_INFO
+* SHELLCMD
+* RESOURCES_INFO
+* PROGRESS
+* JOB_STARTED
+* JOB_FINISHED
+* DEBUG_DAG
+
+test_rule_failure:
+
+* JOB_ERROR
+
+test_group_job_failure_events:
+
+* GROUP_INFO
+* GROUP_ERROR
+
+test_plugin (formatted output not checked):
+
+* RULEGRAPH
+
+Not currently in any tests:
+
+* ERROR
+"""
+
+from collections.abc import Iterable
 import os
 import shutil
 import sys
 import subprocess as sp
 import logging
+import logging.handlers
 from collections import Counter
 from pathlib import Path
+from queue import Queue
 import json
+import re
 
 import pytest
 
@@ -22,6 +66,20 @@ from .conftest import (
     ON_MACOS,
 )
 
+LOGGING_ERROR_SENTINEL = "--- Logging error ---"
+
+
+def check_no_formatting_errors(stderr: str):
+    """Assert that no log formatting errors occurred during the test.
+
+    Python's logging.Handler.handleError() writes '--- Logging error ---'
+    to stderr whenever a formatter raises an exception. This check ensures
+    that all log events were formatted successfully.
+    """
+    assert (
+        LOGGING_ERROR_SENTINEL not in stderr
+    ), "Log formatting error detected in stderr output."
+
 
 def count_events(caplog: pytest.LogCaptureFixture) -> dict[LogEvent, int]:
     """Count number of captured records for each event type."""
@@ -37,7 +95,9 @@ def count_events(caplog: pytest.LogCaptureFixture) -> dict[LogEvent, int]:
 
 
 def check_event_counts(
-    observed: dict[LogEvent, int], expected: dict[LogEvent, int | None]
+    observed: dict[LogEvent, int],
+    expected: dict[LogEvent, int | None],
+    partial: bool = False,
 ):
     """Check that captured event counts match expected values.
 
@@ -47,6 +107,8 @@ def check_event_counts(
         Observed event counts from ``count_events()``.
     expected
         Expected event counts. A value of None means any nonzero value.
+    partial
+        If True, observed must contain all events in expected but extra events are fine.
     """
 
     unexpected = {
@@ -54,12 +116,17 @@ def check_event_counts(
     }
 
     try:
-        assert not unexpected, f"Unexpected log events found: {unexpected}."
+        if not partial:
+            assert not unexpected, f"Unexpected log events found: {unexpected}."
 
         for event, expected_count in expected.items():
             actual_count = observed.get(event, 0)
             if expected_count is None:
                 assert actual_count > 0, f"Expected at least one {event} event."
+            elif partial:
+                assert (
+                    actual_count >= expected_count
+                ), f"Expected at least {expected_count} {event} events, got {actual_count}."
             else:
                 assert (
                     actual_count == expected_count
@@ -72,6 +139,24 @@ def check_event_counts(
             print(f"  {event}: {observed[event]}", file=sys.stderr)
 
         raise
+
+
+def check_log_contains(stderr: str, patterns: Iterable[str | re.Pattern]):
+    """Check that the given strings or regex patterns are present in logging output."""
+
+    for pattern in patterns:
+        if isinstance(pattern, str):
+            assert (
+                pattern in stderr
+            ), f"Expected substring {pattern!r} not found in stderr output"
+        elif isinstance(pattern, re.Pattern):
+            assert (
+                pattern.search(stderr) is not None
+            ), f"Expected pattern {pattern.pattern!r} not found in stderr output"
+        else:
+            raise TypeError(
+                f"Elements of patterns must be str or re.Pattern, got {type(pattern)}"
+            )
 
 
 def test_logfile():
@@ -99,6 +184,70 @@ Finished jobid: 0 (Rule: all)
     ), f"Expected statement not found in log file. Log content: {log_content}"
 
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+def test_issue4063():
+    # since it's difficult to replicate the exact conditions,
+    # we'll do a unit test of the relevant logging code instead of a full workflow run.
+    # the issue was that if the logger is configured with printshellcmds=True,
+    # shell.py calls logger.info(None, extra={"event": LogEvent.SHELLCMD, "cmd": ...}),
+    # which causes a crash because the default formatter expects the first argument to be a string message.
+    from snakemake.logging import ColorizingTextHandler
+    from snakemake.logging import DefaultFormatter
+    from snakemake.logging import DefaultFilter
+
+    handler = ColorizingTextHandler(stream=sys.stdout)
+    formatter = DefaultFormatter(quiet=set(), show_failed_logs=False)
+    handler.setFormatter(formatter)
+
+    log_filter = DefaultFilter(
+        quiet=set(), debug_dag=False, verbose=False, dryrun=False, printshellcmds=True
+    )
+    handler.addFilter(log_filter)
+
+    # make the logging error a hard error
+    def handle_logging_error(record):
+        raise sys.exc_info()[1]
+
+    handler.handleError = handle_logging_error
+
+    test_logger = logging.getLogger("foo")
+    test_logger.setLevel(logging.INFO)
+    test_logger.addHandler(handler)
+
+    test_logger.info(None, extra={"event": LogEvent.SHELLCMD, "cmd": "echo 'bar'"})
+    test_logger.removeHandler(handler)
+
+
+def test_formatting_error_produces_sentinel(capfd: pytest.CaptureFixture[str]):
+    """Verify that a log formatting error produces the sentinel string in stderr.
+
+    This validates that check_no_formatting_errors() would detect real formatting bugs.
+    """
+    from snakemake.logging import ColorizingTextHandler, DefaultFormatter
+
+    handler = ColorizingTextHandler(stream=sys.stderr)
+    formatter = DefaultFormatter()
+    handler.setFormatter(formatter)
+
+    test_logger = logging.getLogger("test_formatting_error_sentinel")
+    test_logger.setLevel(logging.ERROR)
+    test_logger.addHandler(handler)
+
+    try:
+        # Fire a JOB_ERROR event with a deliberately broken extra dict
+        # (missing required keys like 'rule_name') to trigger a formatting error.
+        test_logger.error(
+            "bad record",
+            extra=dict(event=LogEvent.JOB_ERROR),
+        )
+    finally:
+        test_logger.removeHandler(handler)
+        # test_logger remains globally registered in logging.Logger.manager.loggerDict, but Python
+        # has no public API to remove it afterward. Shouldn't be a problem.
+
+    stderr = capfd.readouterr().err
+    assert LOGGING_ERROR_SENTINEL in stderr
 
 
 def test_logging_config(tmp_path: Path):
@@ -161,7 +310,10 @@ def test_logger_in_workflow():
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
-def test_log_events_dryrun(caplog: pytest.LogCaptureFixture):
+def test_log_events_dryrun(
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
+):
     """Test LogEvent counts of records captured during dry run."""
 
     with caplog.at_level(logging.INFO):
@@ -179,14 +331,27 @@ def test_log_events_dryrun(caplog: pytest.LogCaptureFixture):
         },
     )
 
+    # Check no errors occurred in formatting records
+    stderr = capfd.readouterr().err
+    check_no_formatting_errors(stderr)
+
 
 def test_log_events(
-    caplog: pytest.LogCaptureFixture, capfd: pytest.CaptureFixture[str]
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
 ):
     """Test LogEvent counts of records captured during workflow run."""
 
-    with caplog.at_level(logging.INFO):
-        run(dpath("logging/test_logfile"), check_results=False)
+    with caplog.at_level(logging.DEBUG):
+        # printshellcmds and debug_dag are enabled so that the SHELLCMD and DEBUG_DAG
+        # events are also visible in stderr (otherwise the default filter would drop
+        # them), letting check_log_contains() below cover every event type checked here.
+        run(
+            dpath("logging/test_logfile"),
+            check_results=False,
+            printshellcmds=True,
+            debug_dag=True,
+        )
 
     event_counts = count_events(caplog)
 
@@ -201,25 +366,37 @@ def test_log_events(
             LogEvent.PROGRESS: 6,
             LogEvent.JOB_STARTED: None,
             LogEvent.JOB_FINISHED: 6,
+            LogEvent.DEBUG_DAG: None,
         },
     )
 
-    captured = capfd.readouterr()
-    stderr_output = captured.err
-    expected_in_stderr = [
-        "Building DAG of jobs",
-        "Job stats:",
-        "Finished job",
-        "localrule all:",
-    ]
+    stderr = capfd.readouterr().err
 
-    for expected_msg in expected_in_stderr:
-        assert (
-            expected_msg in stderr_output
-        ), f"Expected '{expected_msg}' not found in stderr output"
+    # Check no errors occurred in formatting records
+    check_no_formatting_errors(stderr)
+
+    # Check expected lines in log output
+    check_log_contains(
+        stderr,
+        [
+            "Building DAG of jobs",
+            "SNAKEMAKE",  # WORKFLOW_STARTED
+            "Job stats:",  # RUN_INFO
+            "localrule all:",  # JOB_INFO
+            "Shell command:",  # SHELLCMD
+            "Provided cores:",  # RESOURCES_INFO
+            re.compile(r"\d+ of \d+ steps \(\d+%\) done"),  # PROGRESS
+            re.compile(r"Execute \d+ jobs"),  # JOB_STARTED
+            "Finished jobid:",  # JOB_FINISHED
+            "candidate job",  # DEBUG_DAG
+        ],
+    )
 
 
-def test_rule_failure(caplog: pytest.LogCaptureFixture):
+def test_rule_failure(
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
+):
     """Test LogEvent counts of records captured during workflow run with a failing rule."""
 
     with caplog.at_level(logging.INFO):
@@ -236,9 +413,62 @@ def test_rule_failure(caplog: pytest.LogCaptureFixture):
             LogEvent.SHELLCMD: 3,
             LogEvent.RESOURCES_INFO: 2,
             LogEvent.JOB_STARTED: None,
-            LogEvent.ERROR: 3,
-            LogEvent.JOB_ERROR: 6,
+            LogEvent.JOB_ERROR: 3,
         },
+    )
+
+    # Check no errors occurred in formatting records
+    stderr = capfd.readouterr().err
+    check_no_formatting_errors(stderr)
+
+    # Check expected lines in log output
+    check_log_contains(
+        stderr,
+        [
+            "Error in rule a:",  # JOB_ERROR
+        ],
+    )
+
+
+@skip_on_windows
+def test_group_job_failure_events(
+    caplog: pytest.LogCaptureFixture,
+    capfd: pytest.CaptureFixture[str],
+):
+    """Test log events for a grouped job failure via cluster executor.
+
+    Regression test for https://github.com/snakemake/snakemake/issues/4248
+    """
+    with caplog.at_level(logging.INFO):
+        run(
+            dpath("test_group_job_fail"),
+            cluster="./qsub",
+            shouldfail=True,
+            check_results=False,
+        )
+
+    # Check that we got GROUP_INFO and GROUP_ERROR events (don't worry about other event types here)
+    event_counts = count_events(caplog)
+    check_event_counts(
+        event_counts,
+        {
+            LogEvent.GROUP_INFO: 3,
+            LogEvent.GROUP_ERROR: 3,
+        },
+        partial=True,
+    )
+
+    # Check no errors occurred in formatting records
+    stderr = capfd.readouterr().err
+    check_no_formatting_errors(stderr)
+
+    # Check expected lines in log output
+    check_log_contains(
+        stderr,
+        [
+            "Group job 0 (jobs in lexicogr. order):",  # GROUP_INFO
+            "Error in group 0",  # GROUP_ERROR
+        ],
     )
 
 
@@ -351,10 +581,83 @@ def test_plugin(
             LogEvent.PROGRESS: 6,
             LogEvent.JOB_STARTED: None,
             LogEvent.JOB_FINISHED: 6,
-            # These are filtered out with the default filter
-            LogEvent.WORKFLOW_STARTED: 1 if has_filter else 0,
+            LogEvent.WORKFLOW_STARTED: 1,
+            # Filtered out with the default filter
             LogEvent.DEBUG_DAG: None if has_filter else 0,
             # Only emitted if requested by plugin
             LogEvent.RULEGRAPH: 1 if needs_rulegraph else 0,
         },
     )
+
+
+def test_stop_closes_handlers():
+    """Test that LoggerManager.stop() closes and flushes all logging handlers.
+
+    This includes plugin handlers managed by the QueueListener as well as those attached to the
+    global logger instance.
+
+    Regression test for https://github.com/snakemake/snakemake/issues/4136.
+    Plugin handlers are attached to the QueueListener, not the logger itself, so they
+    must be explicitly closed after the queue is drained.
+    """
+    from snakemake.logging import LoggerManager
+    from snakemake.settings.types import OutputSettings
+
+    class TrackingHandler(logging.Handler):
+        """A handler that tracks whether emit(), flush(), and close() were called."""
+
+        def __init__(self):
+            super().__init__()
+            self.records: list[logging.LogRecord] = []
+            self.flush_called = False
+            self.close_called = False
+
+        def emit(self, record: logging.LogRecord) -> None:
+            self.records.append(record)
+
+        def flush(self) -> None:
+            self.flush_called = True
+            super().flush()
+
+        def close(self) -> None:
+            self.close_called = True
+            super().close()
+
+    test_logger = logging.getLogger("test_stop_closes_plugin_handlers")
+    settings = OutputSettings(skip_plugin_handlers=True)
+    manager = LoggerManager(test_logger, settings)
+
+    # Simulate a plugin handler by manually wiring up a QueueListener.
+    # This mirrors what _setup_plugins() does in production.
+    plugin_handler = TrackingHandler()
+    queue: Queue[logging.LogRecord] = Queue(-1)
+    manager.queue_listener = logging.handlers.QueueListener(
+        queue, plugin_handler, respect_handler_level=True
+    )
+    manager.queue_listener.start()
+    manager.plugin_handlers = [plugin_handler]
+    test_logger.addHandler(logging.handlers.QueueHandler(queue))
+
+    # Also add a handler directly to the logger instance, similar to the default stream handler.
+    global_handler = TrackingHandler()
+    test_logger.addHandler(global_handler)
+
+    try:
+        test_logger.info("test message")
+        manager.stop()
+    finally:
+        # Ensure the listener thread is stopped even if an assertion fails, to avoid
+        # leaking the background thread into other tests.
+        if manager.queue_listener._thread is not None:
+            manager.queue_listener.stop()
+
+    for handler, desc in [(plugin_handler, "plugin"), (global_handler, "global")]:
+        assert (
+            handler.flush_called
+        ), f"{desc} handler was not flushed by LoggerManager.stop()"
+        assert (
+            handler.close_called
+        ), f"{desc} handler was not closed by LoggerManager.stop()"
+        assert (
+            len(handler.records) == 1
+        ), f"Expected 1 record delivered to {desc} handler, got {len(handler.records)}"

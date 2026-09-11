@@ -1,0 +1,3 @@
+cores: 4
+default-resources:
+  eggs_factor: snfkat

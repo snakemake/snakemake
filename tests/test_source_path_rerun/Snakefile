@@ -1,0 +1,21 @@
+rule all:
+    input:
+        "test.out",
+        "test2.out"
+
+rule a:
+    output:
+        "test.out"
+    params:
+        b=workflow.source_path("resources/test.txt")
+    shell:
+        "cat {params.b} > {output}"
+
+
+rule b:
+    input:
+        b=workflow.source_path("resources/test.txt")
+    output:
+        "test2.out"
+    shell:
+        "cp {input.b} {output}"

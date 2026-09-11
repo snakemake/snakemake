@@ -1,7 +1,21 @@
 pathvars:
     results="results/custom",
 
+
+def infunc(wildcards):
+    return "<results>/testin.txt"
+
+
 rule a:
+    output:
+        "<results>/testin.txt"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        infunc
     output:
         "<results>/text.txt"
     shell:

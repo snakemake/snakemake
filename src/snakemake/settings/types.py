@@ -1,10 +1,10 @@
 from abc import ABC
 from dataclasses import dataclass, field
-import os
+from functools import cached_property
 from pathlib import Path
 import re
-from typing import Any, Optional, Union
-from typing import Mapping, Sequence, Set
+from typing import Callable, Optional, TypeAlias, Union
+from typing import Mapping, Sequence
 
 import immutables
 
@@ -15,7 +15,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentSettingsExecutorInterface,
     ExecutionSettingsExecutorInterface,
     StorageSettingsExecutorInterface,
-    DeploymentMethod,
     ExecMode,
     SharedFSUsage,
 )
@@ -24,22 +23,20 @@ from snakemake_interface_logger_plugins.settings import (
     OutputSettingsLoggerInterface,
 )
 
-from snakemake.common import (
+from snakemake.common.misc import (
     dict_to_key_value_args,
-    expand_vars_and_user,
     get_container_image,
 )
 from snakemake.common.configfile import load_configfile
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resource, Resources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
 from snakemake.settings.enums import (
     RerunTrigger,
-    ChangeType,
-    CondaCleanupPkgs,
     Quietness,
     StrictDagEvaluation,
     PrintDag,
+    PersistenceBackend,
 )
 
 
@@ -134,6 +131,8 @@ class WorkflowSettings(SettingsBase):
         default_factory=dict
     )
     runtime_source_cache_path: Optional[Path] = None
+    persistence_backend: PersistenceBackend = PersistenceBackend.FILE
+    persistence_backend_db_url: Optional[str] = None
 
 
 class Batch:
@@ -245,55 +244,34 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
             self.remote_job_local_storage_prefix = self.local_storage_prefix
 
 
-@dataclass
 class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
     Parameters
     ----------
 
     deployment_method
-        deployment method to use (CONDA, APPTAINER, ENV_MODULES)
-    conda_prefix:
-        the directory in which conda environments will be created (default None)
-    conda_cleanup_pkgs:
-        whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
-    conda_create_envs_only:
-        if specified, only builds the conda environments specified for each job, then exits.
-    list_conda_envs:
-        list conda environments and their location on disk.
-    conda_base_path:
-        Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
+        deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
-    deployment_method: AnySet[DeploymentMethod] = frozenset()
-    conda_prefix: Optional[Path] = None
-    conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
-    conda_base_path: Optional[Path] = None
-    conda_frontend: str = "conda"
-    conda_not_block_search_path_envvars: bool = False
-    apptainer_args: str = ""
-    apptainer_prefix: Optional[Path] = None
+    def __init__(
+        self,
+        deployment_methods: AnySet[str] = frozenset(),
+        deployment_prefix: Optional[Path] = None,
+        cache_prefix: Optional[Path] = None,
+        pinfile_prefix: Optional[Path] = None,
+        not_block_search_path_envvars: bool = False,
+    ) -> None:
+        super().__init__()
+        self.deployment_methods: AnySet[str] = deployment_methods
+        self.deployment_prefix: Path = deployment_prefix or Path(
+            ".snakemake/software/deployments"
+        )
+        self.cache_prefix: Path = cache_prefix or Path(".snakemake/software/cache")
+        self.pinfile_prefix: Path = pinfile_prefix or Path(".snakemake/software/pins")
+        self.not_block_search_path_envvars: bool = not_block_search_path_envvars
 
-    def imply_deployment_method(self, method: DeploymentMethod):
-        self.deployment_method = set(self.deployment_method)
-        self.deployment_method.add(method)
-
-    def __post_init__(self):
-        from snakemake.logging import logger
-
-        if self.apptainer_prefix is None:
-            self.apptainer_prefix = os.environ.get("APPTAINER_CACHEDIR", None)
-        self.apptainer_prefix = expand_vars_and_user(self.apptainer_prefix)
-        self.conda_prefix = expand_vars_and_user(self.conda_prefix)
-        if self.conda_frontend != "conda":
-            logger.warning(
-                "Support for alternative conda frontends has been deprecated in "
-                "favor of simpler support and code base. "
-                "This should not cause issues since current conda releases rely on "
-                "fast solving via libmamba. "
-                f"Ignoring the alternative conda frontend setting ({self.conda_frontend})."
-            )
-            self.conda_frontend = "conda"
+    def deployment_method(self) -> AnySet[str]:
+        return self.deployment_methods
 
 
 @dataclass
@@ -345,22 +323,52 @@ class SchedulingSettings(SettingsBase):
                 raise ApiError("subsample must be a positive integer")
 
 
+ValidResource: TypeAlias = int | str | float | None | Callable[..., "ValidResource"]
+
+
 @dataclass
 class ResourceSettings(SettingsBase):
     cores: Optional[int] = None
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Mapping[str, int] = immutables.Map()
-    overwrite_threads: Mapping[str, int] = immutables.Map()
+    resources: Mapping[str, int | str | float | None] | Resources = immutables.Map()
+    overwrite_threads: Mapping[str, int] | Mapping[str, Resource] = immutables.Map()
     overwrite_scatter: Mapping[str, int] = immutables.Map()
     overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
-    overwrite_resources: Mapping[str, Mapping[str, Any]] = immutables.Map()
-    default_resources: Optional[DefaultResources] = None
+    overwrite_resources: (
+        Mapping[str, Mapping[str, ValidResource]] | Mapping[str, Resources]
+    ) = immutables.Map()
+    default_resources: Optional[Mapping[str, ValidResource]] | Resources = None
 
-    def __post_init__(self):
+    @cached_property
+    def _parsed_resources(self):
+        return Resources.from_mapping(self.resources)
+
+    @cached_property
+    def _parsed_overwrite_resources(self):
+        return {
+            rule: Resources.from_mapping(mapping)
+            for rule, mapping in self.overwrite_resources.items()
+        }
+
+    @cached_property
+    def _parsed_default_resources(self):
         if self.default_resources is None:
-            self.default_resources = DefaultResources(mode="bare")
+            return Resources.default("bare")
+
+        return Resources.from_mapping(self.default_resources)
+
+    @cached_property
+    def _parsed_overwrite_threads(self):
+        return {
+            rule: (
+                Resource("_cores", threads)
+                if not isinstance(threads, Resource)
+                else threads
+            )
+            for rule, threads in self.overwrite_threads.items()
+        }
 
 
 @dataclass

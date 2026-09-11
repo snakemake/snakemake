@@ -1,0 +1,4 @@
+foo: overwritten
+mem_mb: 8
+extra: not found
+cores: 2

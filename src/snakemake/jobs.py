@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import asyncio
 from builtins import ExceptionGroup
-from collections import defaultdict
 import os
 import base64
 from pathlib import Path
@@ -21,8 +20,9 @@ from collections.abc import AsyncGenerator
 from abc import abstractmethod
 from snakemake import wrapper
 from snakemake.rules import Rule
-from snakemake.settings.types import DeploymentMethod
 
+from snakemake.common.misc import is_conda_env
+from snakemake.deployment.containerize import get_containerized_path
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
@@ -41,34 +41,36 @@ from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake.io import (
     _IOFile,
     IOFile,
-    is_callable,
-    Wildcards,
-    Resources,
     is_flagged,
     get_flag_value,
     wait_for_files,
 )
+from snakemake.iocontainers import ResourceList, Wildcards
 from snakemake.settings.types import SharedFSUsage
-from snakemake.resources import GroupResources
+from snakemake.resources import GroupResources, Resources
 from snakemake.target_jobs import TargetSpec
 from snakemake.sourcecache import LocalSourceFile, SourceFile, infer_source_file
 from snakemake.utils import format
 from snakemake.exceptions import (
     InputOpenException,
+    ResourceInsufficiencyError,
     RuleException,
     ProtectedOutputException,
     WorkflowError,
 )
 
 from snakemake.logging import logger
-from snakemake.common import (
-    get_function_params,
+from snakemake.common.misc import (
     get_uuid,
-    IO_PROP_LIMIT,
 )
+from snakemake.common.constants import IO_PROP_LIMIT
 from snakemake.io.fmt import fmt_iofile
 from snakemake.common.tbdstring import TBDString
 from snakemake_interface_report_plugins.interfaces import JobReportInterface
+from snakemake_interface_software_deployment_plugins import EnvBase as SoftwareEnvBase
+from snakemake_interface_software_deployment_plugins import (
+    EnvSpecBase as SoftwareEnvSpecBase,
+)
 
 
 def format_files(io, as_input: bool = False, as_output: bool = False):
@@ -105,16 +107,14 @@ class AbstractJob(JobExecutorInterface, JobSchedulerInterface):
                 res_dict = {
                     k: v
                     for k, v in self.resources.items()
-                    if not isinstance(self.resources[k], TBDString)
+                    if not isinstance(v, TBDString)
                 }
             else:
                 res_dict = {
-                    k: self.resources[k]
-                    for k in (
-                        set(self.resources.keys())
-                        - self.dag.workflow.resource_scopes.locals
-                    )
-                    if not isinstance(self.resources[k], TBDString)
+                    k: v
+                    for k, v in self.resources.items()
+                    if not self.dag.workflow.resource_scopes.is_local(k)
+                    and not isinstance(v, TBDString)
                 }
             res_dict["_job_count"] = 1
             self._scheduler_resources = res_dict
@@ -139,12 +139,18 @@ class JobFactory:
 
         async def new():
             if update:
-                new_job = lambda: Job(
-                    rule, dag, wildcards_dict, format_wildcards, targetfile, groupid
+                new_job = functools.partial(
+                    Job,
+                    rule,
+                    dag,
+                    wildcards_dict,
+                    format_wildcards,
+                    targetfile,
+                    groupid,
                 )
             else:
-                new_job = lambda: Job(
-                    rule, dag, wildcards_dict, format_wildcards, targetfile
+                new_job = functools.partial(
+                    Job, rule, dag, wildcards_dict, format_wildcards, targetfile
                 )
             obj = None
             missing_iofiles = set()
@@ -199,13 +205,13 @@ class Job(
         "_input",
         "dependencies",
         "_output",
+        "_output_by_path",
         "_params",
         "_log",
         "_benchmark",
         "_resources",
-        "_conda_env_file",
-        "_conda_env",
-        "_container_img_url",
+        "_software_env_spec",
+        "_software_env",
         "_shadow_dir",
         "temp_output",
         "protected_output",
@@ -260,10 +266,9 @@ class Job(
         self._log = None
         self._benchmark = None
         self._resources = None
-        self._conda_env_spec = None
-        self._container_img_url = None
+        self._software_env_spec: Optional[SoftwareEnvSpecBase] = None
+        self._software_env = None
         self._scheduler_resources = None
-        self._conda_env = None
         self._group = None
 
         # pipe_group will only be set if the job generates or consumes a pipe
@@ -284,11 +289,11 @@ class Job(
         self._queue_input = set()
         for f in self.output:
             f_ = output_mapping[f]
-            if f_ in self.rule.temp_output:
+            if is_flagged(f_, "temp"):
                 self.temp_output.add(f)
-            if f_ in self.rule.protected_output:
+            if is_flagged(f_, "protected"):
                 self.protected_output.add(f)
-            if f_ in self.rule.touch_output:
+            if is_flagged(f_, "touch"):
                 self.touch_output.add(f)
             if is_flagged(f_, "pipe") or is_flagged(f_, "service"):
                 self.pipe_or_service_output.add(f)
@@ -349,6 +354,14 @@ class Job(
     @output.setter
     def output(self, value):
         self._output = value
+        if hasattr(self, "_output_by_path"):
+            del self._output_by_path
+
+    @lazy_property
+    def output_by_path(self):
+        # requested may hold path-equal copies of our own output that lost
+        # their flags (e.g. storage). We look them up here by path instead.
+        return {str(f): f for f in self.output}
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
@@ -478,26 +491,14 @@ class Job(
         self._resources = None
         self._attempt = attempt
 
-    def _get_resources_to_skip(self):
-        """Return a set of resource names that are callable and depend on input files."""
-        return {
-            name
-            for name, val in self.rule.resources.items()
-            if is_callable(val) and "input" in get_function_params(val)
-        }
-
     @property
-    def resources(self):
+    def resources(self) -> ResourceList:
         if self._resources is None:
             if self.dag.workflow.local_exec or self.is_local:
                 skip_evaluation = set()
             else:
                 # tmpdir should be evaluated in the context of the actual execution
                 skip_evaluation = {"tmpdir"}
-            if not self._params_and_resources_resetted:
-                # initial evaluation, input files of job are probably not yet present.
-                # Therefore skip all functions that depend on input files.
-                skip_evaluation.update(self._get_resources_to_skip())
             self._resources = self.rule.expand_resources(
                 self.wildcards_dict,
                 self.input,
@@ -521,69 +522,25 @@ class Job(
             self._params_and_resources_resetted = True
 
     @property
-    def conda_env_spec(self):
-        if self._conda_env_spec is None:
-            self._conda_env_spec = self.rule.expand_conda_env(
+    def software_env_spec(self) -> Optional[SoftwareEnvSpecBase]:
+        if self._software_env_spec is None:
+            self._software_env_spec = self.rule.expand_software_env_specs(
                 self.wildcards_dict, self.params, self.input
             )
-        return self._conda_env_spec
+        return self._software_env_spec
 
     @property
-    def conda_env(self):
-        if self.conda_env_spec:
-            if self._conda_env is None:
-                self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_spec, self.container_img_url)
-                )
-            return self._conda_env
+    def software_env(self) -> Optional[SoftwareEnvBase]:
+        if self.software_env_spec:
+            env = self.dag.workflow.software_deployment_manager.get_env_from_job(self)
+            if self.rule.is_containerized and is_conda_env(env):
+                env.containerized_path = get_containerized_path(env)
+            return env
         return None
-
-    def archive_conda_env(self):
-        """Archive a conda environment into a custom local channel."""
-        if self.conda_env_spec:
-            if self.conda_env.is_externally_managed:
-                raise WorkflowError(
-                    "Workflow archives cannot be created for workflows using externally managed conda environments."
-                    "Please use paths to YAML files for all your conda directives.",
-                    rule=self.rule,
-                )
-            return self.conda_env.create_archive()
-        return None
-
-    @property
-    def needs_singularity(self):
-        return self.container_img is not None
-
-    @property
-    def container_img_url(self):
-        if self._container_img_url is None:
-            self._container_img_url = self.rule.expand_container_img(
-                self.wildcards_dict
-            )
-
-        return self._container_img_url
 
     @property
     def is_containerized(self):
         return self.rule.is_containerized
-
-    @property
-    def container_img(self):
-        if (
-            DeploymentMethod.APPTAINER
-            in self.dag.workflow.deployment_settings.deployment_method
-            and self.container_img_url
-        ):
-            return self.dag.container_imgs[self.container_img_url]
-        return None
-
-    @property
-    def env_modules(self):
-        return self.rule.env_modules
-
-    @property
-    def container_img_path(self):
-        return self.container_img.path if self.container_img else None
 
     @property
     def is_shadow(self):
@@ -649,35 +606,35 @@ class Job(
         return path
 
     @property
-    def is_shell(self):
+    def is_shell(self) -> bool:
         return self.rule.is_shell
 
     @property
-    def is_norun(self):
+    def is_norun(self) -> bool:
         return self.rule.norun
 
     @property
-    def is_script(self):
+    def is_script(self) -> bool:
         return self.rule.is_script
 
     @property
-    def is_notebook(self):
+    def is_notebook(self) -> bool:
         return self.rule.is_notebook
 
     @property
-    def is_wrapper(self):
+    def is_wrapper(self) -> bool:
         return self.rule.is_wrapper
 
     @property
-    def is_cwl(self):
+    def is_cwl(self) -> bool:
         return self.rule.is_cwl
 
     @property
-    def is_template_engine(self):
+    def is_template_engine(self) -> bool:
         return self.rule.is_template_engine
 
     @property
-    def is_run(self):
+    def is_run(self) -> bool:
         return not (
             self.is_shell
             or self.is_norun
@@ -734,7 +691,11 @@ class Job(
         return mintime
 
     async def missing_output(self, requested):
+        """Yield requested outputs that are missing."""
+
         async def handle_file(f):
+            f = self.output_by_path.get(str(f), f)
+
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
             if (
@@ -1110,19 +1071,6 @@ class Job(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
         aux_logs = aux_logs or []
-        # Retrieve conda env path only when conda is enabled with sdm
-        # Otherwise the class Conda will be created also when not explicitly
-        # requested with sdm, resulting in an error when conda is not available
-        # in the container.
-        conda_env_adress = (
-            self.conda_env.address
-            if (
-                DeploymentMethod.CONDA
-                in self.dag.workflow.deployment_settings.deployment_method
-                and self.conda_env
-            )
-            else None
-        )
 
         return dict(
             rule_name=self.rule.name,
@@ -1131,8 +1079,7 @@ class Job(
             input=format_files(self.input, as_input=True),
             output=format_files(self.output, as_output=True),
             log=format_files(self.log, as_output=True) + aux_logs,
-            conda_env=conda_env_adress,
-            container_img=self.container_img,
+            software_env=self.software_env_spec,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
@@ -1162,16 +1109,19 @@ class Job(
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
-        if (
-            DeploymentMethod.CONDA
-            in self.dag.workflow.deployment_settings.deployment_method
-            and self.conda_env
-            and not self.conda_env.is_externally_managed
-            and not self.conda_env.is_containerized
-        ):
-            # Managed or containerized envs are not present on the host FS,
-            # hence we don't need to wait for them.
-            wait_for_files.append(self.conda_env.address)
+        if self.software_env:
+            if (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT
+                in self.dag.workflow.storage_settings.shared_fs_usage
+                and self.software_env.is_deployable()
+            ):
+                wait_for_files.append(self.software_env.deployment_path)
+            elif (
+                SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
+                in self.dag.workflow.storage_settings.shared_fs_usage
+                and self.software_env.is_cacheable()
+            ):
+                wait_for_files.append(self.software_env.cache_path)
 
         if self.is_wrapper:
             script = wrapper.get_script(
@@ -1182,13 +1132,6 @@ class Job(
             if script is not None:
                 wait_for_files.append(
                     IOFile(self.dag.workflow.sourcecache.get_path(script))
-                )
-            env = wrapper.get_conda_env(
-                self.rule.wrapper, self.dag.workflow.workflow_settings.wrapper_prefix
-            )
-            if env is not None:
-                wait_for_files.append(
-                    IOFile(self.dag.workflow.sourcecache.get_path(env))
                 )
 
         return wait_for_files
@@ -1383,7 +1326,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         "_jobid",
     ]
 
-    def __init__(self, id, jobs, global_resources):
+    def __init__(self, id, jobs, global_resources: Resources):
         self.groupid = id
         self._jobs = jobs
         self.global_resources = global_resources
@@ -1500,7 +1443,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
         aux_logs = aux_logs or []
         logger.error(
             f"Error in group {self.groupid}",
-            dict(
+            extra=dict(
                 event=LogEvent.GROUP_ERROR,
                 groupid=self.groupid,
                 aux_logs=aux_logs,
@@ -1558,11 +1501,11 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )
-            except WorkflowError as err:
+            except (WorkflowError, ResourceInsufficiencyError) as err:
                 raise WorkflowError(
                     f"Error grouping resources in group '{self.groupid}': {err.args[0]}"
-                )
-        return Resources(fromdict=self._resources)
+                ) from err
+        return ResourceList(fromdict=self._resources)
 
     @property
     def scheduler_resources(self) -> Dict[str, Union[int, str]]:

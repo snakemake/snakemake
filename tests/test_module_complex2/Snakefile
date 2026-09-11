@@ -4,15 +4,12 @@ min_version("6.0")
 
 configfile: "config.yaml"
 
-remote_workflow_directory = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/v5.0.2"
-workflow_snakefile = f"{remote_workflow_directory}/workflow/Snakefile"
-
 
 # basic
 ## use basic workflow
 module basic:
     snakefile:
-        workflow_snakefile
+        github("snakemake-workflows/dna-seq-varlociraptor", path="workflow/Snakefile", tag="v5.0.2")
     replace_prefix:
         {
             "benchmarking/": "benchmarking/basic/",

@@ -1,0 +1,17 @@
+import time
+import random
+
+
+rule all:
+    input:
+        expand("out/{i}.txt", i=range(100)),
+
+
+rule foo:
+    output:
+        "out/{i}.txt",
+    run:
+        # just to get some random arrivals
+        time.sleep(random.uniform(0.01, 0.25))
+        with open(output[0], "w") as f:
+            f.write("done")

@@ -5,7 +5,7 @@ dependencies:
   - wrapt
   - pyyaml
   - requests
-  - appdirs
+  - platformdirs
   - docutils
   - throttler
   - configargparse

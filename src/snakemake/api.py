@@ -1,3 +1,5 @@
+from snakemake.settings.enums import ChangeType
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -9,13 +11,12 @@ import functools
 import hashlib
 from pathlib import Path
 import sys
-from typing import Dict, List, Mapping, Optional, Set
+from typing import Dict, List, Mapping, Optional
 import os
 import tarfile
-import uuid
-from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
+from snakemake.common.constants import MIN_PY_VERSION, SNAKEFILE_CHOICES
+from snakemake.common.misc import async_run
 from snakemake.settings.types import (
-    ChangeType,
     GroupSettings,
     SchedulingSettings,
     WorkflowSettings,
@@ -30,7 +31,6 @@ if sys.version_info < MIN_PY_VERSION:
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings.types import (
     DAGSettings,
-    DeploymentMethod,
     DeploymentSettings,
     ExecutionSettings,
     OutputSettings,
@@ -50,20 +50,21 @@ from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 from snakemake_interface_report_plugins.registry import ReportPluginRegistry
-from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_scheduler_plugins.settings import SchedulerSettingsBase
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
+from snakemake_interface_software_deployment_plugins.settings import (
+    SoftwareDeploymentSettingsBase,
+)
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import LoggerManager, logger
 from snakemake.shell import shell
-from snakemake.common import (
-    MIN_PY_VERSION,
-    __version__,
+from snakemake.common.misc import (
+    is_local_file,
 )
-from snakemake.resources import DefaultResources
+from snakemake.resources import Resources
 
 
 class ApiBase(ABC):
@@ -76,12 +77,13 @@ class ApiBase(ABC):
         pass
 
 
-def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
-    """Get path to the snakefile.
+def resolve_snakefile(path: Optional[Path | str], allow_missing: bool = False):
+    """Get path or URI to the snakefile.
 
     Arguments
     ---------
-    path: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+    path: Optional[Path | str] -- The path or URI to the snakefile. If not provided,
+    default locations will be tried.
     """
     if path is None:
         for p in SNAKEFILE_CHOICES:
@@ -91,6 +93,10 @@ def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
             raise ApiError(
                 f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
             )
+
+    if isinstance(path, str) and is_local_file(path):
+        return Path(path)
+
     return path
 
 
@@ -120,7 +126,10 @@ class SnakemakeApi(ApiBase):
         workflow_settings: Optional[WorkflowSettings] = None,
         deployment_settings: Optional[DeploymentSettings] = None,
         storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
-        snakefile: Optional[Path] = None,
+        software_deployment_provider_settings: Optional[
+            Mapping[str, SoftwareDeploymentSettingsBase]
+        ] = None,
+        snakefile: Optional[Path | str] = None,
         workdir: Optional[Path] = None,
     ):
         """Create the workflow API.
@@ -133,7 +142,7 @@ class SnakemakeApi(ApiBase):
         config_settings: ConfigSettings -- The config settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         storage_settings: StorageSettings -- The storage settings for the workflow.
-        snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+        snakefile: Optional[Path | str] -- The path or URI to the snakefile. If not provided, default locations will be tried.
         workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
 
@@ -146,7 +155,7 @@ class SnakemakeApi(ApiBase):
         if deployment_settings is None:
             deployment_settings = DeploymentSettings()
         if storage_provider_settings is None:
-            storage_provider_settings = dict()
+            storage_provider_settings = {}
 
         self._check_is_in_context()
 
@@ -164,6 +173,7 @@ class SnakemakeApi(ApiBase):
             workflow_settings=workflow_settings,
             deployment_settings=deployment_settings,
             storage_provider_settings=storage_provider_settings,
+            software_deployment_provider_settings=software_deployment_provider_settings,
         )
 
         return self._workflow_api
@@ -328,7 +338,7 @@ class WorkflowApi(ApiBase):
     """
 
     snakemake_api: SnakemakeApi
-    snakefile: Path
+    snakefile: Path | str
     workdir: Optional[Path]
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
@@ -336,6 +346,7 @@ class WorkflowApi(ApiBase):
     workflow_settings: WorkflowSettings
     deployment_settings: DeploymentSettings
     storage_provider_settings: Mapping[str, TaggedSettings]
+    software_deployment_provider_settings: Mapping[str, SoftwareDeploymentSettingsBase]
 
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
@@ -428,18 +439,20 @@ class WorkflowApi(ApiBase):
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
             storage_provider_settings=self.storage_provider_settings,
+            software_deployment_provider_settings=self.software_deployment_provider_settings,
             **kwargs,
         )
 
     def __post_init__(self):
         self._workdir_handler = None
         super().__post_init__()
-        self.snakefile = self.snakefile.absolute()
+        if isinstance(self.snakefile, Path):
+            self.snakefile = self.snakefile.absolute()
         self._workdir_handler = WorkdirHandler(self.workdir)
         self._workdir_handler.change_to()
 
     def _check(self):
-        if not self.snakefile.exists():
+        if isinstance(self.snakefile, Path) and not self.snakefile.exists():
             raise ApiError(f'Snakefile "{self.snakefile}" not found.')
 
 
@@ -464,6 +477,7 @@ class DAGApi(ApiBase):
     def execute_workflow(
         self,
         executor: str = "local",
+        pseudo_executor: Optional[str] = None,
         execution_settings: Optional[ExecutionSettings] = None,
         remote_execution_settings: Optional[RemoteExecutionSettings] = None,
         scheduling_settings: Optional[SchedulingSettings] = None,
@@ -477,13 +491,27 @@ class DAGApi(ApiBase):
 
         Arguments
         ---------
-        executor: str -- The executor to use.
+        executor: str -- The executor to use for workflow/args validation, e.g. whatever a workflow
+            passes via '--executor'.
+        pseudo_executor: Optional[str] -- An optional pseudo-executor that overrides the
+            actual execution while validation is still performed against the intended
+            'executor'. This is used for "dryrun" and "touch", which need to execute the
+            jobs themselves (i.e. not at all, or by merely touching outputs) rather than
+            via the intended executor. Validating against 'executor' ensures that dry-run
+            and touch accurately reflect the real execution environment. Must be one of
+            None, "dryrun", or "touch". If None, execution uses 'executor'.
         execution_settings: ExecutionSettings -- The execution settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
+
+        if pseudo_executor is not None and pseudo_executor not in ("dryrun", "touch"):
+            raise ApiError(
+                "pseudo_executor must be one of None, 'dryrun', or 'touch', "
+                f"got {pseudo_executor!r}."
+            )
 
         if execution_settings is None:
             execution_settings = ExecutionSettings()
@@ -501,6 +529,14 @@ class DAGApi(ApiBase):
             raise ApiError(
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
             )
+
+        # Resolve the executor used for actual (non-)execution. A pseudo-executor
+        # ("dryrun"/"touch") overrides the intended executor; otherwise execution
+        # uses the intended executor itself. Falling back to 'executor' ensures
+        # that direct API calls using executor="dryrun" or executor="touch"
+        # (without a pseudo_executor) still trigger the greedy-scheduler
+        # optimisation below.
+        actual_executor = pseudo_executor or executor
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
@@ -584,7 +620,7 @@ class DAGApi(ApiBase):
             if self.workflow_api.resource_settings.default_resources is None:
                 # use full default resources if in cluster or cloud mode
                 self.workflow_api.resource_settings.default_resources = (
-                    DefaultResources(mode="full")
+                    Resources.default("full")
                 )
             if execution_settings.edit_notebook is not None:
                 raise ApiError(
@@ -593,6 +629,14 @@ class DAGApi(ApiBase):
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 
+        # Note: use_threads is derived from the validation executor's
+        # CommonSettings (executor_plugin), not from the actual executor
+        # (run_executor_plugin, resolved later below). When executor is a
+        # remote plugin (local_exec=False) but actual_executor is "dryrun"
+        # or "touch" (local_exec=True), use_threads will be forced True even
+        # though no real work is done. This is semantically imprecise but
+        # harmless in practice: threading overhead is irrelevant when
+        # dryrun/touch jobs complete near-instantly.
         execution_settings.use_threads = (
             execution_settings.use_threads
             or (os.name not in ["posix"])
@@ -605,8 +649,7 @@ class DAGApi(ApiBase):
             greedy_scheduler_settings = GreedySchedulerSettings()
 
         if (
-            executor == "touch"
-            or executor == "dryrun"
+            actual_executor in ("touch", "dryrun")
             or remote_execution_settings.immediate_submit
         ):
             greedy_scheduler_settings.omit_prioritize_by_temp_and_input = True
@@ -635,17 +678,21 @@ class DAGApi(ApiBase):
         workflow.remote_execution_settings = remote_execution_settings
         workflow.scheduling_settings = scheduling_settings
         workflow.group_settings = group_settings
-        logger.info(
-            None,
-            extra=dict(
-                event=LogEvent.WORKFLOW_STARTED,
-                workflow_id=uuid.uuid4(),
-                snakefile=self.workflow_api.snakefile,
-            ),
-        )
+        # If the execution executor differs from the validation executor (e.g.
+        # the caller passed executor="htcondor" + pseudo_executor="dryrun"),
+        # swap to the execution plugin for actual execution. All validation
+        # above was performed against the intended executor so that dry-run
+        # and touch accurately reflect the real execution environment.
+        if actual_executor != executor:
+            run_executor_plugin = executor_plugin_registry.get_plugin(actual_executor)
+            run_executor_settings = None
+        else:
+            run_executor_plugin = executor_plugin
+            run_executor_settings = executor_settings
+
         workflow.execute(
-            executor_plugin=executor_plugin,
-            executor_settings=executor_settings,
+            executor_plugin=run_executor_plugin,
+            executor_settings=run_executor_settings,
             scheduler_plugin=scheduler_plugin,
             scheduler_settings=scheduler_settings,
             greedy_scheduler_settings=greedy_scheduler_settings,
@@ -671,9 +718,9 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.generate_unit_tests(path=path)
 
     @_no_exec
-    def containerize(self):
+    def containerize(self, fmt="dockerfile"):
         """Containerize the workflow."""
-        self.workflow_api._workflow.containerize()
+        self.workflow_api._workflow.containerize(fmt=fmt)
 
     @_no_exec
     def create_report(
@@ -738,41 +785,24 @@ class DAGApi(ApiBase):
         self.workflow_api._workflow.cleanup_metadata(paths)
 
     @_no_exec
-    def conda_cleanup_envs(self):
-        """Cleanup the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_cleanup_envs()
+    def cleanup_software_envs(self):
+        """Cleanup the software environments of the workflow."""
+        self.workflow_api._workflow.cleanup_software_envs()
 
     @_no_exec
-    def conda_create_envs(self):
-        """Only create the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_create_envs()
+    def cache_or_deploy_software_envs(self):
+        """Only deploy or cache the software environments of the workflow."""
+        self.workflow_api._workflow.cache_or_deploy_software_envs()
 
     @_no_exec
-    def conda_list_envs(self):
-        """List the conda environments of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.CONDA
-        )
-        self.workflow_api._workflow.conda_list_envs()
+    def list_software_envs(self):
+        """List the software environments of the workflow."""
+        self.workflow_api._workflow.list_software_envs()
 
     @_no_exec
     def cleanup_shadow(self):
         """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
-
-    @_no_exec
-    def container_cleanup_images(self):
-        """Cleanup the container images of the workflow."""
-        self.workflow_api.deployment_settings.imply_deployment_method(
-            DeploymentMethod.APPTAINER
-        )
-        self.workflow_api._workflow.container_cleanup_images()
 
     @_no_exec
     def list_changes(self, change_type: ChangeType):

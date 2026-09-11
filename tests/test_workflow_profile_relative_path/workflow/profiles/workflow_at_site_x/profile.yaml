@@ -1,0 +1,3 @@
+set-resources:
+  a:
+    foo: test-workflow-specific

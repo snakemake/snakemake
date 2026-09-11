@@ -1,16 +1,25 @@
+from typing import TYPE_CHECKING
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-
 import re
-from typing import Optional
+from typing import Optional, Dict
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
+from snakemake.executors.local import RunArgs
+from snakemake.sourcecache import SourceFile
+from snakemake_interface_software_deployment_plugins import EnvSpecSourceFile
+
+if TYPE_CHECKING:
+    from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
 
 EXTENSIONS = [".py", ".R", ".Rmd", ".jl"]
+
+DEFAULT_WRAPPER_PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
 
 
 ver_regex = re.compile(r"v?(?P<ver>[0-9]+\.[0-9]+\.[0-9]+)")
@@ -40,7 +49,7 @@ def get_path(path: str, prefix: Optional[str] = None):
                 )
             else:
                 # Otherwise, use a plain url and store it in runtime cache only.
-                path = "https://github.com/snakemake/snakemake-wrappers/raw/" + path
+                path = DEFAULT_WRAPPER_PREFIX + path
         else:
             path = prefix + path
     return infer_source_file(path)
@@ -54,57 +63,67 @@ def is_url(path):
     )
 
 
-def find_extension(source_file, sourcecache: SourceCache):
+def find_extension(
+    source_file, sourcecache: SourceCache
+) -> SourceFile | Dict[str, str]:
     for ext in EXTENSIONS:
         if source_file.get_filename().endswith(f"wrapper{ext}"):
             return source_file
 
+    errors = {}
     for ext in EXTENSIONS:
-        script = source_file.join(f"wrapper{ext}")
+        script_name = f"wrapper{ext}"
+        script = source_file.join(script_name)
 
-        if sourcecache.exists(script):
+        try:
+            sourcecache.try_access(script)
             return script
+        except Exception as e:
+            if isinstance(e, WorkflowError):
+                msg = str(e)
+            else:
+                msg = e.__class__.__name__
+                if str(e):
+                    msg += f": {str(e)}"
+            errors[script_name] = msg
+    return errors
 
 
-def get_script(path, sourcecache: SourceCache, prefix=None):
+def get_script(
+    path, sourcecache: SourceCache, prefix=None
+) -> SourceFile | Dict[str, str]:
     path = get_path(path, prefix=prefix)
     return find_extension(path, sourcecache)
 
 
-def get_conda_env(path, prefix=None):
+def get_conda_env(path, sourcecache: SourceCache, prefix=None) -> "CondaEnvSpec":
+    from snakemake_software_deployment_plugin_conda import EnvSpec as CondaEnvSpec
+
     path = get_path(path, prefix=prefix)
     if is_script(path):
         # URLs and posixpaths share the same separator. Hence use posixpath here.
         path = path.get_basedir()
-    return path.join("environment.yaml")
+    path = path.join("environment.yaml")
+    if not sourcecache.exists(path):
+        raise WorkflowError(
+            f"Conda environment {path.get_path_or_uri(secret_free=True)} not "
+            "accessible. Please check the name of the wrapper and your wrapper prefix."
+        )
+    cached_path = sourcecache.cache(path)
+    spec = CondaEnvSpec(
+        envfile=EnvSpecSourceFile(
+            path_or_uri=path.get_path_or_uri(secret_free=True), cached=cached_path
+        )
+    )
+    spec.technical_init()
+    return spec
 
 
 def wrapper(
     path,
-    input,
-    output,
-    params,
-    wildcards,
-    threads,
-    resources,
-    log,
-    config,
-    rulename,
-    conda_env,
-    conda_base_path,
-    container_img,
-    singularity_args,
-    env_modules,
-    bench_record,
-    prefix,
-    jobid,
-    bench_iteration,
-    cleanup_scripts,
-    shadow_dir,
-    sourcecache_path,
-    runtime_sourcecache_path,
-    local_storage_prefix,
-):
+    run_args: RunArgs,
+    config: Dict,
+) -> None:
     """
     Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.
@@ -112,37 +131,19 @@ def wrapper(
     assert path is not None
     script_source = get_script(
         path,
-        SourceCache(sourcecache_path, runtime_cache_path=runtime_sourcecache_path),
-        prefix=prefix,
+        SourceCache(
+            run_args.cache_path, runtime_cache_path=run_args.runtime_cache_path
+        ),
+        prefix=run_args.wrapper_prefix,
     )
-    if script_source is None:
+    if not isinstance(script_source, SourceFile):
         raise WorkflowError(
-            f"Unable to locate wrapper script at {prefix}{path}. "
-            "This can be a network issue or a mistake in the wrapper URL."
+            f"Unable to locate wrapper script at {run_args.wrapper_prefix}{path}. "
+            "This can be a network issue or a mistake in the wrapper URL. Encountered errors:\n"
+            + "\n".join(f"{script}: {error}" for script, error in script_source.items())
         )
     script(
-        script_source.get_path_or_uri(secret_free=False),
-        "",
-        input,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
+        script_source,
+        run_args,
         config,
-        rulename,
-        conda_env,
-        conda_base_path,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
-        sourcecache_path,
-        runtime_sourcecache_path,
-        local_storage_prefix,
     )

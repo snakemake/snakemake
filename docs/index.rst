@@ -41,6 +41,10 @@ Snakemake
     :alt: GitHub stars
     :target: https://github.com/snakemake/snakemake/stargazers
 
+.. image:: https://img.shields.io/github/sponsors/snakemake
+   :alt: GitHub Sponsors
+   :target: https://github.com/sponsors/snakemake
+
 .. .. raw:: html
           <span class="__dimensions_badge_embed__" data-doi="https://doi.org/10.1093/bioinformatics/bts480" data-legend="always" data-style="large_rectangle"></span><script async src="https://badge.dimensions.ai/badge.js" charset="utf-8"></script>
 
@@ -74,13 +78,14 @@ Getting started
 Support
 -------
 
+* If you like, consider sponsoring Snakemake development via `GitHub Sponsors <https://github.com/sponsors/snakemake>`__.
 * For releases, see :ref:`Changelog <changelog>`.
 * Check :ref:`frequently asked questions (FAQ) <project_info-faq>`.
-* In case of **questions**, please post on `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`_.
-* To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`_. **Please do not post questions there. Use stack overflow for questions.**
-* For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
-* For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
-* Check out our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`_ and refer to it for requests or concerns in that direction.
+* In case of **questions**, please post on `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`__.
+* To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`__. **Please do not post questions there. Use stack overflow for questions.**
+* For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`__.
+* For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`__ and read the :ref:`guidelines <project_info-contributing>`.
+* Check out our `code of conduct <https://github.com/snakemake/snakemake/blob/main/CODE_OF_CONDUCT.md>`__ and refer to it for requests or concerns in that direction.
 
 --------
 Citation
@@ -129,7 +134,7 @@ Resources
     The provided code should also serve as a best-practices of how to build production ready workflows with Snakemake.
     Everybody is invited to contribute.
 
-`Snakemake Profiles Project <https://github.com/snakemake-profiles/doc>`__
+`Snakemake Cluster Profiles Project <https://github.com/snakemake/snakemake-cluster-profiles>`__
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 
@@ -147,7 +152,7 @@ Resources
    :caption: Getting started
    :name: getting_started
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 2
 
    getting_started/installation
    getting_started/migration
@@ -164,8 +169,10 @@ Resources
   executing/cli
   executing/grouping
   executing/caching
+  executing/executors
   executing/interoperability
   executing/monitoring
+  executing/provenance
 
 .. toctree::
     :caption: Defining workflows
@@ -183,6 +190,7 @@ Resources
     snakefiles/reporting
     snakefiles/testing
     snakefiles/foreign_wms
+    snakefiles/debugging_workflows
 
 .. toctree::
     :caption: Project Info
