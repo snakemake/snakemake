@@ -1,5 +1,5 @@
 rule all:
-    input: "copy_full.out", "copy_full_absolute.out"
+    input: "copy_full.out", "copy_full_absolute.out", "copy_full_named.out"
 
 
 rule copy_full:
@@ -46,4 +46,29 @@ rule copy_full_absolute:
         fi
 
         cat {input} > {output}
+        """
+
+
+rule copy_full_named:
+    input:
+        first=os.path.join(os.getcwd(), "test.in"),
+    output:
+        result="copy_full_named.out",
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify the named absolute input was remapped into the shadow dir
+        case "{input.first}" in
+            "$PWD"/*) ;;
+            *) echo "Named input not remapped into shadow dir: {input.first}"; exit 1 ;;
+        esac
+
+        # Verify the named absolute input was copied, not symlinked
+        if [ -L "{input.first}" ]; then
+            echo "Named absolute input is a symbolic link, expected a copy"
+            exit 1
+        fi
+
+        cat {input.first} > {output.result}
+        echo copy_full_named >> {output.result}
         """
