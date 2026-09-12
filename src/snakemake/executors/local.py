@@ -360,19 +360,19 @@ def run_wrapper(run_args: RunArgs):
             write_benchmark_records,
         )
 
+    # Rewrite the absolute paths to the shadow directory
     if run_args.shadow_dir and run_args.job_rule.shadow_depth == "copy-full":
-
-        def to_shadow(f):
-            if os.path.isabs(f):
-                return os.path.join(run_args.shadow_dir, f.lstrip("/"))
-            return f
-
-        # Rebuild the containers instead of assigning to their items. A named
-        # item holds its own copy of the value (see Namedlist._set_name), so
-        # item assignment would leave e.g. {input.foo} at the original path.
         for attr in ("input", "output", "log"):
             seq = getattr(run_args, attr)
-            setattr(run_args, attr, seq.__class__(toclone=seq, custom_map=to_shadow))
+            shadowed = seq.__class__(
+                toclone=seq,
+                custom_map=lambda f: (
+                    os.path.join(run_args.shadow_dir, f.lstrip("/"))
+                    if os.path.isabs(f)
+                    else f
+                ),
+            )
+            setattr(run_args, attr, shadowed)
 
     try:
         with change_working_directory(run_args.shadow_dir):
