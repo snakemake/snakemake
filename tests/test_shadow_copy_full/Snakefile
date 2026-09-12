@@ -14,6 +14,16 @@ with open("refdir/ro.txt", "w") as handle:
     handle.write("ro\n")
 os.chmod("refdir/ro.txt", 0o444)
 
+# Fixtures for copy_full_snakemake_dir: content below .snakemake that the job
+# needs (storage plugins put their local copies there), and a cache that the
+# job does not need.
+os.makedirs(".snakemake/storage/dummy", exist_ok=True)
+with open(".snakemake/storage/dummy/data.txt", "w") as handle:
+    handle.write("storage\n")
+os.makedirs(".snakemake/software/cache", exist_ok=True)
+with open(".snakemake/software/cache/big.bin", "w") as handle:
+    handle.write("cache\n")
+
 
 rule all:
     input:
@@ -21,6 +31,7 @@ rule all:
         "copy_full_absolute.out",
         "copy_full_named.out",
         "copy_full_overlap.out",
+        "copy_full_snakemake_dir.out",
 
 
 rule copy_full:
@@ -92,6 +103,24 @@ rule copy_full_named:
 
         cat {input.first} > {output.result}
         echo copy_full_named >> {output.result}
+        """
+
+
+rule copy_full_snakemake_dir:
+    output: "copy_full_snakemake_dir.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # The storage dir below .snakemake must be copied
+        test -f .snakemake/storage/dummy/data.txt
+
+        # The caches below .snakemake must not be copied
+        test ! -e .snakemake/software/cache/big.bin
+
+        # The shadow root below .snakemake must not be copied
+        test ! -d .snakemake/shadow
+
+        cat .snakemake/storage/dummy/data.txt > {output}
         """
 
 
