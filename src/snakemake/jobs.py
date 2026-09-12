@@ -943,21 +943,25 @@ class Job(
                     )
                 else:
                     shutil.copy2(src_path, dst_path, follow_symlinks=False)
+
             # Copy the absolute paths from the inputs
-            for f in self.input:
-                if os.path.isabs(f):
-                    shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
-                    os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
-                    if os.path.isdir(f):
-                        shutil.copytree(
-                            f,
-                            shadow_f,
-                            symlinks=True,
-                            dirs_exist_ok=True,
-                            ignore=ignore_shadow,
-                        )
-                    else:
-                        shutil.copy2(f, shadow_f)
+            abs_input = {str(f) for f in self.input if os.path.isabs(f)}
+            for f in abs_input:
+                # As we copy the modes, copying twice on a readonly directory fails:
+                if any(f.startswith(os.path.join(other, "")) for other in abs_input):
+                    continue
+                shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
+                os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
+                if os.path.isdir(f):
+                    shutil.copytree(
+                        f,
+                        shadow_f,
+                        symlinks=True,
+                        dirs_exist_ok=True,
+                        ignore=ignore_shadow,
+                    )
+                else:
+                    shutil.copy2(f, shadow_f)
             # Create the parent directories for output and log
             for f in chain(self.output, self.log):
                 if os.path.isabs(f):

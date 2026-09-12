@@ -1,5 +1,26 @@
+import os
+
+# Fixtures for copy_full_overlap: a directory that holds a symlink and a
+# read-only file. Both are also declared as input, so they are inside another
+# input directory.
+os.makedirs("refdir/sub", exist_ok=True)
+with open("refdir/sub/ref.txt", "w") as handle:
+    handle.write("ref\n")
+if not os.path.islink("refdir/sub/link.txt"):
+    os.symlink("ref.txt", "refdir/sub/link.txt")
+if os.path.exists("refdir/ro.txt"):
+    os.chmod("refdir/ro.txt", 0o644)
+with open("refdir/ro.txt", "w") as handle:
+    handle.write("ro\n")
+os.chmod("refdir/ro.txt", 0o444)
+
+
 rule all:
-    input: "copy_full.out", "copy_full_absolute.out", "copy_full_named.out"
+    input:
+        "copy_full.out",
+        "copy_full_absolute.out",
+        "copy_full_named.out",
+        "copy_full_overlap.out",
 
 
 rule copy_full:
@@ -71,4 +92,36 @@ rule copy_full_named:
 
         cat {input.first} > {output.result}
         echo copy_full_named >> {output.result}
+        """
+
+
+rule copy_full_overlap:
+    # Absolute inputs that overlap: the same file under two names, and paths
+    # inside another input directory.
+    input:
+        refdir=os.path.join(os.getcwd(), "refdir"),
+        sub=os.path.join(os.getcwd(), "refdir", "sub"),
+        readonly=os.path.join(os.getcwd(), "refdir", "ro.txt"),
+        dup1=os.path.join(os.getcwd(), "test.in"),
+        dup2=os.path.join(os.getcwd(), "test.in"),
+    output:
+        "copy_full_overlap.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify the symlink inside the copied directory is still a symlink
+        if [ ! -L "{input.sub}/link.txt" ]; then
+            echo "Symlink inside overlapping input directory not kept"
+            exit 1
+        fi
+
+        # Verify the read-only file was copied
+        if [ ! -f "{input.readonly}" ]; then
+            echo "Read-only file inside overlapping input directory not copied"
+            exit 1
+        fi
+
+        cat {input.dup1} > {output}
+        cat {input.refdir}/sub/ref.txt >> {output}
+        cat {input.dup2} >> {output}
         """
