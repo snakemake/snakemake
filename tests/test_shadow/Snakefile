@@ -1,7 +1,31 @@
+# Fixtures for full_snakemake_dir: content below .snakemake that the job needs
+# (storage plugins put their local copies there), and a cache that the job does
+# not need.
+os.makedirs(".snakemake/storage/dummy", exist_ok=True)
+with open(".snakemake/storage/dummy/data.txt", "w") as handle:
+    handle.write("storage\n")
+os.makedirs(".snakemake/software/cache", exist_ok=True)
+with open(".snakemake/software/cache/big.bin", "w") as handle:
+    handle.write("cache\n")
+
+
 rule all:
     input: "simple_shallow.out", "simple_full.out",
            "absolute_exists.out", "touched.out", "log_exists.out",
-           "protected.out", "benchmark_exists.out", "minimal_ok.out"
+           "protected.out", "benchmark_exists.out", "minimal_ok.out",
+           "full_snakemake_dir.out"
+
+
+rule full_snakemake_dir:
+    output: touch("full_snakemake_dir.out")
+    shadow: "full"
+    shell:
+        """
+        # The storage dir below .snakemake must be in the shadow dir
+        test -f .snakemake/storage/dummy/data.txt
+        # The caches below .snakemake must not be in the shadow dir
+        test ! -e .snakemake/software/cache/big.bin
+        """
 
 rule shallow:
     input: "test.in"

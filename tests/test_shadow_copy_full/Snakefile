@@ -1,0 +1,156 @@
+import os
+
+# Fixtures for copy_full_overlap: a directory that holds a symlink and a
+# read-only file. Both are also declared as input, so they are inside another
+# input directory.
+os.makedirs("refdir/sub", exist_ok=True)
+with open("refdir/sub/ref.txt", "w") as handle:
+    handle.write("ref\n")
+if not os.path.islink("refdir/sub/link.txt"):
+    os.symlink("ref.txt", "refdir/sub/link.txt")
+if os.path.exists("refdir/ro.txt"):
+    os.chmod("refdir/ro.txt", 0o644)
+with open("refdir/ro.txt", "w") as handle:
+    handle.write("ro\n")
+os.chmod("refdir/ro.txt", 0o444)
+
+# Fixtures for copy_full_snakemake_dir: content below .snakemake that the job
+# needs (storage plugins put their local copies there), and a cache that the
+# job does not need.
+os.makedirs(".snakemake/storage/dummy", exist_ok=True)
+with open(".snakemake/storage/dummy/data.txt", "w") as handle:
+    handle.write("storage\n")
+os.makedirs(".snakemake/software/cache", exist_ok=True)
+with open(".snakemake/software/cache/big.bin", "w") as handle:
+    handle.write("cache\n")
+
+
+rule all:
+    input:
+        "copy_full.out",
+        "copy_full_absolute.out",
+        "copy_full_named.out",
+        "copy_full_overlap.out",
+        "copy_full_snakemake_dir.out",
+
+
+rule copy_full:
+    input: "test.in"
+    output: "copy_full.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify input is a copy, not a symlink
+        if [ -L "{input}" ]; then
+            echo "Input file is a symbolic link, expected a copy"
+            exit 1
+        fi
+
+        # Verify undeclared file was copied (proves full cwd copy)
+        if [ ! -f extra.txt ]; then
+            echo "Undeclared file extra.txt not found, cwd was not fully copied"
+            exit 1
+        fi
+
+        # Verify junk files don't leak to workdir
+        echo junk > junk.out
+        cat {input} >> {output}
+        echo copy_full >> {output}
+        """
+
+
+rule copy_full_absolute:
+    input: os.path.join(os.getcwd(), "test.in")
+    output: "copy_full_absolute.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify absolute input was remapped into the shadow dir
+        case "{input}" in
+            "$PWD"/*) ;;
+            *) echo "Input not remapped into shadow dir: {input}"; exit 1 ;;
+        esac
+
+        # Verify absolute input was copied, not symlinked
+        if [ -L "{input}" ]; then
+            echo "Absolute input file is a symbolic link, expected a copy"
+            exit 1
+        fi
+
+        cat {input} > {output}
+        """
+
+
+rule copy_full_named:
+    input:
+        first=os.path.join(os.getcwd(), "test.in"),
+    output:
+        result="copy_full_named.out",
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify the named absolute input was remapped into the shadow dir
+        case "{input.first}" in
+            "$PWD"/*) ;;
+            *) echo "Named input not remapped into shadow dir: {input.first}"; exit 1 ;;
+        esac
+
+        # Verify the named absolute input was copied, not symlinked
+        if [ -L "{input.first}" ]; then
+            echo "Named absolute input is a symbolic link, expected a copy"
+            exit 1
+        fi
+
+        cat {input.first} > {output.result}
+        echo copy_full_named >> {output.result}
+        """
+
+
+rule copy_full_snakemake_dir:
+    output: "copy_full_snakemake_dir.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # The storage dir below .snakemake must be copied
+        test -f .snakemake/storage/dummy/data.txt
+
+        # The caches below .snakemake must not be copied
+        test ! -e .snakemake/software/cache/big.bin
+
+        # The shadow root below .snakemake must not be copied
+        test ! -d .snakemake/shadow
+
+        cat .snakemake/storage/dummy/data.txt > {output}
+        """
+
+
+rule copy_full_overlap:
+    # Absolute inputs that overlap: the same file under two names, and paths
+    # inside another input directory.
+    input:
+        refdir=os.path.join(os.getcwd(), "refdir"),
+        sub=os.path.join(os.getcwd(), "refdir", "sub"),
+        readonly=os.path.join(os.getcwd(), "refdir", "ro.txt"),
+        dup1=os.path.join(os.getcwd(), "test.in"),
+        dup2=os.path.join(os.getcwd(), "test.in"),
+    output:
+        "copy_full_overlap.out"
+    shadow: "copy-full"
+    shell:
+        """
+        # Verify the symlink inside the copied directory is still a symlink
+        if [ ! -L "{input.sub}/link.txt" ]; then
+            echo "Symlink inside overlapping input directory not kept"
+            exit 1
+        fi
+
+        # Verify the read-only file was copied
+        if [ ! -f "{input.readonly}" ]; then
+            echo "Read-only file inside overlapping input directory not copied"
+            exit 1
+        fi
+
+        cat {input.dup1} > {output}
+        cat {input.refdir}/sub/ref.txt >> {output}
+        cat {input.dup2} >> {output}
+        """

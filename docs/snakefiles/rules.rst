@@ -2305,10 +2305,18 @@ so that any relative paths in a subdirectory will be real paths in the filesyste
 The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir.
 The setting ``shadow: "minimal"`` only symlinks the inputs to the rule,
 and ``shadow: "copy-minimal"`` copies the inputs instead of just creating symlinks.
-Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
+The setting ``shadow: "copy-full"`` copies the entire working directory and also copies absolute-path inputs into the shadow directory.
+The ``copy-full`` mode is useful for I/O heavy commands where ``--shadow-prefix`` is set to an I/O optimized filesystem.
 
+Except for ``copy-full`` the other modes leave absolute paths alone.
+Symlinks in the working directory are preserved as symlinks in the shadow copy (like ``cp -a``).
+The modes ``full`` and ``copy-full`` also shadow the ``.snakemake`` directory, so that the local copies of the storage plugins (``.snakemake/storage``) are available to the job.
+They leave out the shadow directories of all jobs and the large caches (``.snakemake/software``, ``.snakemake/source_cache``, ``.snakemake/iocache`` and ``.snakemake/pip-deployments``).
+
+Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 Typically, you will not need to modify your rule for compatibility with ``shadow``,
-unless you reference parent directories relative to your workdir in a rule.
+unless in a rule you reference directories relative to your workdir, but outside the relative workdir.
+Use absolute paths for these paths instead.
 
 .. code-block:: python
 

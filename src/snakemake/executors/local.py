@@ -360,9 +360,22 @@ def run_wrapper(run_args: RunArgs):
             write_benchmark_records,
         )
 
+    # Rewrite the absolute paths to the shadow directory
+    if run_args.shadow_dir and run_args.job_rule.shadow_depth == "copy-full":
+        for attr in ("input", "output", "log"):
+            seq = getattr(run_args, attr)
+            shadowed = seq.__class__(
+                toclone=seq,
+                custom_map=lambda f: (
+                    os.path.join(run_args.shadow_dir, f.lstrip("/"))
+                    if os.path.isabs(f)
+                    else f
+                ),
+            )
+            setattr(run_args, attr, shadowed)
+
     try:
         with change_working_directory(run_args.shadow_dir):
-
             if run_args.benchmark:
                 bench_records = []
                 for bench_iteration in range(run_args.benchmark_repeats):
