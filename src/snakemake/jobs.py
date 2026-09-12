@@ -839,9 +839,9 @@ class Job(
         if not self.is_shadow or self.is_norun:
             return
 
-        # Create shadow directory structure
-        self.shadow_dir = tempfile.mkdtemp(
-            dir=self.rule.workflow.persistence.shadow_path
+        # os.path.abspath needed for 3.11 and lower.
+        self.shadow_dir = os.path.abspath(
+            tempfile.mkdtemp(dir=self.rule.workflow.persistence.shadow_path)
         )
         cwd = os.getcwd()
 
