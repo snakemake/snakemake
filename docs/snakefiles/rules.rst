@@ -2310,8 +2310,8 @@ The ``copy-full`` mode is useful for I/O heavy commands where ``--shadow-prefix`
 
 Except for ``copy-full`` the other modes leave absolute paths alone.
 Symlinks in the working directory are preserved as symlinks in the shadow copy (like ``cp -a``).
-The modes ``full`` and ``copy-full`` also shadow the ``.snakemake`` directory, so that the local copies of the storage plugins (``.snakemake/storage``) are available to the job.
-They leave out the shadow directories of all jobs and the large caches (``.snakemake/software``, ``.snakemake/source_cache``, ``.snakemake/iocache`` and ``.snakemake/pip-deployments``).
+The modes ``full`` and ``copy-full`` leave out the ``.snakemake`` directory and the shadow directories of all jobs.
+Only the local copies of the storage plugins (``--local-storage-prefix``, ``.snakemake/storage`` by default) are shadowed, so that they are available to the job.
 
 Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 Typically, you will not need to modify your rule for compatibility with ``shadow``,

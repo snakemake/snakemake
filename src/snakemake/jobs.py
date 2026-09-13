@@ -18,7 +18,7 @@ from operator import attrgetter
 from typing import Dict, Iterable, List, Optional, Sequence, Union
 from collections.abc import AsyncGenerator
 from abc import abstractmethod
-from snakemake import wrapper, PIP_DEPLOYMENTS_PATH
+from snakemake import wrapper
 from snakemake.rules import Rule
 
 from snakemake.common.misc import is_conda_env
@@ -335,33 +335,40 @@ class Job(
     def _is_within_path(path_real, root_real):
         return path_real == root_real or path_real.startswith(root_real + os.sep)
 
-    def _shadow_skip_paths(self):
-        """Real paths that a shadow directory must NOT contain.
+    def _shadow_skipper(self):
+        """Return a function that tells if a path must NOT be in a shadow directory.
 
-        These are the shadow root and the large caches below .snakemake.
-        The rest of .snakemake is kept,
-        because the storage plugins put their local copies there
-        (.snakemake/storage by default).
+        The shadow root and .snakemake are skipped.
+        Only the local storage prefix (.snakemake/storage by default) is kept,
+        because the storage plugins put their local copies there.
         """
         workflow = self.rule.workflow
-        paths = [
-            workflow.persistence.shadow_path,
-            workflow.persistence.source_cache,
-            workflow.persistence.iocache_path,
-            PIP_DEPLOYMENTS_PATH,
-        ]
-        if workflow.deployment_settings is not None:
-            paths.extend(
-                [
-                    workflow.deployment_settings.deployment_prefix,
-                    workflow.deployment_settings.cache_prefix,
-                    workflow.deployment_settings.pinfile_prefix,
-                ]
+        skip_paths = {
+            os.path.realpath(path)
+            for path in (
+                workflow.persistence.shadow_path,
+                workflow.persistence.path,
+                ".snakemake",
             )
-        return {os.path.realpath(path) for path in paths}
+        }
+        keep_paths = set()
+        if workflow.storage_settings is not None:
+            keep_paths.add(
+                os.path.realpath(workflow.storage_settings.local_storage_prefix)
+            )
 
-    def _is_shadow_skipped(self, path_real, skip_paths):
-        return any(self._is_within_path(path_real, skip) for skip in skip_paths)
+        def is_skipped(path):
+            path_real = os.path.realpath(path)
+            if not any(self._is_within_path(path_real, skip) for skip in skip_paths):
+                return False
+            # Keep the storage prefix and the directories above it.
+            return not any(
+                self._is_within_path(path_real, keep)
+                or self._is_within_path(keep, path_real)
+                for keep in keep_paths
+            )
+
+        return is_skipped
 
     @property
     def wildcards(self):
@@ -938,24 +945,16 @@ class Job(
                         f"{f}",
                         rule=self.rule,
                     )
-            # Skip the shadow root and other large dirs from .snakemake
-            skip_paths = self._shadow_skip_paths()
+            # Skip the shadow root and .snakemake, except the storage
+            is_skipped = self._shadow_skipper()
 
             def ignore_shadow(d, entries):
-                return {
-                    e
-                    for e in entries
-                    if self._is_shadow_skipped(
-                        os.path.realpath(os.path.join(d, e)), skip_paths
-                    )
-                }
+                return {e for e in entries if is_skipped(os.path.join(d, e))}
 
             # Copy the cwd (current working directory)
             for source in os.listdir(cwd):
                 src_path = os.path.join(cwd, source)
-
-                src_real = os.path.realpath(src_path)
-                if self._is_shadow_skipped(src_real, skip_paths):
+                if is_skipped(src_path):
                     continue
 
                 dst_path = os.path.join(self.shadow_dir, source)
@@ -991,16 +990,14 @@ class Job(
                     shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
                     os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
         elif self.rule.shadow_depth == "full":
-            skip_paths = self._shadow_skip_paths()
+            is_skipped = self._shadow_skipper()
             for dirpath, dirnames, filenames in os.walk(cwd, followlinks=True):
                 # a link should not point to a parent directory of itself, else can cause infinite recursion
-                # Do not enter the shadow root or the .snakemake caches.
+                # Do not enter the shadow root or .snakemake, except the storage.
                 dirnames[:] = [
                     dirname
                     for dirname in dirnames
-                    if not self._is_shadow_skipped(
-                        os.path.realpath(os.path.join(dirpath, dirname)), skip_paths
-                    )
+                    if not is_skipped(os.path.join(dirpath, dirname))
                 ]
 
                 for dirname in dirnames:
@@ -1010,6 +1007,8 @@ class Job(
 
                 for filename in filenames:
                     source = os.path.join(dirpath, filename)
+                    if is_skipped(source):
+                        continue
                     relative_source = os.path.relpath(source)
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)

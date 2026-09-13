@@ -15,14 +15,16 @@ with open("refdir/ro.txt", "w") as handle:
 os.chmod("refdir/ro.txt", 0o444)
 
 # Fixtures for copy_full_snakemake_dir: content below .snakemake that the job
-# needs (storage plugins put their local copies there), and a cache that the
-# job does not need.
+# needs (storage plugins put their local copies there), and other content that
+# the job does not need.
 os.makedirs(".snakemake/storage/dummy", exist_ok=True)
 with open(".snakemake/storage/dummy/data.txt", "w") as handle:
     handle.write("storage\n")
 os.makedirs(".snakemake/software/cache", exist_ok=True)
 with open(".snakemake/software/cache/big.bin", "w") as handle:
     handle.write("cache\n")
+with open(".snakemake/other.txt", "w") as handle:
+    handle.write("other\n")
 
 
 rule all:
@@ -114,8 +116,10 @@ rule copy_full_snakemake_dir:
         # The storage dir below .snakemake must be copied
         test -f .snakemake/storage/dummy/data.txt
 
-        # The caches below .snakemake must not be copied
-        test ! -e .snakemake/software/cache/big.bin
+        # The rest of .snakemake must not be copied
+        test ! -e .snakemake/software
+        test ! -e .snakemake/other.txt
+        test ! -e .snakemake/metadata
 
         # The shadow root below .snakemake must not be copied
         test ! -d .snakemake/shadow
