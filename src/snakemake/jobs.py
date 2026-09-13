@@ -335,7 +335,7 @@ class Job(
     def _is_within_path(path_real, root_real):
         return path_real == root_real or path_real.startswith(root_real + os.sep)
 
-    def _shadow_skipper(self):
+    def _shadow_skipper(self, path):
         """Return a function that tells if a path must NOT be in a shadow directory.
 
         The shadow root and .snakemake are skipped.
@@ -357,18 +357,51 @@ class Job(
                 os.path.realpath(workflow.storage_settings.local_storage_prefix)
             )
 
-        def is_skipped(path):
-            path_real = os.path.realpath(path)
-            if not any(self._is_within_path(path_real, skip) for skip in skip_paths):
-                return False
-            # Keep the storage prefix and the directories above it.
-            return not any(
-                self._is_within_path(path_real, keep)
-                or self._is_within_path(keep, path_real)
-                for keep in keep_paths
-            )
+        path_real = os.path.realpath(path)
+        if not any(self._is_within_path(path_real, skip) for skip in skip_paths):
+            return False
+        # Keep the storage prefix and the directories above it.
+        return not any(
+            self._is_within_path(path_real, keep)
+            or self._is_within_path(keep, path_real)
+            for keep in keep_paths
+        )
 
-        return is_skipped
+    def _shadow_absolute_paths(self, copy_mode):
+        """Symlink or copy the absolute inputs into the shadow directory.
+
+        Also create the parent directories of the absolute outputs and logs.
+        """
+        abs_input = {str(f) for f in self.input if os.path.isabs(f)}
+        for f in abs_input:
+            # Skip paths inside another absolute input, they come with it.
+            # Copying twice fails on a read-only directory, and a symlink in a
+            # symlinked directory changes the original directory.
+            if any(f.startswith(os.path.join(other, "")) for other in abs_input):
+                continue
+            shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
+            os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
+            if not copy_mode:
+                os.symlink(f, shadow_f)
+            elif os.path.isdir(f):
+                shutil.copytree(
+                    f,
+                    shadow_f,
+                    symlinks=True,
+                    dirs_exist_ok=True,
+                    ignore=lambda entries: {
+                        e for e in entries if self._shadow_skipper(os.path.join(d, e))
+                    }
+                    if copy_mode
+                    else None,
+                )
+            else:
+                shutil.copy2(f, shadow_f)
+
+        for f in chain(self.output, self.log):
+            if os.path.isabs(f):
+                shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
+                os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
 
     @property
     def wildcards(self):
@@ -696,7 +729,7 @@ class Job(
         if not self.shadow_dir:
             return f
 
-        if self.rule.shadow_depth == "copy-full":
+        if "absolute" in self.rule.shadow_depth:
             shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
         else:
             # Absolute paths pass through unchanged (os.path.join discards the prefix).
@@ -879,13 +912,9 @@ class Job(
         )
         cwd = os.getcwd()
 
-        # "minimal" creates symlinks only to the input files in the shadow directory
-        # "copy-minimal" creates copies instead
-        if (
-            self.rule.shadow_depth == "minimal"
-            or self.rule.shadow_depth == "copy-minimal"
-        ):
-            # Re-create the directory structure in the shadow directory
+        # Minimal variants do not copy cwd, but only the inputs for the rule.
+        if self.rule.shadow_depth.endswith("minimal"):
+            # Thus we have to re-create the directory structure in the shadow directory
             for f, d in set(
                 [
                     (item, os.path.dirname(item))
@@ -905,18 +934,20 @@ class Job(
                         raise RuleException(
                             "The following file name references a parent directory relative to your workdir.\n"
                             'This isn\'t supported for shadow: "{}". Consider using an absolute path instead.\n{}'.format(
-                                f, self.rule.shadow_depth
+                                self.rule.shadow_depth, f
                             ),
                             rule=self.rule,
                         )
 
+            copy_mode = self.rule.shadow_depth.startswith("copy-")
+
             # Symlink or copy the input files
-            if self.rule.shadow_depth == "copy-minimal":
+            if copy_mode:
                 for rel_path in set(
                     [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
                 ):
-                    copy = os.path.join(self.shadow_dir, rel_path)
-                    shutil.copy(rel_path, copy)
+                    copy_path = os.path.join(self.shadow_dir, rel_path)
+                    shutil.copy(rel_path, copy_path)
             else:
                 for rel_path in set(
                     [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
@@ -925,14 +956,17 @@ class Job(
                     original = os.path.relpath(rel_path, os.path.dirname(link))
                     os.symlink(original, link)
 
+            if "absolute" in self.rule.shadow_depth:
+                self._shadow_absolute_paths(copy_mode=copy_mode)
+
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)
 
-        elif self.rule.shadow_depth == "copy-full":
-            # Relative paths to workdir not allowed in copy-full
+        elif self.rule.shadow_depth == "copy-absolute-full":
+            # Relative paths to workdir not allowed in copy-absolute-full
             for f in chain(self.input, self.output, self.log):
                 if (
                     not os.path.isabs(f)
@@ -940,16 +974,14 @@ class Job(
                 ):
                     raise RuleException(
                         "The following file name references a parent directory relative to your workdir.\n"
-                        'This isn\'t supported for shadow: "copy-full". '
+                        'This isn\'t supported for shadow: "copy-absolute-full". '
                         "Consider using an absolute path instead.\n"
                         f"{f}",
                         rule=self.rule,
                     )
             # Skip the shadow root and .snakemake, except the storage
             is_skipped = self._shadow_skipper()
-
-            def ignore_shadow(d, entries):
-                return {e for e in entries if is_skipped(os.path.join(d, e))}
+            ignore_shadow = self._shadow_ignore()
 
             # Copy the cwd (current working directory)
             for source in os.listdir(cwd):
@@ -966,29 +998,7 @@ class Job(
                 else:
                     shutil.copy2(src_path, dst_path, follow_symlinks=False)
 
-            # Copy the absolute paths from the inputs
-            abs_input = {str(f) for f in self.input if os.path.isabs(f)}
-            for f in abs_input:
-                # As we copy the modes, copying twice on a readonly directory fails:
-                if any(f.startswith(os.path.join(other, "")) for other in abs_input):
-                    continue
-                shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
-                os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
-                if os.path.isdir(f):
-                    shutil.copytree(
-                        f,
-                        shadow_f,
-                        symlinks=True,
-                        dirs_exist_ok=True,
-                        ignore=ignore_shadow,
-                    )
-                else:
-                    shutil.copy2(f, shadow_f)
-            # Create the parent directories for output and log
-            for f in chain(self.output, self.log):
-                if os.path.isabs(f):
-                    shadow_f = os.path.join(self.shadow_dir, f.lstrip("/"))
-                    os.makedirs(os.path.dirname(shadow_f), exist_ok=True)
+            self._shadow_absolute_paths(copy_mode=True)
         elif self.rule.shadow_depth == "full":
             is_skipped = self._shadow_skipper()
             for dirpath, dirnames, filenames in os.walk(cwd, followlinks=True):

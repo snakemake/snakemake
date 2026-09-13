@@ -361,7 +361,7 @@ def run_wrapper(run_args: RunArgs):
         )
 
     # Rewrite the absolute paths to the shadow directory
-    if run_args.shadow_dir and run_args.job_rule.shadow_depth == "copy-full":
+    if run_args.shadow_dir and run_args.job_rule.shadows_absolute_paths:
         for attr in ("input", "output", "log"):
             seq = getattr(run_args, attr)
             shadowed = seq.__class__(

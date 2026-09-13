@@ -1957,11 +1957,14 @@ class Workflow(WorkflowExecutorInterface):
                     "full",
                     "minimal",
                     "copy-minimal",
-                    "copy-full",
+                    "absolute-minimal",
+                    "copy-absolute-minimal",
+                    "copy-absolute-full",
                 ):
                     raise RuleException(
                         "Shadow must either be 'minimal', 'copy-minimal', 'shallow', 'full', "
-                        "'copy-full', or True (equivalent to 'full')",
+                        "'absolute-minimal', 'copy-absolute-minimal', 'copy-absolute-full', "
+                        "or True (equivalent to 'full')",
                         rule=rule,
                     )
                 if ruleinfo.shadow_depth is True:
@@ -1969,7 +1972,8 @@ class Workflow(WorkflowExecutorInterface):
                     logger.warning(
                         f"Shadow is set to True in rule {rule} (equivalent to 'full'). "
                         "It's encouraged to use the more explicit options "
-                        "'minimal|copy-minimal|shallow|full|copy-full' instead."
+                        "'minimal|copy-minimal|shallow|full|absolute-minimal|"
+                        "copy-absolute-minimal|copy-absolute-full' instead."
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth

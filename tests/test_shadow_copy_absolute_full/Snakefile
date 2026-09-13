@@ -1,6 +1,6 @@
 import os
 
-# Fixtures for copy_full_overlap: a directory that holds a symlink and a
+# Fixtures for copy_absolute_full_overlap: a directory that holds a symlink and a
 # read-only file. Both are also declared as input, so they are inside another
 # input directory.
 os.makedirs("refdir/sub", exist_ok=True)
@@ -14,7 +14,7 @@ with open("refdir/ro.txt", "w") as handle:
     handle.write("ro\n")
 os.chmod("refdir/ro.txt", 0o444)
 
-# Fixtures for copy_full_snakemake_dir: content below .snakemake that the job
+# Fixtures for copy_absolute_full_snakemake_dir: content below .snakemake that the job
 # needs (storage plugins put their local copies there), and other content that
 # the job does not need.
 os.makedirs(".snakemake/storage/dummy", exist_ok=True)
@@ -29,17 +29,17 @@ with open(".snakemake/other.txt", "w") as handle:
 
 rule all:
     input:
-        "copy_full.out",
-        "copy_full_absolute.out",
-        "copy_full_named.out",
-        "copy_full_overlap.out",
-        "copy_full_snakemake_dir.out",
+        "copy_absolute_full.out",
+        "copy_absolute_full_absolute.out",
+        "copy_absolute_full_named.out",
+        "copy_absolute_full_overlap.out",
+        "copy_absolute_full_snakemake_dir.out",
 
 
-rule copy_full:
+rule copy_absolute_full:
     input: "test.in"
-    output: "copy_full.out"
-    shadow: "copy-full"
+    output: "copy_absolute_full.out"
+    shadow: "copy-absolute-full"
     shell:
         """
         # Verify input is a copy, not a symlink
@@ -57,14 +57,14 @@ rule copy_full:
         # Verify junk files don't leak to workdir
         echo junk > junk.out
         cat {input} >> {output}
-        echo copy_full >> {output}
+        echo copy_absolute_full >> {output}
         """
 
 
-rule copy_full_absolute:
+rule copy_absolute_full_absolute:
     input: os.path.join(os.getcwd(), "test.in")
-    output: "copy_full_absolute.out"
-    shadow: "copy-full"
+    output: "copy_absolute_full_absolute.out"
+    shadow: "copy-absolute-full"
     shell:
         """
         # Verify absolute input was remapped into the shadow dir
@@ -83,12 +83,12 @@ rule copy_full_absolute:
         """
 
 
-rule copy_full_named:
+rule copy_absolute_full_named:
     input:
         first=os.path.join(os.getcwd(), "test.in"),
     output:
-        result="copy_full_named.out",
-    shadow: "copy-full"
+        result="copy_absolute_full_named.out",
+    shadow: "copy-absolute-full"
     shell:
         """
         # Verify the named absolute input was remapped into the shadow dir
@@ -104,13 +104,13 @@ rule copy_full_named:
         fi
 
         cat {input.first} > {output.result}
-        echo copy_full_named >> {output.result}
+        echo copy_absolute_full_named >> {output.result}
         """
 
 
-rule copy_full_snakemake_dir:
-    output: "copy_full_snakemake_dir.out"
-    shadow: "copy-full"
+rule copy_absolute_full_snakemake_dir:
+    output: "copy_absolute_full_snakemake_dir.out"
+    shadow: "copy-absolute-full"
     shell:
         """
         # The storage dir below .snakemake must be copied
@@ -128,7 +128,7 @@ rule copy_full_snakemake_dir:
         """
 
 
-rule copy_full_overlap:
+rule copy_absolute_full_overlap:
     # Absolute inputs that overlap: the same file under two names, and paths
     # inside another input directory.
     input:
@@ -138,8 +138,8 @@ rule copy_full_overlap:
         dup1=os.path.join(os.getcwd(), "test.in"),
         dup2=os.path.join(os.getcwd(), "test.in"),
     output:
-        "copy_full_overlap.out"
-    shadow: "copy-full"
+        "copy_absolute_full_overlap.out"
+    shadow: "copy-absolute-full"
     shell:
         """
         # Verify the symlink inside the copied directory is still a symlink
