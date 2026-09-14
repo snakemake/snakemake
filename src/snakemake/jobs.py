@@ -335,7 +335,7 @@ class Job(
     def _is_within_path(path_real, root_real):
         return path_real == root_real or path_real.startswith(root_real + os.sep)
 
-    def _shadow_skipper(self, path):
+    def _shadow_skipper(self):
         """Return a function that tells if a path must NOT be in a shadow directory.
 
         The shadow root and .snakemake are skipped.
@@ -357,15 +357,18 @@ class Job(
                 os.path.realpath(workflow.storage_settings.local_storage_prefix)
             )
 
-        path_real = os.path.realpath(path)
-        if not any(self._is_within_path(path_real, skip) for skip in skip_paths):
-            return False
-        # Keep the storage prefix and the directories above it.
-        return not any(
-            self._is_within_path(path_real, keep)
-            or self._is_within_path(keep, path_real)
-            for keep in keep_paths
-        )
+        def is_skipped(path):
+            path_real = os.path.realpath(path)
+            if not any(self._is_within_path(path_real, skip) for skip in skip_paths):
+                return False
+            # Keep the storage prefix and the directories above it.
+            return not any(
+                self._is_within_path(path_real, keep)
+                or self._is_within_path(keep, path_real)
+                for keep in keep_paths
+            )
+
+        return is_skipped
 
     def _shadow_absolute_paths(self, copy_mode):
         """Symlink or copy the absolute inputs into the shadow directory.
@@ -373,6 +376,7 @@ class Job(
         Also create the parent directories of the absolute outputs and logs.
         """
         abs_input = {str(f) for f in self.input if os.path.isabs(f)}
+        is_skipped = self._shadow_skipper()
         for f in abs_input:
             # Skip paths inside another absolute input, they come with it.
             # Copying twice fails on a read-only directory, and a symlink in a
@@ -389,11 +393,9 @@ class Job(
                     shadow_f,
                     symlinks=True,
                     dirs_exist_ok=True,
-                    ignore=lambda entries: {
-                        e for e in entries if self._shadow_skipper(os.path.join(d, e))
-                    }
-                    if copy_mode
-                    else None,
+                    ignore=lambda d, entries: {
+                        e for e in entries if is_skipped(os.path.join(d, e))
+                    },
                 )
             else:
                 shutil.copy2(f, shadow_f)
@@ -981,7 +983,6 @@ class Job(
                     )
             # Skip the shadow root and .snakemake, except the storage
             is_skipped = self._shadow_skipper()
-            ignore_shadow = self._shadow_ignore()
 
             # Copy the cwd (current working directory)
             for source in os.listdir(cwd):
@@ -993,7 +994,12 @@ class Job(
                 # Keep symlinks as symlinks (like cp -a), also for dirs.
                 if os.path.isdir(src_path) and not os.path.islink(src_path):
                     shutil.copytree(
-                        src_path, dst_path, symlinks=True, ignore=ignore_shadow
+                        src_path,
+                        dst_path,
+                        symlinks=True,
+                        ignore=lambda d, entries: {
+                            e for e in entries if is_skipped(os.path.join(d, e))
+                        },
                     )
                 else:
                     shutil.copy2(src_path, dst_path, follow_symlinks=False)
