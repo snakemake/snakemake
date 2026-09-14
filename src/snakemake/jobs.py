@@ -488,6 +488,8 @@ class Job(
         self._resources = None
         self._params = None
         self._non_derived_params = None
+        self._conda_env_spec = None
+        self._conda_env = None
         self._attempt = attempt
 
     @property
