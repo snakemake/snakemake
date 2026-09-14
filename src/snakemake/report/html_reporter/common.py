@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from snakemake.common import is_local_file
+from snakemake.common.misc import is_local_file
 from snakemake.report.common import data_uri_from_file
 
 from snakemake_interface_common.exceptions import WorkflowError

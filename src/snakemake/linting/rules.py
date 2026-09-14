@@ -115,22 +115,22 @@ class RuleLinter(Linter):
             not rule.norun
             and not rule.is_handover
             and not rule.is_run
-            and not (rule.conda_env or rule.container_img)
+            and not rule.software_env_specs.contains_conda_or_container()
         ):
-            if rule.env_modules:
-                yield Lint(
-                    title="Additionally specify a conda environment or container for each rule, environment modules are not enough",
-                    body="While environment modules allow to document and deploy the required software on a certain "
-                    "platform, they lock your workflow in there, disabling easy reproducibility on other machines "
-                    "that don't have exactly the same environment modules. Hence env modules (which might be beneficial "
-                    "in certain cluster environments), should always be complemented with equivalent conda "
-                    "environments.",
-                    links=[links.package_management, links.containers],
-                )
-            else:
+            if rule.software_env_specs.is_empty():
                 yield Lint(
                     title="Specify a conda environment or container for each rule.",
                     body="This way, the used software for each specific step is documented, and "
                     "the workflow can be executed on any machine without prerequisites.",
+                    links=[links.package_management, links.containers],
+                )
+            else:
+                yield Lint(
+                    title="Additionally specify a conda environment or container "
+                    "for each rule, that specifies non-conda and non-container "
+                    "software envs.",
+                    body="By this, you increase the universal applicability and "
+                    "platform independence of the workflow and avoid lock-in on "
+                    "less broadly available deployment methods.",
                     links=[links.package_management, links.containers],
                 )

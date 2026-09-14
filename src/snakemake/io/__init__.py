@@ -48,9 +48,8 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
-
-from snakemake.common import (
-    ON_WINDOWS,
+from snakemake.common.constants import ON_WINDOWS
+from snakemake.common.misc import (
     get_input_function_aux_params,
     is_namedtuple_instance,
 )

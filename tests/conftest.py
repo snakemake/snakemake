@@ -1,10 +1,12 @@
 import os
 import platform
 import sys
+import time
+from functools import lru_cache
 import pytest
 from contextlib import suppress
 
-from snakemake.common import ON_WINDOWS
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.utils import find_bash_on_windows
 from snakemake.shell import shell
 
@@ -16,6 +18,10 @@ only_on_windows = pytest.mark.skipif(not ON_WINDOWS, reason="Windows stuff")
 skip_on_macos_arm = pytest.mark.skipif(
     ON_MACOS and ON_APPLE_SILICON,
     reason="Needed Conda packages not available on macOS Apple silicon",
+)
+skip_on_macos = pytest.mark.skipif(
+    ON_MACOS,
+    reason="Needed Conda packages not installed on macOS",
 )
 needs_strace = pytest.mark.xfail(
     os.system("strace -o /dev/null true") != 0, reason="Missing strace"
@@ -49,11 +55,27 @@ def s3_storage():
     from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
     import uuid
     import boto3
+    from botocore.config import Config
 
     endpoint_url = "http://127.0.0.1:9000"
     access_key = "minio"
     secret_key = "minio123"
     bucket = f"snakemake-{uuid.uuid4().hex}"
+
+    # Keep retries and timeouts small in tests so endpoint issues fail fast
+    # instead of appearing as a hang during DAG construction.
+    s3_fast_config = Config(
+        connect_timeout=2,
+        read_timeout=5,
+        retries={"max_attempts": 1, "mode": "standard"},
+    )
+
+    # Wait briefly for MinIO startup in CI and skip locally if unavailable.
+    if not _is_s3_endpoint_ready(endpoint_url, access_key, secret_key):
+        msg = f"S3 endpoint {endpoint_url} is not reachable"
+        if os.getenv("CI"):
+            pytest.fail(msg)
+        pytest.skip(msg)
 
     tagged_settings = TaggedSettings()
     tagged_settings.register_settings(
@@ -61,6 +83,7 @@ def s3_storage():
             endpoint_url=endpoint_url,
             access_key=access_key,
             secret_key=secret_key,
+            retries=1,
         )
     )
 
@@ -72,6 +95,36 @@ def s3_storage():
         endpoint_url=endpoint_url,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
+        config=s3_fast_config,
     )
     with suppress(Exception):
         s3c.Bucket(bucket).delete()
+
+
+@lru_cache(maxsize=1)
+def _is_s3_endpoint_ready(endpoint_url, access_key, secret_key):
+    import boto3
+    from botocore.config import Config
+
+    s3_fast_config = Config(
+        connect_timeout=2,
+        read_timeout=5,
+        retries={"max_attempts": 1, "mode": "standard"},
+    )
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=s3_fast_config,
+    )
+    deadline = time.time() + 30
+    while True:
+        try:
+            s3_client.list_buckets()
+            return True
+        except Exception:
+            if time.time() >= deadline:
+                return False
+            time.sleep(1)

@@ -11,3 +11,7 @@ snakemake-interface-common
 snakemake-interface-executor-plugins
 snakemake-interface-storage-plugins
 snakemake-interface-logger-plugins
+snakemake-interface-software-deployment-plugins
+snakemake-software-deployment-plugin-conda
+snakemake-software-deployment-plugin-container
+snakemake-software-deployment-plugin-envmodules
