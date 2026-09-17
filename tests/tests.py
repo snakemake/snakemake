@@ -8,6 +8,7 @@ import shutil
 import sys
 import subprocess as sp
 import re
+import shlex
 from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock, patch
@@ -2869,11 +2870,18 @@ def test_remote_job_no_shared_persistence():
     )
     try:
         jobscript = (Path(tmpdir) / "qsub.log").read_text()
-        match = re.search(
-            r"--shared-fs-usage\s+(.+?)(?:\s+--|$)", jobscript.replace("\\\n", " ")
+        command = next(
+            line
+            for line in jobscript.splitlines()
+            if line.startswith("python -m snakemake ")
         )
-        assert match is not None, jobscript
-        assert match.group(1).split() == ["source-cache", "sources"]
+        tokens = shlex.split(command)
+        index = tokens.index("--shared-fs-usage") + 1
+        values = []
+        while index < len(tokens) and not tokens[index].startswith("-"):
+            values.append(tokens[index])
+            index += 1
+        assert values == ["source-cache", "sources"]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
