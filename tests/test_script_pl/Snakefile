@@ -1,0 +1,67 @@
+# vim: ft=python
+from pathlib import Path
+
+
+configfile: "config.yaml"
+
+
+rule all:
+    input:
+        "perl.out",
+        "perl_arguments.out",
+        "perl_one_argument.out",
+
+
+rule perl:
+    input:
+        "test2.in",
+        named="test.in",
+    output:
+        "{rulename}{empty}.out",
+    log:
+        "{rulename}{empty}.log",
+    wildcard_constraints:
+        rulename="perl",
+        empty="()",
+    conda:
+        "envs/perl.yaml"
+    resources:
+        mem_mb=1024,
+    params:
+        "positional_param",
+        "second_positional_param",
+        integer=123,
+        astring="foo\n'\\\" ",  # nasty string
+        alist=["a", "b"],
+    script:
+        "scripts/test.pl"
+
+
+rule perl_arguments:
+    input:
+        "test.txt",
+    output:
+        "perl_arguments.out",
+    log:
+        "perl_arguments.log",
+    conda:
+        "envs/perl.yaml"
+    params:
+        opts=["--foo", "--bar=foo bar baz", "--min=12", "--max=50"],
+    script:
+        "scripts/test_arguments.pl"
+
+
+rule perl_one_argument:
+    input:
+        "test.txt",
+    output:
+        "perl_one_argument.out",
+    log:
+        "perl_one_argument.log",
+    conda:
+        "envs/perl.yaml"
+    params:
+        opts="--foo",
+    script:
+        "scripts/test_one_argument.pl"
