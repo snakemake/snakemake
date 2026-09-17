@@ -2853,6 +2853,28 @@ def test_storage_localrule():
         )
 
 
+@skip_on_windows  # OS agnostic
+def test_remote_job_no_shared_persistence():
+    tmpdir = run(
+        dpath("test_remote_job_no_shared_persistence"),
+        cluster="./qsub",
+        default_storage_provider="fs",
+        default_storage_prefix="fs-storage",
+        shared_fs_usage=[
+            SharedFSUsage.SOURCE_CACHE,
+            SharedFSUsage.SOURCES,
+        ],
+        cleanup=False,
+    )
+    try:
+        jobscript = (Path(tmpdir) / "qsub.log").read_text()
+        match = re.search(r"--shared-fs-usage\s+([^\n]+)", jobscript.replace("\\\n", " "))
+        assert match is not None, jobscript
+        assert "persistence" not in match.group(1).split()
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
 @skip_on_windows
 def test_access_patterns():
     run(
