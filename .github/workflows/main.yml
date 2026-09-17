@@ -95,13 +95,26 @@ jobs:
               >/etc/sysctl.d/90-disable-userns-restrictions.conf'
           sudo sysctl -p /etc/sysctl.d/90-disable-userns-restrictions.conf
 
-      - name: Setup MinIO for AWS S3 testing (os='Linux', for AWS S3 testing)
+      - name: Setup S3-compatible storage for testing (os='Linux')
         if: runner.os == 'Linux'
-        uses: comfuture/minio-action@v1
-        with:
-          access_key: minio
-          secret_key: minio123
-          port: 9000
+        run: |
+          docker run -d -p 9000:9000 --name minio \
+            -e "MINIO_ROOT_USER=minio" \
+            -e "MINIO_ROOT_PASSWORD=minio123" \
+            pgsty/silo:RELEASE.2026-09-16T00-00-00Z server /data
+
+      - name: Wait for S3-compatible storage to be ready (os='Linux')
+        if: runner.os == 'Linux'
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec minio silo healthcheck ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Silo did not become ready within 30s"
+          docker logs minio
+          exit 1
 
       - name: Test MinIO (os='Linux')
         if: runner.os == 'Linux'
