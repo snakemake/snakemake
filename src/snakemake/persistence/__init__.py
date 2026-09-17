@@ -734,6 +734,13 @@ class PersistenceBase(
 
 
 class NoopPersistence(PersistenceBase):
+    """Persistence implementation for remote-job Snakemake instances.
+
+    Remote jobs do not participate in metadata persistence or locking. They only
+    need the auxiliary paths inherited from PersistenceBase (e.g. for shadow or
+    backup handling), while all persistence backend operations are suppressed.
+    """
+
     def _read_record(self, key: str) -> MetadataRecord | None:
         return None
 

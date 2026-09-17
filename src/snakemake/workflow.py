@@ -1324,8 +1324,10 @@ class Workflow(WorkflowExecutorInterface):
                 # ATTENTION: this may never be removed without really good reason.
                 # Otherwise weird things may happen.
                 self.iocache.deactivate()
-                # clear and deactivate persistence cache, from now on we want to see updates
-                self.persistence.deactivate_cache()
+                if not self.remote_exec:
+                    # clear and deactivate persistence cache, from now on we want
+                    # to see updates
+                    self.persistence.deactivate_cache()
 
             if self.remote_execution_settings.immediate_submit and any(
                 self.dag.checkpoint_jobs

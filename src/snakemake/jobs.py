@@ -1263,6 +1263,8 @@ class Job(
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
                 )
+        # Remote jobs never register incomplete markers or metadata in
+        # persistence, hence there is no persistence state to finalize here.
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup(skip_cleanup_outputs)
