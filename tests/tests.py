@@ -2858,6 +2858,7 @@ def test_remote_job_no_shared_persistence():
     tmpdir = run(
         dpath("test_remote_job_no_shared_persistence"),
         cluster="./qsub",
+        cluster_status="./status.sh",
         default_storage_provider="fs",
         default_storage_prefix="fs-storage",
         shared_fs_usage=[
