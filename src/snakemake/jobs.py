@@ -1043,6 +1043,7 @@ class Job(
                 log=format_files(self.log, as_output=True),
                 benchmark=benchmark,
                 wildcards=self.wildcards_dict,
+                params=self.params,
                 reason=str(self.dag.reason(self)),
                 resources=self.resources,
                 priority=(
