@@ -2853,19 +2853,29 @@ def test_storage_localrule():
         )
 
 
+@pytest.mark.parametrize(
+    "shared_fs_usage",
+    [
+        [
+            SharedFSUsage.PERSISTENCE,
+            SharedFSUsage.SOURCE_CACHE,
+            SharedFSUsage.SOURCES,
+        ],
+        [
+            SharedFSUsage.SOURCE_CACHE,
+            SharedFSUsage.SOURCES,
+        ],
+    ],
+)
 @skip_on_windows
-def test_remote_job_no_shared_persistence():
+def test_remote_job_no_shared_persistence(shared_fs_usage):
     run(
         dpath("test_remote_job_no_shared_persistence"),
         cluster="./qsub",
         cluster_status="./status.sh",
         default_storage_provider="fs",
         default_storage_prefix="fs-storage",
-        shared_fs_usage=[
-            SharedFSUsage.PERSISTENCE,
-            SharedFSUsage.SOURCE_CACHE,
-            SharedFSUsage.SOURCES,
-        ],
+        shared_fs_usage=shared_fs_usage,
     )
 
 
