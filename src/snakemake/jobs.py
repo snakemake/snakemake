@@ -1095,7 +1095,8 @@ class Job(
         )
 
     def register(self, external_jobid: Optional[str] = None):
-        self.dag.workflow.persistence.started(self, external_jobid)
+        if not self.dag.workflow.remote_exec:
+            self.dag.workflow.persistence.started(self, external_jobid)
 
     def get_wait_for_files(self, skip_input_files: bool = False):
         wait_for_files = []
@@ -1158,7 +1159,8 @@ class Job(
     ):
         if self.dag.is_draft_notebook_job(self):
             # no output produced but have to delete incomplete marker
-            self.dag.workflow.persistence.cleanup(self)
+            if not self.dag.workflow.remote_exec:
+                self.dag.workflow.persistence.cleanup(self)
             return
 
         skip_cleanup_outputs = set()
@@ -1248,17 +1250,19 @@ class Job(
 
         except Exception as e:
             # cleanup metadata in case of any exception above
-            self.dag.workflow.persistence.cleanup(self)
+            if not self.dag.workflow.remote_exec:
+                self.dag.workflow.persistence.cleanup(self)
             raise e
 
-        try:
-            await self.dag.workflow.persistence.finished(self)
-        except IOError as e:
-            raise WorkflowError(
-                "Error recording metadata for finished job "
-                "({}). Please ensure write permissions for the "
-                "directory {}".format(e, self.dag.workflow.persistence.path)
-            )
+        if not self.dag.workflow.remote_exec:
+            try:
+                await self.dag.workflow.persistence.finished(self)
+            except IOError as e:
+                raise WorkflowError(
+                    "Error recording metadata for finished job "
+                    "({}). Please ensure write permissions for the "
+                    "directory {}".format(e, self.dag.workflow.persistence.path)
+                )
 
         if error and not self.dag.workflow.execution_settings.keep_incomplete:
             await self.cleanup(skip_cleanup_outputs)

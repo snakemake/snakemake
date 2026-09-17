@@ -7,6 +7,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 import hashlib
 import re
@@ -31,6 +32,7 @@ from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.deployment import SoftwareDeploymentManager
 from snakemake.pathvars import Pathvars
+from snakemake.persistence import NoopPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.persistence.db import DbPersistence
 from snakemake.settings.types import (
@@ -908,16 +910,17 @@ class Workflow(WorkflowExecutorInterface):
             rules_allowed_for_needrun=allowed_needrun,
         )
 
-        persistence_path = (
-            self.snakemake_tmp_dir / "persistence"
-            if (
-                self.storage_settings is not None
-                and SharedFSUsage.PERSISTENCE
-                not in self.storage_settings.shared_fs_usage
-                and self.remote_exec
+        if self.remote_exec:
+            self._persistence = NoopPersistence(
+                nolock=True,
+                dag=self._dag,
+                shadow_prefix=shadow_prefix,
+                warn_only=lock_warn_only,
+                path=self.snakemake_tmp_dir / "remote-exec",
             )
-            else None
-        )
+            return
+
+        persistence_path = None
 
         assert self.deployment_settings is not None
 
@@ -1306,12 +1309,12 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=self.execution_settings.shadow_prefix,
         )
 
-        if self.exec_mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
+        if self.exec_mode == ExecMode.SUBPROCESS:
             self.persistence.deactivate_cache()
 
         self._build_dag()
 
-        with self.persistence.lock():
+        with (nullcontext() if self.remote_exec else self.persistence.lock()):
             self.async_run(
                 self.dag.postprocess(update_needrun=False, check_initial=True)
             )

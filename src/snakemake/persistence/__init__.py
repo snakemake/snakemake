@@ -731,3 +731,41 @@ class PersistenceBase(
     @contextmanager
     def noop(self, *args):
         yield
+
+
+class NoopPersistence(PersistenceBase):
+    def _read_record(self, key: str) -> MetadataRecord | None:
+        return None
+
+    def _write_record(self, key: str, record: MetadataRecord) -> None:
+        pass
+
+    def _delete_record(self, key: str) -> bool:
+        return False
+
+    def _mark_incomplete(self, key: str, external_jobid: str | None) -> None:
+        pass
+
+    def _get_recorded_starttime(self, key: str) -> float | None:
+        return None
+
+    def _unmark_incomplete(self, key: str) -> None:
+        pass
+
+    def _filter_incomplete_keys(self, keys: Iterable[str]) -> set[str]:
+        return set()
+
+    def _get_external_jobids(self, keys: Iterable[str]) -> set[str]:
+        return set()
+
+    def _read_locks(self) -> Iterable[tuple[str, str]]:
+        return ()
+
+    def _write_locks(self, lock_type: str, keys: Iterable[str]) -> None:
+        pass
+
+    def _delete_locks(self) -> None:
+        pass
+
+    def _clear_cache(self) -> None:
+        pass

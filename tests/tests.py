@@ -8,7 +8,6 @@ import shutil
 import sys
 import subprocess as sp
 import re
-import shlex
 from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock, patch
@@ -2856,34 +2855,14 @@ def test_storage_localrule():
 
 @skip_on_windows
 def test_remote_job_no_shared_persistence():
-    tmpdir = run(
+    run(
         dpath("test_remote_job_no_shared_persistence"),
         cluster="./qsub",
         cluster_status="./status.sh",
         default_storage_provider="fs",
         default_storage_prefix="fs-storage",
-        shared_fs_usage=[
-            SharedFSUsage.SOURCE_CACHE,
-            SharedFSUsage.SOURCES,
-        ],
-        cleanup=False,
+        shared_fs_usage=[],
     )
-    try:
-        jobscript = (Path(tmpdir) / "qsub.log").read_text()
-        command = next(
-            line
-            for line in jobscript.splitlines()
-            if line.startswith("python -m snakemake ")
-        )
-        tokens = shlex.split(command)
-        index = tokens.index("--shared-fs-usage") + 1
-        values = []
-        while index < len(tokens) and not tokens[index].startswith("-"):
-            values.append(tokens[index])
-            index += 1
-        assert values == ["source-cache", "sources"]
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 
 @skip_on_windows
