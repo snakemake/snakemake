@@ -1,0 +1,14 @@
+import os
+from pathlib import Path
+
+Path("out.txt").touch()
+os.chmod("out.txt", 0o444)
+
+
+rule all:
+    input: "out.txt"
+
+
+rule build:
+    output: protected("out.txt")
+    shell: "echo rebuilt > {output}"

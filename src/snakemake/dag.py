@@ -1937,11 +1937,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     async def check_jobs(self):
         # first we check all **needrun** jobs whether its output can be made
-        for job in filterfalse(
-            self._checked_needrun_jobs.__contains__, self.needrun_jobs()
-        ):
-            await job.check_protected_output()
-            self._checked_needrun_jobs.add(job)
+        # Skip this check during dry-runs, where no output will be modified.
+        if not self.workflow.dryrun:
+            for job in filterfalse(
+                self._checked_needrun_jobs.__contains__, self.needrun_jobs()
+            ):
+                await job.check_protected_output()
+                self._checked_needrun_jobs.add(job)
 
         # now we check **all* jobs for validity
         for job in filterfalse(self._checked_jobs.__contains__, self.jobs):
