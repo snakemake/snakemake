@@ -2870,7 +2870,7 @@ def test_remote_job_no_shared_persistence():
     try:
         jobscript = (Path(tmpdir) / "qsub.log").read_text()
         match = re.search(
-            r"--shared-fs-usage\s+(.+?)\s+--", jobscript.replace("\\\n", " ")
+            r"--shared-fs-usage\s+(.+?)(?:\s+--|$)", jobscript.replace("\\\n", " ")
         )
         assert match is not None, jobscript
         assert set(match.group(1).split()) == {"source-cache", "sources"}
