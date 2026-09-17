@@ -2861,7 +2861,11 @@ def test_remote_job_no_shared_persistence():
         cluster_status="./status.sh",
         default_storage_provider="fs",
         default_storage_prefix="fs-storage",
-        shared_fs_usage=[],
+        shared_fs_usage=[
+            SharedFSUsage.PERSISTENCE,
+            SharedFSUsage.SOURCE_CACHE,
+            SharedFSUsage.SOURCES,
+        ],
     )
 
 
