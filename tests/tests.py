@@ -2853,7 +2853,7 @@ def test_storage_localrule():
         )
 
 
-@skip_on_windows  # OS agnostic
+@skip_on_windows
 def test_remote_job_no_shared_persistence():
     tmpdir = run(
         dpath("test_remote_job_no_shared_persistence"),
