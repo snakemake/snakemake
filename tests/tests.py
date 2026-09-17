@@ -2873,7 +2873,7 @@ def test_remote_job_no_shared_persistence():
             r"--shared-fs-usage\s+(.+?)(?:\s+--|$)", jobscript.replace("\\\n", " ")
         )
         assert match is not None, jobscript
-        assert set(match.group(1).split()) == {"source-cache", "sources"}
+        assert match.group(1).split() == ["source-cache", "sources"]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
