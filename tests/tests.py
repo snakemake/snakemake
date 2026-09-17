@@ -2871,7 +2871,7 @@ def test_remote_job_no_shared_persistence():
         jobscript = (Path(tmpdir) / "qsub.log").read_text()
         match = re.search(r"--shared-fs-usage\s+([^\n]+)", jobscript.replace("\\\n", " "))
         assert match is not None, jobscript
-        assert "persistence" not in match.group(1).split()
+        assert set(match.group(1).split()) == {"source-cache", "sources"}
     finally:
         shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
