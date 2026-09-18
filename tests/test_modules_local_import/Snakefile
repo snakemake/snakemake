@@ -1,0 +1,20 @@
+shell.executable("bash")
+
+from . import bar
+
+module test:
+    snakefile:
+        "module-test/Snakefile"
+
+use rule inner from test
+
+rule outer:
+    output:
+        "outer.txt"
+    shell:
+        f"echo bar={bar.data} > {{output}}"
+
+rule all:
+    input:
+        "inner.txt",
+        "outer.txt"
