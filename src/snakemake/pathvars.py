@@ -64,6 +64,9 @@ class Pathvars:
     def with_defaults(cls) -> "Pathvars":
         items = {
             "results": "results",
+            "stats": "stats",
+            "reports": "reports",
+            "temp": "temp",
             "resources": "resources",
             "logs": "logs",
             "benchmarks": "benchmarks",

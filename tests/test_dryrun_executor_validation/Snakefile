@@ -1,0 +1,10 @@
+rule all:
+    input:
+        "out.txt"
+
+
+rule a:
+    output:
+        "out.txt"
+    shell:
+        "echo hello > {output}"

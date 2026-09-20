@@ -7,7 +7,7 @@ from pathlib import Path
 import types
 import re
 from typing import List, Optional, Set, Dict, Callable, TYPE_CHECKING
-from snakemake.common import Rules
+from snakemake.common.misc import Rules
 
 from snakemake.exceptions import CreateRuleException, WorkflowError
 from snakemake.io.flags import DefaultFlags
@@ -242,6 +242,9 @@ class WorkflowModifier:
         self.rules = set()
         self.modules: Dict[str, ModuleInfo] = dict()
 
+        self.global_container_img = None
+        self.global_is_containerized = False
+
         self.skip_configfile = False
         self.skip_validation = False
         self.skip_global_report_caption = False
@@ -316,7 +319,7 @@ class WorkflowModifier:
         ruleinfo=None,
         allow_overwrite=False,
     ):
-        parent_modifier = workflow.modifier
+        parent_modifier: "WorkflowModifier" = workflow.modifier
         self = cls(
             workflow,
             globals=globals,
@@ -333,6 +336,8 @@ class WorkflowModifier:
         self.wildcard_constraints = parent_modifier.wildcard_constraints
         self.rules = parent_modifier.rules
         self.modules = parent_modifier.modules
+        self.global_container_img = parent_modifier.global_container_img
+        self.global_is_containerized = parent_modifier.global_is_containerized
         return self
 
     def is_main_snakefile(self):

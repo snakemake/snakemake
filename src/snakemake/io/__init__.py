@@ -48,9 +48,8 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
-
-from snakemake.common import (
-    ON_WINDOWS,
+from snakemake.common.constants import ON_WINDOWS
+from snakemake.common.misc import (
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -275,7 +274,35 @@ def iocache(
     return wrapper
 
 
-class _IOFile(str, AnnotatedStringInterface):
+class AnnotatedStringFormatMixin(AnnotatedStringInterface):
+    """Mixin for str subclasses that carry flags (e.g. temp(), directory()) via
+    AnnotatedStringInterface. Overrides str.format() to carry those flags over to the
+    formatted result, instead of silently dropping them as plain str.format() would.
+
+    Must precede str in the MRO of the concrete class (i.e. `class Foo(Mixin, str)`,
+    not `class Foo(str, Mixin)`), otherwise str.format() would shadow this override.
+    """
+
+    def _storage_format_error_msg(self) -> str:
+        return (
+            f"Cannot call .format() on storage-flagged value '{self}': str.format() "
+            "has no notion of storage.s3() and similar flags, and would leave the "
+            "storage query out of sync with the substituted wildcards."
+        )
+
+    def format(self, *args, **kwargs):
+        if self.is_flagged("storage_object"):
+            raise WorkflowError(self._storage_format_error_msg())
+        # narrows self for the type checker: this mixin is only valid on str subclasses
+        assert isinstance(self, str)
+        formatted = str.format(self, *args, **kwargs)
+        if self.flags:
+            formatted = AnnotatedString(formatted)
+            formatted.flags = self.flags.copy()
+        return formatted
+
+
+class _IOFile(AnnotatedStringFormatMixin, str):
     """
     A file that is either input or output of a rule.
     """
@@ -548,14 +575,15 @@ class _IOFile(str, AnnotatedStringInterface):
         location.
         """
         mtime_in_storage = (
-            (await self.storage_object.managed_mtime())
+            (await self.storage_object.managed_mtime())  # type: ignore[reportOptionalMemberAccess]
             if self.is_storage and not skip_storage
             else None
         )
 
         # We first do a normal stat.
+        file = str(self.file)
         try:
-            _stat = os.stat(self.file, follow_symlinks=False)
+            _stat = os.stat(file, follow_symlinks=False)
 
             is_symlink = stat.S_ISLNK(_stat.st_mode)
             is_dir = stat.S_ISDIR(_stat.st_mode)
@@ -564,7 +592,7 @@ class _IOFile(str, AnnotatedStringInterface):
             def get_dir_mtime():
                 # Try whether we have a timestamp file for it.
                 return os.stat(
-                    os.path.join(self.file, ".snakemake_timestamp"),
+                    os.path.join(file, ".snakemake_timestamp"),
                     follow_symlinks=True,
                 ).st_mtime
 
@@ -582,7 +610,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
             else:
                 # In case of a symlink, we need the stats for the target file/dir.
-                target_stat = os.stat(self.file, follow_symlinks=True)
+                target_stat = os.stat(file, follow_symlinks=True)
                 # Further, we need to check again if this is a directory.
                 is_dir = stat.S_ISDIR(target_stat.st_mode)
                 mtime_target = target_stat.st_mtime
@@ -602,14 +630,14 @@ class _IOFile(str, AnnotatedStringInterface):
             if self.is_storage:
                 return Mtime(storage=mtime_in_storage)
             raise WorkflowError(
-                "Unable to obtain modification time of file {} although it existed before. "
+                f"Unable to obtain modification time of file {file} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
-                "was running.".format(self.file)
+                "was running."
             )
         except PermissionError:
             raise WorkflowError(
-                "Unable to obtain modification time of file {} because of missing "
-                "read permissions.".format(self.file)
+                f"Unable to obtain modification time of file {file} because of missing "
+                "read permissions."
             )
 
     @property
@@ -854,14 +882,17 @@ class _IOFile(str, AnnotatedStringInterface):
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
         try:
-            if self.is_directory:
-                file = os.path.join(self.file, ".snakemake_timestamp")
+            if self.is_directory and not os.path.islink(self.file):  # type: ignore[reportArgumentType]
+                # real directory: use .snakemake_timestamp as the mtime carrier
+                file = os.path.join(self.file, ".snakemake_timestamp")  # type: ignore[reportArgumentType]
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
                     with open(file, "w"):
                         pass
                 lutime(file, times)
             else:
+                # non-directory: update mtime directly
+                # For symlink file or symlink directory, only the link itself is updated, not the target.
                 lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
@@ -891,6 +922,17 @@ class _IOFile(str, AnnotatedStringInterface):
             )
             with open(file, "w") as f:
                 pass
+
+    def _storage_format_error_msg(self) -> str:
+        # storage_object is excluded from format(): it embeds its own query string,
+        # which apply_wildcards() rebuilds consistently with the substituted wildcards.
+        # str.format() has no notion of that, so a storage-flagged file cannot be
+        # formatted this way and must go through apply_wildcards() instead.
+        return (
+            super()._storage_format_error_msg()
+            + " Use .apply_wildcards(wildcards_dict) instead, which rebuilds the "
+            "storage query correctly."
+        )
 
     def apply_wildcards(self, wildcards):
         f = self._file
@@ -1003,7 +1045,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-class AnnotatedString(str, AnnotatedStringInterface):
+class AnnotatedString(AnnotatedStringFormatMixin, str):
     def __init__(self, value):
         self._flags = {}
         self.callable = value if is_callable(value) else None
@@ -1207,7 +1249,7 @@ def contains_wildcard_constraints(pattern):
 
 
 async def remove(file, remove_non_empty_dir=False, only_local=False):
-    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
+    if not only_local and file.is_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):

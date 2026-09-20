@@ -26,9 +26,10 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir
+from .common import run, dpath, connected, prepare_tmpdir, serve_directory, apptainer
 from .conftest import (
     skip_on_windows,
+    skip_on_macos,
     only_on_windows,
     ON_WINDOWS,
     needs_strace,
@@ -36,7 +37,6 @@ from .conftest import (
 )
 
 from snakemake_interface_executor_plugins.settings import (
-    DeploymentMethod,
     SharedFSUsage,
 )
 
@@ -504,6 +504,10 @@ def test_config():
     run(dpath("test_config"))
 
 
+def test_config_non_json_serializable():
+    run(dpath("test_config"), config={"path_value": Path("data")})
+
+
 def test_update_config():
     run(dpath("test_update_config"))
 
@@ -555,6 +559,15 @@ def test_wildcard_count_ambiguity():
 
 def test_multiple_includes():
     run(dpath("test_multiple_includes"))
+
+
+def test_remote_snakefile_multiple_includes():
+    source_dir = dpath("test_multiple_includes")
+    with serve_directory(source_dir) as server_url:
+        run(
+            source_dir,
+            shellcmd=f"snakemake --snakefile {server_url}/Snakefile --cores 1",
+        )
 
 
 def test_name_override():
@@ -844,6 +857,51 @@ def test_storage(s3_storage):
 
 @skip_on_windows  # no minio deployment on windows implemented in our CI
 @pytest.mark.needs_s3
+def test_storage_output_not_missing_via_unflagged_dependency_edge(s3_storage):
+    """An unflagged consumer edge must not override producer storage semantics."""
+    prefix, settings = s3_storage
+    path = dpath("test_storage_dependency_edge_flags")
+
+    # First invocation materializes producer.txt in S3 and records metadata.
+    tmpdir = run(
+        path,
+        cores=1,
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+        check_results=False,
+        cleanup=False,
+    )
+    assert tmpdir is not None
+
+    try:
+        assert (tmpdir / "producer.ran").exists()
+
+        # Model a fresh machine/invocation: provenance remains, but the local
+        # storage staging cache does not. Force only the consumer to needrun.
+        shutil.rmtree(tmpdir / ".snakemake" / "storage", ignore_errors=True)
+        (tmpdir / "downstream.txt").unlink()
+
+        # Correct behavior: consumer reruns, producer is recognized as already
+        # present in storage. Buggy behavior: update_needrun() checks the stale
+        # unflagged edge locally, schedules producer again, and producer's
+        # sentinel makes this invocation fail.
+        run(
+            path,
+            cores=1,
+            config={"s3_prefix": prefix},
+            storage_provider_settings=settings,
+            check_results=False,
+            cleanup=False,
+            tmpdir=tmpdir,
+        )
+
+        assert (tmpdir / "downstream.txt").read_text() == "producer\n"
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
+
+@skip_on_windows  # no minio deployment on windows implemented in our CI
+@pytest.mark.needs_s3
 def test_storage_call(s3_storage):
     prefix, settings = s3_storage
 
@@ -927,70 +985,73 @@ def test_profile_double_dash():
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_singularity():
-    run(dpath("test_singularity"), deployment_method={DeploymentMethod.APPTAINER})
-
-
-@skip_on_windows
 @apptainer
-@connected
-def test_singularity_cluster():
+def test_container_a():
     run(
         dpath("test_singularity"),
-        deployment_method={DeploymentMethod.APPTAINER},
-        cluster="./qsub",
-        apptainer_args="--bind /tmp:/tmp",
+        deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_invalid():
+@connected
+@skip_on_macos
+def test_container_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={"container"},
+        cluster="./qsub",
+    )
+
+
+@skip_on_windows
+def test_container_invalid():
     run(
         dpath("test_singularity"),
         targets=["invalid.txt"],
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         shouldfail=True,
     )
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_module_invalid():
+def test_container_module_invalid():
     run(
         dpath("test_singularity_module"),
         targets=["invalid.txt"],
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         shouldfail=True,
     )
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 @connected
-def test_singularity_none():
-    run(dpath("test_singularity_none"), deployment_method={DeploymentMethod.APPTAINER})
+def test_container_none():
+    run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_singularity_global():
+@apptainer
+def test_container_global():
     run(
-        dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER}
+        dpath("test_singularity_global"),
+        deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_singularity_source_cache():
+@apptainer
+def test_container_source_cache():
     run(
         dpath("test_singularity_source_cache"),
-        deployment_method={DeploymentMethod.APPTAINER},
-        apptainer_args="--bind /tmp:/tmp",
+        deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
@@ -1011,10 +1072,13 @@ def test_log_input():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 @connected
-def test_cwl_singularity():
-    run(dpath("test_cwl"), deployment_method={DeploymentMethod.APPTAINER})
+def test_cwl_container():
+    run(
+        dpath("test_cwl"),
+        deployment_method={"container"},
+    )
 
 
 def test_issue805():
@@ -1023,6 +1087,14 @@ def test_issue805():
 
 def test_issue823_1():
     run(dpath("test_issue823_1"))
+
+
+def test_function_f_string():
+    run(dpath("test_function_f_string"), executor="dryrun", check_results=False)
+
+
+def test_function_f_string_newline():
+    run(dpath("test_function_f_string_newline"), executor="dryrun", check_results=False)
 
 
 @skip_on_windows
@@ -1055,7 +1127,10 @@ def test_group_jobs_attempts():
 
 
 def assert_resources(resources: dict, **expected_resources):
-    assert resources == expected_resources
+    for name, expected_value in expected_resources.items():
+        assert (
+            resources.get(name) == expected_value
+        ), f"Resource '{name}' expected to be {expected_value}, but got {resources.get(name)}"
 
 
 @skip_on_windows
@@ -1690,9 +1765,9 @@ def test_issue1085():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_issue1083():
-    run(dpath("test_issue1083"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_issue1083"), deployment_method={"container"})
 
 
 @skip_on_windows  # Fails with "The flag 'pipe' used in rule two is only valid for outputs
@@ -1745,14 +1820,13 @@ def test_default_resources_mebibytes():
 
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
-    # artificially set the tmpdir to an expected value
-    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
-
-
-def test_tmpdir_default():
-    # Do not check the content (OS and setup dependent),
-    # just check whether everything runs smoothly with the default.
-    run(dpath("test_tmpdir"), check_md5=False)
+    test_path = dpath("test_tmpdir")
+    general_profile = os.path.join(test_path, "profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        shellcmd=f"snakemake -c1 --profile {general_profile} --set-resources 'a:tmpdir=/tmp'",
+    )
 
 
 def test_issue1284():
@@ -1805,9 +1879,9 @@ def test_github_issue52():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_github_issue78():
-    run(dpath("test_github_issue78"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_github_issue78"), deployment_method={"container"})
 
 
 def test_envvars():
@@ -1878,9 +1952,11 @@ def test_output_file_cache_storage(s3_storage):
     )
 
 
-@patch("snakemake.io._IOFile.retrieve_from_storage", AsyncMock(side_effect=Exception))
-def test_storage_noretrieve_dryrun():
-    run(dpath("test_storage_noretrieve_dryrun"), executor="dryrun")
+@pytest.mark.parametrize("executor", ["dryrun", "touch"])
+@patch("snakemake.dag.DAG.retrieve_storage_inputs", new_callable=AsyncMock)
+def test_storage_noretrieve_dryrun_or_touch(mock_retrieve_storage_inputs, executor):
+    run(dpath("test_storage_noretrieve_dryrun"), executor=executor)
+    mock_retrieve_storage_inputs.assert_not_called()
 
 
 def test_multiext():
@@ -1894,20 +1970,24 @@ def test_core_dependent_threads():
 @pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
-    run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
+    run(dpath("test_env_modules"), deployment_method={"envmodules"})
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_container():
-    run(dpath("test_container"), deployment_method={DeploymentMethod.APPTAINER})
+@apptainer
+def test_container_b():
+    run(
+        dpath("test_container"),
+        deployment_method={"container"},
+        container_runtime="apptainer",
+    )
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_dynamic_container():
-    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_dynamic_container"), deployment_method={"container"})
 
 
 @skip_on_windows
@@ -1920,14 +2000,18 @@ def test_string_resources():
 
 
 def test_jupyter_notebook():
-    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
+    run(dpath("test_jupyter_notebook"), deployment_method={"conda"})
 
 
-def test_jupyter_notebook_nbconvert():
-    run(
-        dpath("test_jupyter_notebook_nbconvert"),
-        deployment_method={DeploymentMethod.CONDA},
-    )
+# TODO re-enable as soon as possible. The test currently fails because nbconvert
+# changes the working directory to the notebook directory but before resolves the
+# python path to a local path. It then cannot find the python executable later
+# when it has changed the workdir.
+# def test_jupyter_notebook_nbconvert():
+#     run(
+#         dpath("test_jupyter_notebook_nbconvert"),
+#         deployment_method={"conda"},
+#     )
 
 
 def test_jupyter_notebook_draft():
@@ -1935,7 +2019,7 @@ def test_jupyter_notebook_draft():
 
     run(
         dpath("test_jupyter_notebook_draft"),
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
         edit_notebook=NotebookEditMode(draft_only=True),
         targets=["results/result_intermediate.txt"],
         check_md5=False,
@@ -2474,6 +2558,7 @@ def test_github_issue1882():
 
 
 def test_github_issue3213():
+    tmpdir = None
     try:
         import linecache
 
@@ -2516,7 +2601,8 @@ def test_github_issue3213():
         assert ts_a2 != ts_a3
         assert ts_b2 != ts_b3
     finally:
-        shutil.rmtree(tmpdir)
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir)
 
 
 def test_issue_3970():
@@ -2610,6 +2696,41 @@ def test_localrule():
 @skip_on_windows
 def test_module_wildcard_constraints():
     run(dpath("test_module_wildcard_constraints"))
+
+
+def test_module_global_container():
+    """Test that a module's top-level container: directive does not overwrite
+    the master workflow's container: directive, and that each scope's rules
+    get the correct container image."""
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    test_path = dpath("test_module_global_container")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            config_settings=settings.ConfigSettings(),
+            storage_settings=settings.StorageSettings(),
+            workflow_settings=settings.WorkflowSettings(),
+            deployment_settings=settings.DeploymentSettings(),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
+        )
+        workflow = workflow_api._workflow
+
+        rules_by_name = {rule.name: rule for rule in workflow.rules}
+
+        # The module rule should get the module's container image
+        for rname, dversion in (("a", "module"), ("all", "master")):
+            container_img = rules_by_name[rname].software_env_specs.legacy_container_img
+            expected = f"docker://{dversion}_image"
+            assert container_img == expected, (
+                f"Module rule '{rname}' has {container_img=!r}, "
+                f"expected '{expected}'"
+            )
 
 
 @skip_on_windows
@@ -2848,9 +2969,9 @@ def test_update_flag_fail_cleanup():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_shell_exec_singularity():
-    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_shell_exec"), deployment_method={"container"})
 
 
 def test_expand_list_of_functions():
@@ -2866,6 +2987,21 @@ def test_scheduler_sequential_all_cores():
 def test_checkpoint_open():
     run(
         dpath("test_checkpoint_open"),
+        default_storage_provider="fs",
+        default_storage_prefix="storage",
+    )
+
+
+@skip_on_windows  # the fs storage plugin used here shells out to rsync, same as test_checkpoint_open
+def test_checkpoint_running_job_storage_race():
+    """DAG.sanitize_local_storage_copies() must not delete the local storage
+    copy of a job that is still running, e.g. because DAG postprocessing for
+    a concurrently finishing checkpoint is running while that job's own
+    output already exists locally but its completion has not yet been
+    processed by Snakemake. See DAG.is_running()."""
+    run(
+        dpath("test_checkpoint_running_job_storage_race"),
+        cores=4,
         default_storage_provider="fs",
         default_storage_prefix="storage",
     )
@@ -2950,11 +3086,11 @@ def test_github_issue_3374():
 
 
 @skip_on_windows  # OS agnostic
-@apptainer
+@skip_on_macos  # OS agnostic
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
-        shellcmd="snakemake --sdm apptainer --cores 1",
+        shellcmd="snakemake --sdm container --cores 1",
         targets=["all"],
     )
 
@@ -3001,7 +3137,7 @@ def test_default_resource_quoting_profile():
 def test_issue3361_fail():
     run(
         dpath("test_issue3361_fail"),
-        shellcmd="snakemake --sdm apptainer",
+        shellcmd="snakemake --sdm container",
         targets=["all"],
         shouldfail=True,
     )
@@ -3181,6 +3317,19 @@ def test_github_issue3556():
     run(dpath("test_github_issue3556"), shellcmd="snakemake --dag mermaid-js >dag.mmd")
 
 
+@skip_on_windows  # symlinks not properly supported in test framework on windows
+def test_github_issue3687():
+    tmpdir = run(dpath("test_github_issue3687"), cleanup=False)
+    target_file = Path(tmpdir) / "dir2/Done"  # type: ignore[arg-type]
+    shell("rm -rf {tmpdir}/.snakemake/metadata")
+    shell("cp -r {tmpdir}/dir1/D {tmpdir}/")
+    target_file.touch()
+    timestamp = target_file.stat().st_mtime
+    shell("ln -sf ../D {tmpdir}/dir2/")
+    run(dpath("test_github_issue3687"), tmpdir=tmpdir, cleanup=False)
+    assert target_file.stat().st_mtime != timestamp, "input updated, should rerun"
+
+
 @skip_on_windows
 def test_temp_checkpoint():
     tmpdir = run(dpath("test_temp_checkpoint"), cleanup=False)
@@ -3230,12 +3379,12 @@ def test_cyclic_dependency_single():
 
 
 @skip_on_windows
-@apptainer
 @connected
+@apptainer
 def test_issue3958():
     run(
         dpath("test_issue3958"),
-        shellcmd="snakemake --sdm apptainer --cores 1",
+        shellcmd="snakemake --sdm container --sdm-container-runtime apptainer --cores 1",
         targets=["all"],
     )
 
@@ -3466,3 +3615,17 @@ def test_github_issue_4039_runtime_no_override():
         cleanup=False,
     )
     shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_delete_temp_fs():
+    outdir = run(
+        dpath("test_delete_temp_fs"),
+        shellcmd="snakemake -c1 --default-storage-provider fs",
+        cleanup=False,
+    )
+    temp_file = os.path.join(outdir, "a")
+    assert not os.path.exists(
+        temp_file
+    ), "temp file was not removed in main working directory"
+    shutil.rmtree(outdir)

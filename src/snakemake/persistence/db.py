@@ -1,5 +1,6 @@
 import functools
 import os
+import time
 from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable
@@ -50,8 +51,6 @@ class DbPersistence(PersistenceBase):
         self,
         nolock=False,
         dag=None,
-        conda_prefix=None,
-        singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
@@ -60,8 +59,6 @@ class DbPersistence(PersistenceBase):
         super().__init__(
             nolock=nolock,
             dag=dag,
-            conda_prefix=conda_prefix,
-            singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=warn_only,
             path=path,
@@ -217,8 +214,13 @@ class DbPersistence(PersistenceBase):
             ) or MetadataRecordORM(namespace=self.namespace, target=key)
             record.incomplete = True
             record.external_jobid = external_jobid
+            record.starttime = time.time()
             session.add(record)
             session.commit()
+
+    def _get_recorded_starttime(self, key: str) -> float | None:
+        record = self._read_record(key)
+        return record.starttime if record else None
 
     def _unmark_incomplete(self, key: str) -> None:
         self._invalidate_cache(key)
