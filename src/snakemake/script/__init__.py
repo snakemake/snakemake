@@ -1092,8 +1092,3 @@ def script(
         config=config,
     )
     executor.evaluate()
-
-
-# stub for the snakemake object, can be imported for type checking in scripts and wrappers
-snakemake: Snakemake
-is_script = False
