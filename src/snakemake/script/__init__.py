@@ -438,9 +438,11 @@ class PythonScript(ScriptBase):
         preamble = f"""
             import sys, pickle;
             sys.path.extend({repr(list(map(str, searchpaths)))});
-            snakemake = pickle.loads({snakemake});
             from snakemake.iocontainers import Snakemake;
-            is_script = True;
+            from snakemake import script;
+            script.snakemake = snakemake = pickle.loads({snakemake});
+            script.is_script = is_script = True;
+            del script;
             {shell_exec_stmt}
             {self.preamble_addendum()}
             """
@@ -1090,3 +1092,8 @@ def script(
         config=config,
     )
     executor.evaluate()
+
+
+# stub for the snakemake object, can be imported for type checking in scripts and wrappers
+snakemake: Snakemake
+is_script = False
