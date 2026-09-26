@@ -11,7 +11,7 @@ import json
 import hashlib
 from typing import TYPE_CHECKING
 
-from snakemake import script
+from snakemake.script import runner as script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
 

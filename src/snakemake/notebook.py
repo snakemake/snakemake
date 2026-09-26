@@ -10,7 +10,7 @@ import tempfile
 import re
 
 from snakemake.exceptions import WorkflowError
-from snakemake.script import get_source, ScriptBase, PythonScript, RScript
+from snakemake.script.runner import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common.misc import is_local_file
 from snakemake.common.constants import ON_WINDOWS
