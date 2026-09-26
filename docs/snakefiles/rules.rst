@@ -1543,7 +1543,7 @@ Python
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
-To enable code completion, linting and type checking your python code in IDEs, we recommend using the typing module's `TYPE_CHECKING <https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING>`__ variable and the typing stub provided in the ``snakemake.iocontainers`` module (see below for how).
+To enable code completion, linting, and type checking in an external Python script, import ``snakemake`` from ``snakemake.script`` as shown below. This import is available when Snakemake runs the script.
 
 An example external Python script could look like this:
 
@@ -1554,7 +1554,7 @@ An example external Python script could look like this:
 
     do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
 
-For type checking, it is possible to import the a correctly typed stub for the snakemake object:
+For type checking, it is possible to import the correctly typed ``snakemake`` object:
 
 .. code-block:: python
 
@@ -1564,6 +1564,20 @@ For type checking, it is possible to import the a correctly typed stub for the s
         # python code
 
     do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
+
+If you want to use the script as a standalone script, you can also keep ``snakemake`` inner the check of ``is_script``:
+
+.. code-block:: python
+
+    from snakemake.script import is_script, Snakemake
+
+    def do_something(data_path, out_path, threads, myparam):
+        # python code
+
+    if is_script:
+        snakemake: Snakemake  # type hint for code completion, linting,
+
+        do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
 
 You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
 
