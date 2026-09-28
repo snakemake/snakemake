@@ -285,7 +285,7 @@ class WorkflowModifier:
             module_info.wildcards_modifier_overwrited[rulename_modifier] = set()
         self = cls(
             workflow,
-            globals=module_info.set_namespace.__dict__,
+            globals=module_info.cached_namespace.__dict__,
             rule_proxies=module_info.rule_proxies,
             path_modifier=module_info.path_modifier,
             pathvars=module_info.pathvars,

@@ -2503,7 +2503,7 @@ class Workflow(WorkflowExecutorInterface):
                 # Resolve the final name before entering for_userule so that the proxy is registered under the new name.
                 # Passing None as the modifier to for_userule avoids double-application,
                 # avail_rulename will delegate to the parent chain which still carries the module-level prefixes.
-                rulename_modifier = get_name_modifier_func(rule_, name_modifier) or (
+                rulename_modifier = get_name_modifier_func(rule_, modifier) or (
                     lambda x: x
                 )
                 with WorkflowModifier.for_userule(
