@@ -2728,6 +2728,54 @@ def test_module_global_container():
             )
 
 
+def test_info_header_unknown_user(monkeypatch):
+    """
+    Test that the workflow info header does not fail if getpass.getuser()
+    raises (e.g. when running under a UID with no passwd entry).
+    """
+    import getpass
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    exc_types = (OSError, KeyError, ImportError)
+
+    try:
+        real_user = getpass.getuser()
+    except exc_types:
+        real_user = None
+
+    def make_fake_getuser(exc_type: type[Exception]):
+        def fake_getuser():
+            raise exc_type("no user")
+
+        return fake_getuser
+
+    # Just need a minimal Snakefile, we're not running it
+    test_path = dpath("test_unlock")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
+        )
+        workflow = workflow_api._workflow
+
+        # Without patching - check it matches the real user
+        if real_user is not None:
+            assert workflow.info_header["user"] == real_user
+        else:
+            assert workflow.info_header["user"] == "unavailable"
+
+        # Patch getuser() to raise each expected exception type
+        for exc_type in exc_types:
+            monkeypatch.setattr(getpass, "getuser", make_fake_getuser(exc_type))
+            assert workflow.info_header["user"] == "unavailable"
+
+
 @skip_on_windows
 def test_config_yte():
     run(dpath("test_config_yte"))
