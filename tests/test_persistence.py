@@ -489,6 +489,13 @@ class TestCodeChanged:
         job = self._make_job(current)
         assert PersistenceBase._code_changed(persistence, job, file="out.txt") is False
 
+    def test_multiline_string_indentation_change_detected(self):
+        recorded = '    text = """\n    data\n    """\n'
+        current = 'text = """\ndata\n"""\n'
+        persistence = self._make_persistence(recorded)
+        job = self._make_job(current)
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is True
+
 
 class TestNormalizePythonCode:
     def test_comment_change_ignored(self):
@@ -524,4 +531,50 @@ class TestNormalizePythonCode:
 
     def test_syntax_error_falls_back_to_raw(self):
         bad = "def foo(:\n"
+        assert _normalize_python_code(bad) == bad
+
+    @pytest.mark.parametrize("prefix", ["", "r", "b", "f"])
+    @pytest.mark.parametrize("quotes", ['"""', "'''"])
+    def test_multiline_string_indentation_preserved(self, prefix, quotes):
+        indent = "    "
+        indented = f"{indent}value = {prefix}{quotes}\n{indent}data\n{indent}{quotes}\n"
+        unindented = f"value = {prefix}{quotes}\ndata\n{quotes}\n"
+        assert _normalize_python_code(indented) != _normalize_python_code(unindented)
+
+    @pytest.mark.parametrize("indent", ["    ", "\t"])
+    def test_outer_indentation_ignored_without_altering_string_content(self, indent):
+        indented = f'{indent}value = """\ndata\n"""\n'
+        unindented = 'value = """\ndata\n"""\n'
+        assert _normalize_python_code(indented) == _normalize_python_code(unindented)
+
+    def test_nested_block_preserves_multiline_string_indentation(self):
+        indented = '    if enabled:\n        value = """\n        data\n        """\n'
+        unindented = 'if enabled:\n    value = """\n    data\n    """\n'
+        assert _normalize_python_code(indented) != _normalize_python_code(unindented)
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "return value\n",
+            "nonlocal value\nvalue = 1\n",
+            "@decorator\ndef nested():\n    return 1\n",
+        ],
+        ids=("return", "nonlocal", "decorator"),
+    )
+    def test_indented_function_body_constructs_match_unindented(self, source):
+        indent = "    "
+        indented = "\n".join(f"{indent}{line}" for line in source.splitlines()) + "\n"
+        assert _normalize_python_code(indented) == _normalize_python_code(source)
+
+    def test_tab_indented_body_matches_unindented(self):
+        indented = "\tif enabled:\n\t\tvalue = 1\n"
+        unindented = "if enabled:\n\tvalue = 1\n"
+        assert _normalize_python_code(indented) == _normalize_python_code(unindented)
+
+    def test_indented_syntax_error_falls_back_to_raw(self):
+        bad = "    def foo(:\n"
+        assert _normalize_python_code(bad) == bad
+
+    def test_null_byte_falls_back_to_raw(self):
+        bad = "value = '\0'\n"
         assert _normalize_python_code(bad) == bad

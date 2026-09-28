@@ -3,7 +3,6 @@ import ast
 import asyncio
 import os
 import shutil
-import textwrap
 import time
 from abc import abstractmethod
 from contextlib import contextmanager
@@ -34,12 +33,18 @@ UNREPRESENTABLE = object()
 def _normalize_python_code(source: str) -> str:
     """Return a canonical AST string for Python source, ignoring comments/whitespace."""
     try:
-        tree = ast.parse(textwrap.dedent(source))
+        try:
+            tree = ast.parse(source)
+        except IndentationError:
+            wrapped = ast.parse(f"def __snakemake_run_block__():\n{source}")
+            function = wrapped.body[0]
+            assert isinstance(function, ast.FunctionDef)
+            tree = ast.Module(body=function.body, type_ignores=[])
         for node in ast.walk(tree):
             if hasattr(node, "type_comment"):
                 node.type_comment = None
         return ast.dump(tree, annotate_fields=True, include_attributes=False)
-    except SyntaxError:
+    except (SyntaxError, ValueError):
         return source
 
 
