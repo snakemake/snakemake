@@ -687,6 +687,21 @@ def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
 
 
+@skip_on_windows
+@pytest.mark.parametrize(
+    "executor, shouldfail",
+    [("dryrun", False), ("local", True)],
+)
+def test_protected_output_dryrun(executor, shouldfail):
+    run(
+        dpath("test_protected_output_dryrun"),
+        executor=executor,
+        shouldfail=shouldfail,
+        forceall=True,
+        check_results=False,
+    )
+
+
 def test_spaces_in_fnames():
     run(
         dpath("test_spaces_in_fnames"),
