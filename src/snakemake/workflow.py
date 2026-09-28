@@ -2420,9 +2420,9 @@ class Workflow(WorkflowExecutorInterface):
         def decorate(maybe_ruleinfo):
             rule_whitelist = get_rule_whitelist(rules)
             ruleinfo = None if callable(maybe_ruleinfo) else maybe_ruleinfo
+            modifier = name_modifier
             if from_module is not None:
                 try:
-                    modifier = name_modifier
                     module = self.modules[from_module]
                 except KeyError:
                     # Dynamic module name resolution:
@@ -2457,7 +2457,6 @@ class Workflow(WorkflowExecutorInterface):
                                         name_modifier, module_name
                                     )
                                 )
-
                     else:
                         raise WorkflowError(
                             "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
