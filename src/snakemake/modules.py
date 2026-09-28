@@ -65,7 +65,7 @@ class ModuleInfo:
         pathvars: Pathvars,
         snakefile=None,
         meta_wrapper=None,
-        config: "Optional[Dict]" = None,
+        config: Optional[Dict] = None,
         skip_validation=False,
         replace_prefix=None,
         prefix=None,
@@ -80,7 +80,7 @@ class ModuleInfo:
         self.rule_proxies = Rules()
         self.wildcards_modifier_overwrited: Dict[Optional[Callable], Set[str]] = {}
         self.pathvars = pathvars
-        self.loaded = False
+        self._namespace: Optional[types.ModuleType] = None
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -99,24 +99,22 @@ class ModuleInfo:
         )
 
     @property
-    def _cached_namespace(self) -> types.ModuleType:
-        if not self.loaded:
+    def cached_namespace(self):
+        if self._namespace is None:
             self.use_rules(set(), None)
-            self.loaded = True
-        return self.workflow.globals[self.name]
+            assert self._namespace is not None
+        return self._namespace
 
-    @_cached_namespace.setter
-    def _cached_namespace(self, value: types.ModuleType):
-        if self.loaded:
+    def set_namespace(self):
+        if self._namespace is not None:
             logger.warning(
                 f"Reloading module {self.name}. "
                 "This may cause problems if the module contains global variables"
                 " or rules that are modified by the module. "
                 "Consider using a unique name for each module import."
             )
-        else:
-            self.loaded = True
-        self.workflow.globals[self.name] = value
+        self.workflow.globals[self.name] = self._namespace = types.ModuleType(self.name)
+        self._namespace.__dict__.update(self.workflow.vanilla_globals)
 
     def use_rules(
         self,
@@ -130,11 +128,10 @@ class ModuleInfo:
         - None -> load all rules,
         - empty set -> dry run (only load ruleinfo),
         - set of rule names -> (impossible)
-            `Workflow.userule` performs rule-specific loading via `_cached_namespace`.
+            `Workflow.userule` performs rule-specific loading via `cached_namespace`.
             so `ModuleInfo.use_rules` only sees `None` or empty set
         """
-        self._cached_namespace = types.ModuleType(self.name)
-        self._cached_namespace.__dict__.update(self.workflow.vanilla_globals)
+        self.set_namespace()
         modifier = WorkflowModifier.for_module(
             self, rules, name_modifier, exclude_rules, ruleinfo
         )
@@ -185,7 +182,7 @@ class ModuleInfo:
         """Check if the rule from module can be overwritten.
 
         > Specific rules may even be modified before using them,
-        >  via a final with: followed by a block that lists items to overwrite.
+        >  via a final `with:` followed by a block that lists items to overwrite.
         >  This modification can be performed after a general import,
         >  and will overwrite any unmodified import of the same rule.
         """
@@ -218,8 +215,8 @@ class WorkflowModifier:
         path_modifier: PathModifier,
         pathvars: Pathvars,
         *,
-        base_snakefile: "Optional[SourceFile]" = None,
-        parent_modifier: "Optional[WorkflowModifier]" = None,
+        base_snakefile: Optional[SourceFile] = None,
+        parent_modifier: Optional[WorkflowModifier] = None,
         resolved_rulename_modifier=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
@@ -248,8 +245,8 @@ class WorkflowModifier:
         self.skip_configfile = False
         self.skip_validation = False
         self.skip_global_report_caption = False
-        self.rule_whitelist: "Optional[Set[str]]" = None
-        self.rule_exclude_list: "Optional[List[str]]" = None
+        self.rule_whitelist: Optional[Set[str]] = None
+        self.rule_exclude_list: Optional[List[str]] = None
         self.replace_wrapper_tag = None
 
         self.default_input_flags: DefaultFlags = DefaultFlags()
@@ -278,16 +275,17 @@ class WorkflowModifier:
         cls,
         module_info: ModuleInfo,
         rules: Optional[Set],
-        name_modifier: "Optional[str]" = None,
-        exclude_rules: "Optional[List[str]]" = None,
+        name_modifier: Optional[str] = None,
+        exclude_rules: Optional[List[str]] = None,
         ruleinfo=None,
     ):
         rulename_modifier = get_name_modifier_func(rules, name_modifier)
         workflow = module_info.workflow
-        module_info.wildcards_modifier_overwrited[rulename_modifier] = set()
+        if rules is None:  # enable subsequent overwrite only when `use rule *`
+            module_info.wildcards_modifier_overwrited[rulename_modifier] = set()
         self = cls(
             workflow,
-            globals=module_info._cached_namespace.__dict__,
+            globals=module_info.set_namespace.__dict__,
             rule_proxies=module_info.rule_proxies,
             path_modifier=module_info.path_modifier,
             pathvars=module_info.pathvars,
@@ -301,9 +299,8 @@ class WorkflowModifier:
         self._post_set_globals(module_info.config)
         self.skip_configfile = module_info.config is not None
         self.skip_validation = module_info.skip_validation
-        self.skip_global_report_caption = (
-            workflow.report_text is not None
-        )  # do not overwrite existing report text via module
+        # do not overwrite existing report text via module
+        self.skip_global_report_caption = workflow.report_text is not None
         self.rule_whitelist = rules
         self.rule_exclude_list = exclude_rules
         self.replace_wrapper_tag = module_info.get_wrapper_tag()
@@ -312,14 +309,14 @@ class WorkflowModifier:
     @classmethod
     def for_userule(
         cls,
-        workflow,
+        workflow: "Workflow",
         globals: Dict,
         pathvars: Pathvars,
         snakefile,
         ruleinfo=None,
         allow_overwrite=False,
     ):
-        parent_modifier: "WorkflowModifier" = workflow.modifier
+        parent_modifier = workflow.modifier
         self = cls(
             workflow,
             globals=globals,

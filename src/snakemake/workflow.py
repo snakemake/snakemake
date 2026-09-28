@@ -2472,7 +2472,7 @@ class Workflow(WorkflowExecutorInterface):
                         ruleinfo=ruleinfo,
                     )
                     return
-                rule_proxy = module._cached_namespace.rules._rules
+                rule_proxy = module.cached_namespace.rules._rules
                 check_overwrite = module.check_overwrite
             else:
                 # local inheritance
