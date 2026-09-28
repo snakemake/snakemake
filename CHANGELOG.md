@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [10.0.0](https://github.com/snakemake/snakemake/compare/v9.27.0...v10.0.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* generic software deployment plugin support ([#3339](https://github.com/snakemake/snakemake/issues/3339))
+
+### Features
+
+* generic software deployment plugin support ([#3339](https://github.com/snakemake/snakemake/issues/3339)) ([91763d6](https://github.com/snakemake/snakemake/commit/91763d644db0a6051c40014fa8ffad340f7d39a0))
+
+
+### Bug Fixes
+
+* handle getpass.getuser() failure in workflow info header ([#4322](https://github.com/snakemake/snakemake/issues/4322)) ([5bf5e21](https://github.com/snakemake/snakemake/commit/5bf5e21b0d0e7e65e247c1f2c61c1a4f74a1a752))
+
 ## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
 
 
