@@ -611,7 +611,12 @@ class PersistenceBase(
             return False
         recorded = self.code(file)
         current = self._code(job.rule)
-        if recorded is not None and current is not None and job.rule.shellcmd is None:
+        if (
+            recorded is not None
+            and current is not None
+            and self.shellcmd(file) is None
+            and job.rule.shellcmd is None
+        ):
             return _normalize_python_code(recorded) != _normalize_python_code(current)
         return recorded is not None and recorded != current
 

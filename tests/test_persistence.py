@@ -442,16 +442,17 @@ class TestStarttimeRecording:
 class TestCodeChanged:
     """Tests for Python code-change detection with mocked dependencies."""
 
-    def _make_persistence(self, recorded_code, fmt_version=7):
+    def _make_persistence(self, recorded_code, fmt_version=7, recorded_shellcmd=None):
         persistence = MagicMock()
         persistence.record_format_version.return_value = fmt_version
         persistence.code.return_value = recorded_code
+        persistence.shellcmd.return_value = recorded_shellcmd
         persistence._code = lambda rule: PersistenceBase._code(persistence, rule)
         return persistence
 
-    def _make_job(self, run_func_src):
+    def _make_job(self, run_func_src=None, shellcmd=None):
         job = MagicMock()
-        job.rule.shellcmd = None
+        job.rule.shellcmd = shellcmd
         job.rule.run_func_src = run_func_src
         return job
 
@@ -494,6 +495,25 @@ class TestCodeChanged:
         current = 'text = """\ndata\n"""\n'
         persistence = self._make_persistence(recorded)
         job = self._make_job(current)
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is True
+
+    def test_shell_to_python_rule_change_detected(self):
+        persistence = self._make_persistence(
+            "true # old", recorded_shellcmd="true # old"
+        )
+        job = self._make_job("true # new")
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is True
+
+    def test_python_to_shell_rule_change_detected(self):
+        persistence = self._make_persistence("true # old")
+        job = self._make_job(shellcmd="true # new")
+        assert PersistenceBase._code_changed(persistence, job, file="out.txt") is True
+
+    def test_shell_rule_comment_change_detected(self):
+        persistence = self._make_persistence(
+            "true # old", recorded_shellcmd="true # old"
+        )
+        job = self._make_job(shellcmd="true # new")
         assert PersistenceBase._code_changed(persistence, job, file="out.txt") is True
 
 
