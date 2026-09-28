@@ -30,22 +30,29 @@ RECORD_FORMAT_VERSION = 7
 UNREPRESENTABLE = object()
 
 
-def _normalize_python_code(source: str) -> str:
-    """Return a canonical AST string for Python source, ignoring comments/whitespace."""
+def _parse_python_code(source: str) -> ast.Module:
+    """Parse an indented run block or standalone Python."""
     try:
-        try:
-            tree = ast.parse(source)
-        except IndentationError:
-            wrapped = ast.parse(f"def __snakemake_run_block__():\n{source}")
-            function = wrapped.body[0]
-            assert isinstance(function, ast.FunctionDef)
-            tree = ast.Module(body=function.body, type_ignores=[])
-        for node in ast.walk(tree):
-            if hasattr(node, "type_comment"):
-                node.type_comment = None
-        return ast.dump(tree, annotate_fields=True, include_attributes=False)
+        # Wrap run blocks in a function because they retain their Snakefile indentation.
+        wrapped = ast.parse(f"def __snakemake_run_block__():\n{source}")
+    except IndentationError:
+        return ast.parse(source)
+    function = wrapped.body[0]
+    assert isinstance(function, ast.FunctionDef)
+    return ast.Module(body=function.body, type_ignores=[])
+
+
+def _normalize_python_code(source: str) -> str:
+    """Return a canonical AST string, ignoring comments and whitespace."""
+    try:
+        tree = _parse_python_code(source)
     except (SyntaxError, ValueError):
         return source
+
+    for node in ast.walk(tree):
+        if hasattr(node, "type_comment"):
+            node.type_comment = None
+    return ast.dump(tree, annotate_fields=True, include_attributes=False)
 
 
 class MetadataRecord(SQLModel):
