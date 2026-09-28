@@ -76,6 +76,8 @@ and
 
 Again, the list commands in backticks return the list of output files with changes, which are fed into ``-R`` to trigger a re-run.
 
+See :ref:`snakefiles-code_tracking` for details about how code changes are detected.
+
 
 
 How do I remove all files created by snakemake, i.e. like ``make clean``
