@@ -528,7 +528,7 @@ class TestBashEncoder:
         named_list._set_name("named", 1)
 
         actual = BashEncoder.encode_namedlist(named_list)
-        expected = r"""( [0]="test.in" [1]="named.in" [named]="named.in" )"""
+        expected = r"""( [0]=test.in [named]=named.in [1]=named.in )"""
 
         assert actual == expected
 
@@ -539,6 +539,8 @@ class TestBashEncoder:
         named_list._set_name("named", 1)
 
         actual = BashEncoder.encode_namedlist(named_list)
-        expected = r"""( [0]="test1.in" [1]="test2.in named.in" [named]="test2.in named.in" )"""
+        expected = (
+            r"""( [0]=test1.in [named]='test2.in named.in' [1]='test2.in named.in' )"""
+        )
 
         assert actual == expected
