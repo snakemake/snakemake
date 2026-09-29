@@ -1,6 +1,118 @@
 # Changelog
 
 
+## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
+
+
+### Features
+
+* show diffs in unit tests ([#4289](https://github.com/snakemake/snakemake/issues/4289)) ([d6f82cb](https://github.com/snakemake/snakemake/commit/d6f82cbaa782fce2153b220c75bb149912f2c6e6))
+
+
+### Bug Fixes
+
+* guard is_edit_notebook_job check to prevent crash ([#4305](https://github.com/snakemake/snakemake/issues/4305)) ([c214a97](https://github.com/snakemake/snakemake/commit/c214a9735c394eda25d846663e65fc198537ffef))
+* Use intended executor for workflow validation in 'dryrun/touch' modes ([#3975](https://github.com/snakemake/snakemake/issues/3975)) ([73927a4](https://github.com/snakemake/snakemake/commit/73927a486340d597cc236f922d0275f0641f1fee))
+
+## [9.26.1](https://github.com/snakemake/snakemake/compare/v9.26.0...v9.26.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* missing import ([#4296](https://github.com/snakemake/snakemake/issues/4296)) ([3519bed](https://github.com/snakemake/snakemake/commit/3519bed15e38bba132eb7f85247730aaddb0cea9))
+
+## [9.26.0](https://github.com/snakemake/snakemake/compare/v9.25.2...v9.26.0) (2026-08-26)
+
+
+### Features
+
+* output workflow total elapsed time to log ([#4279](https://github.com/snakemake/snakemake/issues/4279)) ([2dd3f2f](https://github.com/snakemake/snakemake/commit/2dd3f2fdd77968f46191e3428dbccdfe3b6927a4))
+
+
+### Bug Fixes
+
+* don't delete local storage copies of currently running jobs ([#4284](https://github.com/snakemake/snakemake/issues/4284)) ([49cc1d5](https://github.com/snakemake/snakemake/commit/49cc1d5ac37a4e6258c6fa77bd43a28c71b7f29f))
+* preserve flags when formatting _IOFile ([#4286](https://github.com/snakemake/snakemake/issues/4286)) ([4cbb7a6](https://github.com/snakemake/snakemake/commit/4cbb7a6ac1a1ae3b72452bee3027d29844a10166))
+* Snakemake sometimes checks the wrong copy of an output file's info, causing spurious reruns ([#4285](https://github.com/snakemake/snakemake/issues/4285)) ([66ee0ac](https://github.com/snakemake/snakemake/commit/66ee0acbf23f9841c8a223142e277e25bd77553d))
+* update shadow directory handling and logging for incomplete jobs ([#4288](https://github.com/snakemake/snakemake/issues/4288)) ([3080698](https://github.com/snakemake/snakemake/commit/3080698ee519ad7013b82527cfd9c924483da427))
+
+## [9.25.2](https://github.com/snakemake/snakemake/compare/v9.25.1...v9.25.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* in scripts/wrappers using shell(), auto-infer thread count from … ([#4282](https://github.com/snakemake/snakemake/issues/4282)) ([3dbad53](https://github.com/snakemake/snakemake/commit/3dbad53fbfcbb48c7c71bdc3dab20bf2f4ba0a7e))
+* scoped module container directive ([#4184](https://github.com/snakemake/snakemake/issues/4184)) ([06656ef](https://github.com/snakemake/snakemake/commit/06656efee0dc14168b53830600ac1e5e88ff94bb))
+* touch and wildcard_constraints ([#4283](https://github.com/snakemake/snakemake/issues/4283)) ([500df04](https://github.com/snakemake/snakemake/commit/500df04c9c3419affb2054181bde3540a22ab244))
+
+## [9.25.1](https://github.com/snakemake/snakemake/compare/v9.25.0...v9.25.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* fix f-string parsing at file end ([#4269](https://github.com/snakemake/snakemake/issues/4269)) ([eab8d26](https://github.com/snakemake/snakemake/commit/eab8d2639b3bb7ff7737c68dd6d281d72c5630d2))
+
+## [9.25.0](https://github.com/snakemake/snakemake/compare/v9.24.0...v9.25.0) (2026-08-04)
+
+
+### Features
+
+* allow first positional parameter of lookup function to be used as both query and dpath ([#4263](https://github.com/snakemake/snakemake/issues/4263)) ([08d1d26](https://github.com/snakemake/snakemake/commit/08d1d26baa2e1f863e6a0b997fd823db9607bab6))
+
+### Bug Fixes
+
+* revert to defaulting to pandas <3.0 as optional dependency, in order to maintain compatibility with workflows that share pandas objects between the main workflow and python scripts
+
+## [9.24.0](https://github.com/snakemake/snakemake/compare/v9.23.1...v9.24.0) (2026-07-30)
+
+
+### Features
+
+* allow to combine cases with otherwise in branch function ([#4262](https://github.com/snakemake/snakemake/issues/4262)) ([000ff52](https://github.com/snakemake/snakemake/commit/000ff52112589fd0e02820bed6356f9946046188))
+
+
+### Bug Fixes
+
+* avoid config hash crash for non-serializable values ([#4241](https://github.com/snakemake/snakemake/issues/4241)) ([1a27746](https://github.com/snakemake/snakemake/commit/1a2774645a599d6c7d0589a048b64023b360c7d3))
+* compilation error when final line contains an f-string ([#4234](https://github.com/snakemake/snakemake/issues/4234)) ([9c5e7fe](https://github.com/snakemake/snakemake/commit/9c5e7fea607ecf30e7fbfa47bfc9d54565b170ef))
+* Group error log formatting ([#4256](https://github.com/snakemake/snakemake/issues/4256)) ([bb6dcde](https://github.com/snakemake/snakemake/commit/bb6dcde4d951bb495267258935dc21813e63f266))
+* leak of benchmark monitor threads ([#4259](https://github.com/snakemake/snakemake/issues/4259)) ([d37852e](https://github.com/snakemake/snakemake/commit/d37852e01f11206446c9618aa6c6f0dfa84ed9e5))
+* no benchmark warning when a process exits before it can be sampled ([#4260](https://github.com/snakemake/snakemake/issues/4260)) ([6738359](https://github.com/snakemake/snakemake/commit/6738359fb5c3f2b1a53d951595d44edd2bfd7ce9))
+* persistence starttime unset/defaults ([#4251](https://github.com/snakemake/snakemake/issues/4251)) ([56395c0](https://github.com/snakemake/snakemake/commit/56395c0edc2fb3eca5fc80b28b43a0113a5e6bc0))
+
+## [9.23.1](https://github.com/snakemake/snakemake/compare/v9.23.0...v9.23.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* LoggerManager.shutdown() error handling, flush all loggers ([#4196](https://github.com/snakemake/snakemake/issues/4196)) ([5bcdbf3](https://github.com/snakemake/snakemake/commit/5bcdbf3c65dff84e55616c3f14316a17c66cdcd3))
+* temp files not deleted when using remote storage plugins ([#4232](https://github.com/snakemake/snakemake/issues/4232)) ([7c58f53](https://github.com/snakemake/snakemake/commit/7c58f531ee1583ad59c190253301baa2814e313a))
+
+
+### Documentation
+
+* mention sponsoring in docs ([c659d62](https://github.com/snakemake/snakemake/commit/c659d62015bd7b354367e34a77490d762cf6029d))
+
+## [9.23.0](https://github.com/snakemake/snakemake/compare/v9.22.0...v9.23.0) (2026-06-11)
+
+
+### Features
+
+* support remote snakefile via gh/gl shorthand ([#4161](https://github.com/snakemake/snakemake/issues/4161)) ([ec2f12a](https://github.com/snakemake/snakemake/commit/ec2f12a909e47ae6c2b503ef93de090cea1f09c3))
+
+
+### Bug Fixes
+
+* remove leaked secrets in input source file display and ensure that wrapper scripts are properly fetched as GithubFile (including caching) ([#4225](https://github.com/snakemake/snakemake/issues/4225)) ([6b06433](https://github.com/snakemake/snakemake/commit/6b0643378050cac6e8252781787cdb48f457079d))
+* set log level accordingly when debug dag is set ([#3778](https://github.com/snakemake/snakemake/issues/3778)) ([eea0f41](https://github.com/snakemake/snakemake/commit/eea0f410376bda298482c5fc0d326a1e517ce13d))
+
+
+### Documentation
+
+* add post-deploy example that ensures `.Renviron` is ignored for R package installations ([#4140](https://github.com/snakemake/snakemake/issues/4140)) ([b64c39e](https://github.com/snakemake/snakemake/commit/b64c39ee5f412024bda48f34133f190e6b7d4dfb))
+* note about quoting dynamic resource statements with python code, quotes in example ([#4214](https://github.com/snakemake/snakemake/issues/4214)) ([66503de](https://github.com/snakemake/snakemake/commit/66503de1ac1ceb2118232d58b72a92985e294dc0))
+* sort faq questions into sections ([#4095](https://github.com/snakemake/snakemake/issues/4095)) ([d92f290](https://github.com/snakemake/snakemake/commit/d92f290509d4537ebc4347e204bbacee25c5bbcb))
+
 ## [9.22.0](https://github.com/snakemake/snakemake/compare/v9.21.1...v9.22.0) (2026-06-01)
 
 

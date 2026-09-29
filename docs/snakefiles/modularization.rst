@@ -396,6 +396,24 @@ For the latter, it is also possible to specify an alternative host, e.g.
     gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org")
 
 
+Source files can also be provided as plain HTTP/HTTPS URLs.
+In that case, they are treated as generic remote source files.
+
+As a convenience syntax, hosted source files can also be written with an explicit provider prefix.
+Use ``gh:owner/repo@ref:path/to/Snakefile`` for GitHub, optionally inserting a custom host as ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``.
+Use ``gl:group/project@ref:path/to/Snakefile`` for GitLab, optionally inserting a custom host as ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``.
+If the trailing path is omitted, Snakemake assumes ``workflow/Snakefile``.
+When refs contain slashes, prefer this shorthand because it avoids ambiguity between ref and file path.
+For example:
+
+.. code-block:: python
+
+    "gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile"
+    "gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1"
+    "gh:github.example.org:owner/repo@main:workflow/Snakefile"
+    "gl:owner/repo@main:workflow/Snakefile"
+    "gl:gitlab.cern.ch:group/project@main:workflow/Snakefile"
+
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
 Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.
 

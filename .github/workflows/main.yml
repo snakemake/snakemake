@@ -19,10 +19,10 @@ jobs:
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.1
         with:
           environments: "quality"
           cache: true
@@ -76,12 +76,12 @@ jobs:
       ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
       CI: true
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.9.6
+        uses: prefix-dev/setup-pixi@v0.10.1
         with:
           environments: ${{ matrix.env }}
           cache: true
@@ -97,7 +97,7 @@ jobs:
 
       - name: Setup MinIO for AWS S3 testing (os='Linux', for AWS S3 testing)
         if: runner.os == 'Linux'
-        uses: comfuture/minio-action@v1
+        uses: comfuture/silo-action@v2
         with:
           access_key: minio
           secret_key: minio123
@@ -123,7 +123,7 @@ jobs:
 
           cd tests/test_report
           pixi run -e ${{ matrix.env }} snakemake \
-            --use-conda \
+            --sdm conda \
             --cores 1 \
             --report report.zip
 
@@ -147,7 +147,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: tests
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 

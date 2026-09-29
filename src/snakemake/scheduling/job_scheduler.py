@@ -7,10 +7,9 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import defaultdict, deque
+from collections import deque
 import copy
-import math
-import os, signal, sys
+import signal, sys
 import threading
 
 from itertools import chain, accumulate, filterfalse, repeat
@@ -46,7 +45,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. Look below for error messages"
+    "Exiting because a job execution failed. Look above for error messages"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -253,8 +252,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self._executor.shutdown()
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
-                            for job in self.failed:
-                                job.log_error()
                         return False
                     continue
 
@@ -270,8 +267,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
-                        for job in self.failed:
-                            job.log_error()
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs and not self.keepgoing:

@@ -1,0 +1,17 @@
+shell.executable("bash")
+
+
+def get_envfile(wildcards):
+    return "test-env.yaml"
+
+
+rule all:
+    input:
+        expand("test{i}.out", i=range(3))
+
+rule a:
+    output:
+        "test{i}.out"
+    software: conda(envfile=get_envfile)
+    shell:
+        "Tm -h > {output} || true"

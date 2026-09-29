@@ -1,0 +1,12 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        expand("test{i}.out", i=range(3))
+
+rule a:
+    output:
+        "test{i}.out"
+    software: conda(envfile="test-env.yaml")
+    shell:
+        "Tm -h > {output} || true"
