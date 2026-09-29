@@ -1,0 +1,27 @@
+pathvars:
+    sample="<results>/{sample}",
+
+
+rule numeric_sample:
+    output:
+        sample="<sample>.txt",
+    wildcard_constraints:
+        sample="[0-9]+",
+    shell:
+        "echo {wildcards.sample} > {output}"
+
+
+rule alpha_sample:
+    output:
+        sample="<sample>.txt",
+    wildcard_constraints:
+        sample="[a-z]+",
+    shell:
+        "echo {wildcards.sample} > {output}"
+
+
+rule all:
+    default_target: True
+    input:
+        expand(rules.alpha_sample.output.sample, sample="foo"),
+        expand(rules.alpha_sample.output.sample, sample="42"),
