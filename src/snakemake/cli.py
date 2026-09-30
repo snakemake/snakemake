@@ -1877,7 +1877,9 @@ def generate_parser_metadata(parser, args):
 def parse_args(argv):
     # first try, parse only known args and deploy eventually requested global dependencies
     known_args, _ = get_argument_parser(with_plugins=False).parse_known_args(argv)
-    runtime_dep_manager = RuntimeDependencyManager(known_args.software_deployment_prefix)
+    runtime_dep_manager = RuntimeDependencyManager(
+        known_args.software_deployment_prefix
+    )
     runtime_dep_manager.add_global_packages(*known_args.with_pkgs)
     runtime_dep_manager.add_workflow_packages(*known_args.workflow_with_pkgs)
     runtime_dep_manager.deploy_packages()
