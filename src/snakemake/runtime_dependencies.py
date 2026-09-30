@@ -1,3 +1,4 @@
+from itertools import chain
 import threading
 import sys
 from typing import Dict
@@ -20,38 +21,15 @@ import subprocess as sp
 import time
 
 from flufl.lock import Lock
+from packaging.requirements import Requirement
 
 from snakemake import __version__
-
-
-@dataclass(frozen=True)
-class Package:
-    """Represents a Python package with an optional version."""
-
-    name: str
-    version: Optional[str]
-
-    @classmethod
-    def from_uv_pip_list_entry(cls, entry: Dict[str, str]) -> Self:
-        """Creates a Package instance from a dictionary entry returned by `uv pip list --format json`."""
-        return cls(entry["name"], entry.get("version"))
-
-    @classmethod
-    def from_str(cls, pkg_str: str) -> Self:
-        if "==" in pkg_str:
-            name, version = pkg_str.split("==", 1)
-            return cls(name, version)
-        else:
-            return cls(pkg_str, None)
-
-    def __str__(self) -> str:
-        return f"{self.name}=={self.version}" if self.version else self.name
 
 
 class PackageType(Enum):
     """Represents the type of a runtime dependency package."""
 
-    PLUGIN = 0
+    GLOBAL = 0
     WORKFLOW = 1
 
 
@@ -60,28 +38,19 @@ class RuntimeDependencyManager:
     auxiliary packages.
     """
 
-    _instance: Self = None
     _lock_lifetime = timedelta(seconds=30)
 
-    def __new__(cls) -> Self:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.__init__()
-        return cls._instance
-
-    def __init__(self):
-        if hasattr(self, "_packages"):
-            # instantiated before, skip
-            return
+    def __init__(self, deployment_prefix: Path):
         self._prefixes: Map[PackageType, Path] = {
-            PackageType.PLUGIN: platformdirs.user_cache_path(
+            PackageType.GLOBAL: platformdirs.user_cache_path(
                 appname="snakemake", version=__version__, ensure_exists=True
             )
-            / "plugins",
+            / "global_dependencies",
+            PackageType.WORKFLOW: deployment_prefix / "workflow_dependencies",
         }
-        self._packages: Dict[PackageType, Dict[str, Package]] = {
+        self._packages: Dict[PackageType, Dict[str, Requirement]] = {
             PackageType.WORKFLOW: dict(),
-            PackageType.PLUGIN: dict(),
+            PackageType.GLOBAL: dict(),
         }
 
     def update_workflow_prefix(self) -> None:
@@ -89,79 +58,81 @@ class RuntimeDependencyManager:
             Path.cwd() / ".snakemake" / "workflow_dependencies"
         )
 
-    def infer_plugin_packages_from_args(self, cli_args) -> None:
-        """Infers the required plugin packages from the given command line arguments."""
+    def add_global_packages(self, *pkgs: str) -> None:
+        for pkg in pkgs:
+            self._add_package(PackageType.GLOBAL, Requirement(pkg))
 
-        def add_plugin(name: str, plugin_type: str) -> str:
-            self.add_plugin_package(f"snakemake-{plugin_type}-plugin-{name}")
+    def add_workflow_packages(self, *pkgs: str) -> None:
+        for pkg in pkgs:
+            self._add_package(
+                PackageType.WORKFLOW,
+                Requirement(pkg),
+            )
 
-        if cli_args.executor not in ("local", "dryrun", "touch", None):
-            add_plugin(cli_args.executor, "executor")
-        if cli_args.reporter is not None and cli_args.reporter != "html":
-            add_plugin(cli_args.reporter, "report")
-        if cli_args.default_storage_provider:
-            add_plugin(cli_args.default_storage_provider, "storage")
-        for logger in cli_args.logger:
-            add_plugin(logger, "logger")
-
-    def add_plugin_package(self, name: str) -> None:
-        self._add_package(PackageType.PLUGIN, name)
-
-    def add_workflow_package(self, name: str, version: Optional[str] = None) -> None:
-        self._add_package(
-            PackageType.WORKFLOW,
-            name,
-            version,
-        )
-
-    def deploy_plugin_packages(self) -> None:
-        """Deploys the runtime dependencies for all package types, ensuring that
-        plugin packages are deployed before auxiliary packages.
-        """
-        if not self._packages[PackageType.PLUGIN]:
-            return
-        # retrieve packages from current environment (e.g. snakemake)
-        prior_packages = set(get_packages_in_current_env())
-        # deploy plugin packages, considering the packages from the current
-        # environment as prior packages to ensure compatibility
-        self._deploy_packages_per_type(PackageType.PLUGIN, prior_packages)
-
-    def deploy_workflow_packages(self) -> None:
-        if not self._packages[PackageType.WORKFLOW]:
-            return
-
+    def deploy_packages(self) -> None:
         # retrieve packages from current environment (e.g. snakemake)
         prior_env_packages = set(get_packages_in_current_env())
 
-        # get all packages and versions installed under the plugin package prefix
-        # (including other packages installed there before)
-        prior_plugin_packages = set(
-            get_packages_in_prefix(self._prefixes[PackageType.PLUGIN])
+        try:
+            # deploy global packages, considering the packages from the current
+            # environment as prior packages to ensure compatibility
+            self._deploy_packages_per_type(
+                self._packages[PackageType.GLOBAL].values(),
+                self._prefixes[PackageType.GLOBAL],
+                prior_env_packages,
+            )
+        except sp.CalledProcessError as e:
+            raise WorkflowError(
+                f"Failed to deploy auxilliary global python packages (--with-pkgs option): {e.stderr}"
+            )
+
+        # get final versions of global packages and all their dependencies in the prefix
+        prior_global_packages = set(
+            get_packages_in_prefix(self._prefixes[PackageType.GLOBAL])
         )
 
-        # deploy auxiliary packages, considering the plugin packages as additional
-        # prior packages to ensure compatibility
-        self._deploy_packages_per_type(
-            PackageType.WORKFLOW, prior_env_packages, prior_plugin_packages
-        )
+        try:
+            self._deploy_packages_per_type(
+                self._packages[PackageType.GLOBAL].values(),
+                self._prefixes[PackageType.WORKFLOW],
+                prior_env_packages,
+                prior_global_packages,
+            )
+        except sp.CalledProcessError as e:
+            # try to solve together as a fallback
+            try:
+                self._deploy_packages_per_type(
+                    chain(
+                        self._packages[PackageType.GLOBAL].values(),
+                        self._packages[PackageType.WORKFLOW].values(),
+                    ),
+                    self._prefixes[PackageType.WORKFLOW],
+                    prior_env_packages,
+                )
+            except sp.CalledProcessError as e2:
+                raise WorkflowError(
+                    "Failed to deploy auxilliary workflow python packages (--workflow-with-pkgs option)."
+                    f"\nSeparate solve: {e.stderr}\nJoint fallback solve: {e2.stderr}"
+                )
 
-    def _add_package(
-        self, package_type: PackageType, name: str, version: Optional[str] = None
-    ) -> None:
+    def _add_package(self, package_type: PackageType, pkg: Requirement) -> None:
         """Adds a package to the set of runtime dependencies for the given
         package type.
         """
-        package = Package(name, version)
-        self._packages[package_type][package.name] = package
+        self._packages[package_type][pkg.name] = pkg
 
     def _deploy_packages_per_type(
-        self, package_type: PackageType, *prior_package_sets: Set[Package]
+        self,
+        packages: Iterable[Requirement],
+        prefix: Path,
+        *prior_package_sets: Set[Requirement],
     ) -> None:
         """Deploys the runtime dependencies for the given package type, optionally
         considering additional packages (e.g. plugin packages when deploying
         auxiliary packages).
         """
-        if not self._packages[package_type]:
+        packages = list(packages)
+        if not packages:
             # no packages requested, stop early
             return
 
@@ -171,12 +142,11 @@ class RuntimeDependencyManager:
                 prior_packages[pkg.name] = pkg
 
         # add the actually requested packages (may overwrite versions)
-        for pkg in self._packages[package_type].values():
+        for pkg in packages:
             prior_packages[pkg.name] = pkg
 
-        breakpoint()
+        requested_pkg_names = {pkg.name for pkg in packages}
 
-        prefix = self._prefixes[package_type]
         lock = self._lock(prefix)
         with lock:
             stop_refresher = threading.Event()
@@ -201,7 +171,7 @@ class RuntimeDependencyManager:
                 posterior_packages = set(
                     package
                     for package in parse_uv_pip_dry_run_output(res.stderr)
-                    if package.name in self._packages[package_type]
+                    if package.name in requested_pkg_names
                 )
                 if posterior_packages:
                     # explicitly install the determined versions of the requested
@@ -211,13 +181,9 @@ class RuntimeDependencyManager:
                         + [str(pkg) for pkg in posterior_packages],
                         check=True,
                         capture_output=True,
-                        text=True
+                        text=True,
                     )
                     sys.path.insert(0, str(prefix))
-            except sp.CalledProcessError as e:
-                raise WorkflowError(
-                    f"Failed to deploy runtime dependencies for {package_type.name.lower()} packages: {e.stderr}"
-                )
             finally:
                 stop_refresher.set()
 
@@ -235,22 +201,29 @@ class RuntimeDependencyManager:
             time.sleep(cls._lock_lifetime.total_seconds() / 2)
 
 
-def parse_uv_pip_dry_run_output(output: str) -> Iterable[Package]:
+def parse_uv_pip_dry_run_output(output: str) -> Iterable[Requirement]:
     """Parses the output of `uv pip install --dry-run` to extract the packages that would be installed."""
     install_prefix = "+ "
     for line in output.splitlines():
         line = line.strip()
         if line.startswith(install_prefix):
             pkg_str = line.removeprefix(install_prefix)
-            yield Package.from_str(pkg_str)
+            yield Requirement(pkg_str)
 
 
-def get_packages_in_prefix(prefix: Path) -> Iterable[Package]:
+def get_packages_in_prefix(prefix: Path) -> Iterable[Requirement]:
     """Retrieves the packages installed under the given prefix using
     `uv pip list --prefix <prefix>`.
     """
+
+    def entry_to_req(entry: Dict[str, str]) -> Requirement:
+        extras = "'".join(entry.get("extras", []))
+        if extras:
+            extras = f"[{extras}]"
+        return Requirement(f"{entry['name']}{extras}=={entry['version']}")
+
     return map(
-        Package.from_uv_pip_list_entry,
+        entry_to_req,
         json.loads(
             sp.run(
                 ["uv", "pip", "list", "--prefix", prefix, "--format", "json"],
@@ -261,7 +234,7 @@ def get_packages_in_prefix(prefix: Path) -> Iterable[Package]:
     )
 
 
-def get_packages_in_current_env() -> Iterable[Package]:
+def get_packages_in_current_env() -> Iterable[Requirement]:
     """Retrieves the packages installed in the current environment
     using `uv pip list`.
     """

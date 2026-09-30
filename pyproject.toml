@@ -263,6 +263,7 @@ xorg-libxau = "*"
 xorg-libxdmcp = "*"
 xorg-libsm = "*"
 stress-ng = "*"
+libxcrypt = "*"
 nodejs = "*"
 squashfuse = ">=0.6.2"  # enable conda installation in container.
 cwltool = "*"

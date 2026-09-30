@@ -1,5 +1,3 @@
-from snakemake.runtime_dependencies import RuntimeDependencyManager
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -12,6 +10,8 @@ import sys
 import logging
 from pathlib import Path
 from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
+
+from snakemake.runtime_dependencies import RuntimeDependencyManager
 from snakemake import caching
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -23,8 +23,6 @@ from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegist
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
 )
-
-
 import snakemake.common.argparse
 from snakemake.api import (
     SnakemakeApi,
@@ -402,7 +400,7 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
                 return profile_candidate, profile_candidate / config_file
 
 
-def get_argument_parser(profiles=None):
+def get_argument_parser(profiles=None, with_plugins: bool = True):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
 
@@ -1706,6 +1704,27 @@ def get_argument_parser(profiles=None):
 
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
+        "--with-pkgs",
+        nargs="+",
+        default=set(),
+        type=set,
+        help="Specify global auxiliary python packages to be deployed (e.g. snakemake plugins). "
+        "They will be auto-deployed by Snakemake in an auxilliary environment in the user "
+        "cache directory of the system. Expects pip-compatible version specifications.",
+    )
+    group_deployment.add_argument(
+        "--workflow-with-pkgs",
+        nargs="+",
+        default=set(),
+        type=set,
+        help="Specify workflow-specific auxiliary python packages to be deployed "
+        "(e.g. snakemake plugins or libraries like pandas). They will be auto-deployed "
+        "by Snakemake in the --software-deployment-prefix directory. Note that this "
+        "should just be used for packages needed outside of rules. Use rule-specific "
+        "definitions for packages needed within rules. Expects pip-compatible version "
+        "specifications.",
+    )
+    group_deployment.add_argument(
         "--software-deployment-methods",
         "--software-deployment-method",
         "--deployment-methods",
@@ -1832,13 +1851,14 @@ def get_argument_parser(profiles=None):
         "Deprecated in favor of `--max-jobs-per-timespan`.",
     )
 
-    # Add namespaced arguments to parser for each plugin
-    ExecutorPluginRegistry().register_cli_args(parser)
-    StoragePluginRegistry().register_cli_args(parser)
-    ReportPluginRegistry().register_cli_args(parser)
-    LoggerPluginRegistry().register_cli_args(parser)
-    SchedulerPluginRegistry().register_cli_args(parser)
-    SoftwareDeploymentPluginRegistry().register_cli_args(parser)
+    if with_plugins:
+        # Add namespaced arguments to parser for each plugin
+        ExecutorPluginRegistry().register_cli_args(parser)
+        StoragePluginRegistry().register_cli_args(parser)
+        ReportPluginRegistry().register_cli_args(parser)
+        LoggerPluginRegistry().register_cli_args(parser)
+        SchedulerPluginRegistry().register_cli_args(parser)
+        SoftwareDeploymentPluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1855,15 +1875,15 @@ def generate_parser_metadata(parser, args):
 
 
 def parse_args(argv):
-    parser = get_argument_parser()
-
-    # first try, parse only known args and infer plugin packages
-    known_args, _ = parser.parse_known_args(argv)
-    runtime_dep_manager = RuntimeDependencyManager()
-    runtime_dep_manager.infer_plugin_packages_from_args(known_args)
-    runtime_dep_manager.deploy_plugin_packages()
+    # first try, parse only known args and deploy eventually requested global dependencies
+    known_args, _ = get_argument_parser(with_plugins=False).parse_known_args(argv)
+    runtime_dep_manager = RuntimeDependencyManager(known_args.software_deployment_prefix)
+    runtime_dep_manager.add_global_packages(*known_args.with_pkgs)
+    runtime_dep_manager.add_workflow_packages(*known_args.workflow_with_pkgs)
+    runtime_dep_manager.deploy_packages()
 
     # now all plugins are available for parsing their args
+    parser = get_argument_parser(with_plugins=True)
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
@@ -2087,7 +2107,7 @@ def args_to_api(args, parser):
 
     wait_for_files = parse_wait_for_files(args)
     output_settings = create_output_settings(args, log_handler_settings)
-    with SnakemakeApi(output_settings) as snakemake_api:
+    with SnakemakeApi(output_settings, from_cli=True) as snakemake_api:
         deployment_methods = args.software_deployment_methods
 
         try:
@@ -2151,6 +2171,8 @@ def args_to_api(args, parser):
                         deployment_prefix=args.software_deployment_prefix,
                         pinfile_prefix=args.software_deployment_pinfile_prefix,
                         not_block_search_path_envvars=args.not_block_search_path_envvars,
+                        with_pkgs=args.with_pkgs,
+                        workflow_with_pkgs=args.workflow_with_pkgs,
                     ),
                     software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=args.snakefile,
