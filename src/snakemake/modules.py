@@ -7,7 +7,7 @@ from pathlib import Path
 import types
 import re
 from typing import List, Optional, Set, Dict, Callable
-from snakemake.common import Rules
+from snakemake.common.misc import Rules
 
 from snakemake.exceptions import CreateRuleException, WorkflowError
 from snakemake.io.flags import DefaultFlags

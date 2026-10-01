@@ -51,8 +51,6 @@ class DbPersistence(PersistenceBase):
         self,
         nolock=False,
         dag=None,
-        conda_prefix=None,
-        singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
@@ -61,8 +59,6 @@ class DbPersistence(PersistenceBase):
         super().__init__(
             nolock=nolock,
             dag=dag,
-            conda_prefix=conda_prefix,
-            singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=warn_only,
             path=path,

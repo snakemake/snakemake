@@ -4,8 +4,8 @@ from snakemake.profiles import ProfileConfigFileParser
 import textwrap
 import pytest
 
-import snakemake.common as common
-from snakemake.common import is_local_file
+import snakemake.common.misc as common
+from snakemake.common.misc import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import Wildcards, InputFiles

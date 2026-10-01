@@ -20,7 +20,7 @@ from urllib.parse import quote, unquote
 
 from snakemake import utils
 from snakemake.utils import format
-from snakemake.common import (
+from snakemake.common.misc import (
     ON_WINDOWS,
     LockFreeWritableFile,
     is_local_file,
@@ -806,7 +806,7 @@ class SourceCache:
         return self._runtime_cache_path or self.runtime_cache.name
 
     def open(self, source_file, mode="r"):
-        cache_entry = self._cache(source_file)
+        cache_entry = self.cache(source_file)
         return self._open(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
     def exists(self, source_file) -> bool:
@@ -814,19 +814,19 @@ class SourceCache:
         # files in order to be able to distinguish the whether the item really does
         # not exist or is just temporarily not readable.
         try:
-            self._cache(source_file)
+            self.cache(source_file, retries=1)
         except Exception:
             return False
         return True
 
     def try_access(self, source_file):
-        self._cache(source_file)
+        self.cache(source_file)
 
     def get_path(self, source_file):
-        cache_entry = self._cache(source_file)
+        cache_entry = self.cache(source_file)
         return str(cache_entry)
 
-    def _cache_entry(self, source_file: SourceFile) -> Path:
+    def cache_entry(self, source_file: SourceFile) -> Path:
         if isinstance(source_file, HostingProviderFile):
             source_file.cache_path = self.cache_path
 
@@ -840,8 +840,8 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file: SourceFile):
-        cache_entry = self._cache_entry(source_file)
+    def cache(self, source_file: SourceFile, retries: int = 3):
+        cache_entry = self.cache_entry(source_file)
         if not cache_entry.exists():
             self._do_cache(source_file, cache_entry)
         return cache_entry

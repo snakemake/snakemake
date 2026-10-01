@@ -1,6 +1,41 @@
 # Changelog
 
 
+## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
+
+
+### Features
+
+* show diffs in unit tests ([#4289](https://github.com/snakemake/snakemake/issues/4289)) ([d6f82cb](https://github.com/snakemake/snakemake/commit/d6f82cbaa782fce2153b220c75bb149912f2c6e6))
+
+
+### Bug Fixes
+
+* guard is_edit_notebook_job check to prevent crash ([#4305](https://github.com/snakemake/snakemake/issues/4305)) ([c214a97](https://github.com/snakemake/snakemake/commit/c214a9735c394eda25d846663e65fc198537ffef))
+* Use intended executor for workflow validation in 'dryrun/touch' modes ([#3975](https://github.com/snakemake/snakemake/issues/3975)) ([73927a4](https://github.com/snakemake/snakemake/commit/73927a486340d597cc236f922d0275f0641f1fee))
+
+## [9.26.1](https://github.com/snakemake/snakemake/compare/v9.26.0...v9.26.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* missing import ([#4296](https://github.com/snakemake/snakemake/issues/4296)) ([3519bed](https://github.com/snakemake/snakemake/commit/3519bed15e38bba132eb7f85247730aaddb0cea9))
+
+## [9.26.0](https://github.com/snakemake/snakemake/compare/v9.25.2...v9.26.0) (2026-08-26)
+
+
+### Features
+
+* output workflow total elapsed time to log ([#4279](https://github.com/snakemake/snakemake/issues/4279)) ([2dd3f2f](https://github.com/snakemake/snakemake/commit/2dd3f2fdd77968f46191e3428dbccdfe3b6927a4))
+
+
+### Bug Fixes
+
+* don't delete local storage copies of currently running jobs ([#4284](https://github.com/snakemake/snakemake/issues/4284)) ([49cc1d5](https://github.com/snakemake/snakemake/commit/49cc1d5ac37a4e6258c6fa77bd43a28c71b7f29f))
+* preserve flags when formatting _IOFile ([#4286](https://github.com/snakemake/snakemake/issues/4286)) ([4cbb7a6](https://github.com/snakemake/snakemake/commit/4cbb7a6ac1a1ae3b72452bee3027d29844a10166))
+* Snakemake sometimes checks the wrong copy of an output file's info, causing spurious reruns ([#4285](https://github.com/snakemake/snakemake/issues/4285)) ([66ee0ac](https://github.com/snakemake/snakemake/commit/66ee0acbf23f9841c8a223142e277e25bd77553d))
+* update shadow directory handling and logging for incomplete jobs ([#4288](https://github.com/snakemake/snakemake/issues/4288)) ([3080698](https://github.com/snakemake/snakemake/commit/3080698ee519ad7013b82527cfd9c924483da427))
+
 ## [9.25.2](https://github.com/snakemake/snakemake/compare/v9.25.1...v9.25.2) (2026-08-18)
 
 
