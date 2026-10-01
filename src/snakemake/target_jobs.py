@@ -12,12 +12,41 @@ def parse_target_jobs_cli_args(target_jobs_args):
             if wildcards:
 
                 def parse_wildcard(entry):
-                    return parse_key_value_arg(entry, errmsg)
+                    key, value = parse_key_value_arg(entry, errmsg, strip_quotes=False)
+                    # The encoder only wraps a value in double quotes when the
+                    # value contains a comma, so a matched pair of surrounding
+                    # quotes around a comma-containing value was added by
+                    # encoding and must be removed. Quotes are otherwise part
+                    # of the wildcard value itself.
+                    if (
+                        len(value) >= 2
+                        and value[0] == value[-1] == '"'
+                        and "," in value
+                    ):
+                        value = value[1:-1]
+                    return key, value
 
                 wildcards = dict(
-                    parse_wildcard(entry) for entry in wildcards.split(",")
+                    parse_wildcard(entry)
+                    for entry in _split_at_unquoted_commas(wildcards)
                 )
                 target_jobs.append(TargetSpec(rulename, wildcards))
             else:
                 target_jobs.append(TargetSpec(rulename, dict()))
         return target_jobs
+
+
+def _split_at_unquoted_commas(arg):
+    items = []
+    buf = []
+    quoted = False
+    for char in arg:
+        if char == '"':
+            quoted = not quoted
+        elif char == "," and not quoted:
+            items.append("".join(buf))
+            buf = []
+            continue
+        buf.append(char)
+    items.append("".join(buf))
+    return items
