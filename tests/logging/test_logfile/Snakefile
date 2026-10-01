@@ -1,5 +1,20 @@
+import pandas as pd
+from dataclasses import make_dataclass
+
+Value = make_dataclass("Value", [("a", int), ("b", int)])
+
+
+class MyValue:
+    def __init__(self, value):
+        self.value = value
+
+    def get_value(self):
+        return self.value
+
+
 onsuccess:
     shell("echo {log}")
+
 
 rule all:
     input:
@@ -9,5 +24,13 @@ rule all:
 rule a:
     output:
         "results/{i}.txt",
+    params:
+        "fixed",
+        value=lambda wildcards: wildcards.i,
+        value_dc=lambda wildcards: Value(wildcards.i, wildcards.i),
+        values_df=lambda wildcards: pd.DataFrame(
+            [Value(wildcards.i, 1), Value(wildcards.i, 2), Value(wildcards.i, 3)]
+        ),
+        value_c=lambda wildcards: MyValue(wildcards.i),
     shell:
         "echo {wildcards.i} > {output}"
