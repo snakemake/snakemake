@@ -1,0 +1,18 @@
+pathvars:
+    in_func="pathvar_input_func_within_module",
+
+def final_output(wildcards):
+    return [
+        "some/<in_func>/text.txt",
+    ]
+
+rule c:
+    output:
+        "some/<in_func>/text.txt",
+    shell:
+        "touch {output}"
+
+rule final:
+    input:
+        final_output,
+    default_target: True

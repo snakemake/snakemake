@@ -27,7 +27,6 @@ module foo3:
 
 use rule * from foo3 as foo3_*
 
-
 rule all:
     default_target: True
     input:
@@ -35,7 +34,6 @@ rule all:
         "<results>/foo/text.txt",
         "<results>/foo2/text.txt",
         "<results>/custom/text.txt",
-
 
 rule a:
     output:
