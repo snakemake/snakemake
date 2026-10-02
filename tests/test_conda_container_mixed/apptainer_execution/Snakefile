@@ -1,0 +1,32 @@
+"""Test Snakefile with mixed conda and container directives.
+
+This Snakefile tests that rules with only conda or only container or both
+directives work as expected
+"""
+
+rule all:
+	input:
+		pandas_version = "pandas_version.txt",
+		numpy_version = "numpy_version.txt"
+
+
+rule get_pandas_version:
+	output:
+		"pandas_version.txt"
+	conda:
+		"pandas_v2.2.3.yaml"
+	container:
+		"docker://quay.io/biocontainers/pandas:2.2.1"
+	script:
+		# this script writes v2.2.1 in case of container execution
+		# and v2.2.3 in case of conda execution
+		"pandas_version_script.py"
+
+
+rule get_numpy_version:
+	output:
+		"numpy_version.txt"
+	conda:
+		"numpy_v2.4.2.yaml"
+	script:
+		"numpy_version_script.py"
