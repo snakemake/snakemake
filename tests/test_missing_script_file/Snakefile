@@ -1,0 +1,5 @@
+rule noscript:
+    output:
+        "temp.txt"
+    script:
+        "not_a_script.py"
