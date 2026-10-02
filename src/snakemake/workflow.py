@@ -1,11 +1,9 @@
-from typing import ClassVar
-from snakemake.deployment import EnvSpecs
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from typing import ClassVar
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 import hashlib
@@ -27,6 +25,9 @@ from datetime import datetime
 import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, Any
+
+from snakemake.runtime_dependencies import RuntimeDependencyManager
+from snakemake.deployment import EnvSpecs
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.deployment import SoftwareDeploymentManager

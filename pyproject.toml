@@ -61,9 +61,9 @@ dependencies = [
   "wrapt",
   "yte>=1.5.5,<2.0",
   "dpath>=2.1.6,<3.0.0",
-  "conda-inject>=1.3.1,<2.0",
-  "pip",
   "sqlmodel>=0.0.37,<0.0.43",
+  "flufl-lock>=9.1.0,<10",
+  "uv>=0.11.8,<0.12",
 ]
 
 [project.urls]
@@ -239,7 +239,7 @@ snakemake-executor-plugin-cluster-generic = "*"
 snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
-snakemake-software-deployment-plugin-conda = ">=0.8.1,<1.0.0"
+snakemake-software-deployment-plugin-conda = ">=0.8.4,<1.0.0"
 snakemake-software-deployment-plugin-container = ">=0.7.5,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
@@ -263,6 +263,7 @@ xorg-libxau = "*"
 xorg-libxdmcp = "*"
 xorg-libsm = "*"
 stress-ng = "*"
+libxcrypt = "*"
 nodejs = "*"
 squashfuse = ">=0.6.2"  # enable conda installation in container.
 cwltool = "*"

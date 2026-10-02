@@ -9,6 +9,8 @@ from itertools import chain
 import os
 import sys
 from typing import Callable, Mapping, TypeVar, TYPE_CHECKING, Any
+
+from packaging.requirements import Requirement
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
@@ -176,20 +178,6 @@ class SpawnedJobArgsFactory:
         if self.workflow.remote_execution_settings.precommand:
             precommand.append(self.workflow.remote_execution_settings.precommand)
 
-        # TODO: rename the setting to auto_deploy_plugins and generalize the code below
-        # or maybe better, always auto-deploy plugins whenever needed in the workflow
-        # or explicitly requested via the settings.
-        if executor_common_settings.auto_deploy_default_storage_provider:
-            packages_to_install = set(
-                StoragePluginRegistry().get_plugin_package_name(plugin_name)
-                for plugin_name in StoragePluginRegistry().get_registered_plugins()
-            )
-            if packages_to_install:
-                pkgs = " ".join(sorted(packages_to_install))
-                precommand.append(
-                    f"pip install --target '{PIP_DEPLOYMENTS_PATH}' {pkgs}"
-                )
-
         if (
             SharedFSUsage.SOURCES not in self.workflow.storage_settings.shared_fs_usage
             and self.workflow.remote_execution_settings.job_deploy_sources
@@ -351,6 +339,35 @@ class SpawnedJobArgsFactory:
             )
         if executor_common_settings.pass_group_args:
             args.append(self.get_group_args())
+
+        # TODO: rename the setting to auto_deploy_plugins and generalize the code below
+        # or maybe better, always auto-deploy plugins?
+        if (
+            executor_common_settings.auto_deploy_default_storage_provider
+            or self.workflow.deployment_settings.with_pkgs
+            or self.workflow.deployment_settings.workflow_with_pkgs
+        ):
+            with_pkg_names = {
+                Requirement(spec).name
+                for spec in chain(
+                    self.workflow.deployment_settings.with_pkgs,
+                    self.workflow.deployment_settings.workflow_with_pkgs,
+                )
+            }
+            legacy_plugin_packages = set(
+                StoragePluginRegistry().get_plugin_package_name(plugin_name)
+                for plugin_name in StoragePluginRegistry().get_registered_plugins()
+            )
+            workflow_with_pkgs = [
+                name for name in legacy_plugin_packages if name not in with_pkg_names
+            ] + list(self.workflow.deployment_settings.workflow_with_pkgs)
+
+            if self.workflow.deployment_settings.with_pkgs:
+                args.extend(
+                    ["--with-pkgs", *self.workflow.deployment_settings.with_pkgs]
+                )
+            if workflow_with_pkgs:
+                args.extend(["--workflow-with-pkgs", *workflow_with_pkgs])
 
         from snakemake.logging import logger
 
