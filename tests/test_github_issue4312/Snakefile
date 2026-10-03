@@ -1,0 +1,26 @@
+rule all:
+    input:
+        "d"
+
+checkpoint chp:
+    output:
+        directory('a')
+    shell:
+        "mkdir {output} && touch {output}/b {output}/c"
+
+def get_rule_input(wildcards):
+    chp_dir = checkpoints.chp.get(**wildcards).output[0]
+    return dict(
+        b=os.path.join(chp_dir, "b"),
+        c=os.path.join(chp_dir, "c"),
+    )
+
+rule testrule:
+    input:
+        unpack(get_rule_input)
+    output:
+        "d"
+    params:
+        testparam=lambda w, input: f"{input.b}"
+    shell:
+        "echo {params.testparam} > {output}"
