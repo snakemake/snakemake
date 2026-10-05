@@ -46,6 +46,9 @@ rule alt_intermediate:
 # input function for the rule aggregate
 def aggregate_input(wildcards):
     # decision based on content of output file
+    # Important: use the method open() of the returned file!
+    # This way, Snakemake is able to automatically download the file if it is generated in
+    # a cloud environment without a shared filesystem.
     with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
         if f.read().strip() == "a":
             return "results/post/{sample}.txt"
