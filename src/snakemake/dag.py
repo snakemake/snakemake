@@ -2144,7 +2144,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
 
-        async def is_output_present(job):
+        async def is_output_present(job: Job):
             return (self.finished(job) or not self.needrun(job)) and all(
                 await asyncio.gather(*(out.exists() for out in job.output))
             )

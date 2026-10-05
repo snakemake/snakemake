@@ -144,18 +144,10 @@ class Namedlist(list, Generic[_TNamedList]):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
+                # After this, file will be converted to plain string.
+                # Exception: if the file is typed, should be converted to instance of assigned class
                 self.extend(
-                    # use original query if storage is not retrieved by snakemake
-                    (
-                        (
-                            str(x)
-                            if x.storage_object.retrieve
-                            else x.storage_object.query
-                        )
-                        if isinstance(x, _IOFile) and x.storage_object is not None
-                        else str(x)
-                    )
-                    for x in toclone
+                    (x.plainstr if isinstance(x, _IOFile) else str(x)) for x in toclone
                 )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
@@ -296,7 +288,7 @@ class InputFiles(Namedlist):
             from snakemake.io import _IOFile
 
             async def get_size(f: _IOFile) -> Optional[int]:
-                if await predicate(f):
+                if isinstance(f, _IOFile) and await predicate(f):
                     return await f.size()
                 return None
 

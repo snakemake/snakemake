@@ -2291,6 +2291,124 @@ Note that you can also use `lambda expressions <https://docs.python.org/3/tutori
 
 Often, it is a good idea to combine ``ensure`` annotations with :ref:`retry definitions <snakefiles_retries>`, e.g. for retrying upon invalid checksums or empty files.
 
+
+.. _tutorial-typed:
+
+Using the ``typed`` function
+----------------------------
+
+The ``typed`` function wraps an output file path with a specific type, enabling structured serialization and deserialization of typed objects directly within Snakemake rules.
+
+Declare an output data structure and reference it in a rule (or checkpoint rule)::
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class MyType:
+        some_threshold: float
+        filestems: list[str]
+
+    checkpoint a:
+        output:
+            meta=typed("metadata/{dataset}.json", MyType)
+        run:
+            output.meta.dump(some_threshold=0.3, filestems=["a"])
+
+The ``dump`` method constructs an instance of ``MyType`` from the given keyword arguments and serializes it to the declared file path as JSON.
+The type passed to ``typed`` can be a ``dataclass``, a ``NamedTuple``, a Pydantic v2 model, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
+Callers of ``dump()`` supply constructor arguments without needing to import the associated class.
+
+.. note::
+   In this example, the structured data is serialized as JSON, so field values must be JSON serializable.
+   Pydantic models are converted using ``model_dump(mode="json")``, which can convert fields such as ``Path`` to strings; dataclass and NamedTuple fields do not receive this conversion automatically.
+   Runtime type checking is not enforced; use a validated type like `pydantic.BaseModel <https://docs.pydantic.dev/latest/api/base_model/>`_ if strict validation is required.
+
+Accessing typed output
+~~~~~~~~~~~~~~~~~~~~~~
+
+In downstream rules, typed files can be accessed directly via ``rules.<name>.output.<field>``.
+The ``.load()`` method reads the file back and returns a typed instance whose fields are accessible via attribute syntax.
+To retrieve the underlying file path as a string, use ``str()``.
+
+- Call ``.load()`` to deserialize on demand::
+
+      rule b:
+          input:
+              meta=rules.a.output.meta
+          output:
+              "thresholds/{dataset}.txt"
+          run:
+              val = input.meta.load().some_threshold
+              shell("echo {val} > {output}")
+
+Scattering over typed output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When combined with checkpoints, ``typed`` enables structured access to deserialized objects in input functions.
+This pattern avoids parsing raw text files and maintains a typed interface between the checkpoint and its consumers::
+
+    def get_processed(wildcards):
+        out = checkpoints.a.get(**wildcards).output
+        meta = out.meta.load()
+        for f in meta.filestems:
+            yield f"processed/{wildcards.dataset}/{f}.txt"
+
+    rule process:
+        output:
+            touch("processed/{dataset}/{item}.txt")
+
+    rule d:
+        input:
+            get_processed
+        output:
+            "results/{dataset}.txt"
+        shell:
+            "cat {input} > {output}"
+
+Supported file formats
+~~~~~~~~~~~~~~~~~~~~~~
+
+The file format can be inferred automatically from the file extension, or manually selected like ``typed(file, "csv")``.
+Supported formats include: json, yaml/yml, toml, pkl/pickle, npy, npz, csv, tsv, parquet, xlsx.
+
+Compressed files (``.gz``, ``.bz2``, ``.xz``) are transparently supported for text-based formats such as JSON and YAML.
+The format is resolved from the inner extension::
+
+    typed("results/{sample}.json.gz", MyType)   # gzip-compressed JSON
+
+Using ``typed`` with custom loaders and dumpers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When working with tabular data, a type wrapper is often unnecessary.
+Passing a file format name as ``type_`` returns a string file path whose ``.load()`` returns the raw object (e.g. a ``DataFrame``) and ``.dump(obj)`` writes it back::
+
+    checkpoint a:
+        output:
+            table=typed("counts/{dataset}.csv", "csv")
+        run:
+            import pandas as pd
+            df = pd.DataFrame({"sample": ["a", "b"]})
+            output.table.dump(df)
+
+    def get_samples(wildcards):
+        out = checkpoints.a.get(**wildcards).output
+        df: "pd.DataFrame" = out.table.load()
+        return df["sample"].tolist()
+
+A callable loader receives the path and returns its result directly; a callable dumper receives ``(obj, path)`` and accepts an already constructed object via ``dump(obj)``.
+The ``loader`` and ``dumper`` arguments also accept ``str`` (format name),
+allowing full customisation without subclassing::
+
+    # select JSON as the file format by dumper, so it is applied to the loader by default
+    typed("results/data.out", MyType, dumper="json")
+
+    # use a custom loader; writing is disabled
+    typed("results/data.json", loader=MyClass.load)
+
+When ``type_`` is a class or is omitted, supplying a file format name as ``dumper`` also configures the matching reader unless ``loader`` is explicitly supplied.
+Otherwise, supplying only one of ``loader`` or ``dumper`` disables the other operation, which raises ``ValueError`` when called, unless ``type_`` supplies a default file format.
+When ``type_`` is a file format name, supplying both ``loader`` and ``dumper`` raises ``ValueError`` because they completely override that format.
+
 Shadow rules
 ------------
 
@@ -3151,6 +3269,13 @@ As can be seen, the rule aggregate uses an input function.
     Instead, you can simply use normal parameter or resource functions that just assume that those output files are there. Snakemake will evaluate them immediately before
     the job is scheduled, when the required files from upstream rules are already present.
 
+.. note::
+
+    Currently, you can use the ``typed`` function (see :ref:`tutorial-typed`) to declare structured output files on a checkpoint,
+    and use ``checkpoints.somestep.get(**wildcards).output[0].load()`` to access the structured output of the checkpoint,
+    without manually parsing files.
+
+
 Inside the function, we first retrieve the output files of the checkpoint ``somestep`` with the wildcards, passing through the value of the wildcard sample.
 Upon execution, if the checkpoint is not yet complete, Snakemake will record ``somestep`` as a direct dependency of the rule ``aggregate``.
 Once ``somestep`` has finished for a given sample, the input function will automatically be re-evaluated and the method ``get`` will no longer return an exception.
@@ -3178,7 +3303,6 @@ Consider the following example where an arbitrary number of files is generated b
       cd my_directory
       for i in 1 2 3; do touch $i.txt; done
       '''
-
 
 
   # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
