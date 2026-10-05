@@ -2,10 +2,7 @@ import base64
 import mimetypes
 import os
 from pathlib import Path
-from snakemake.common import is_local_file
 from snakemake.logging import logger
-
-from snakemake_interface_common.exceptions import WorkflowError
 
 
 def data_uri(data, filename, encoding="utf8", mime="text/plain"):

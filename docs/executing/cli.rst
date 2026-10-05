@@ -15,7 +15,7 @@ Important environment variables
 -------------------------------
 
 Snakemake caches source files for performance and reproducibility.
-The location of this cache is determined by the `appdirs <https://github.com/ActiveState/appdirs>`_ package.
+The location of this cache is determined by the `platformdirs <https://platformdirs.readthedocs.io/>`_ package.
 If you want to change the location on a unix/linux system, you can define an override path via the environment variable ``XDG_CACHE_HOME``.
 
 .. user_manual-snakemake_options:
@@ -30,7 +30,14 @@ If called with the number of cores to use, i.e.
 
     $ snakemake --cores 1
 
-Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
+Snakemake tries to execute the workflow specified in a file called ``workflow/Snakefile`` or ``Snakefile`` relative to the same directory (alternatively, the snakefile can be given via the parameter ``-s``).
+
+The ``--snakefile`` or ``-s`` argument can point to either a local file or an HTTP/HTTPS URL.
+In the latter case, relative ``include`` statements are resolved relative to the remote Snakefile location.
+As a convenience syntax, hosted source files can also be referenced as ``gh:owner/repo@ref:path/to/Snakefile``, ``gh:github.example.org:owner/repo@ref:path/to/Snakefile``, ``gl:group/project@ref:path/to/Snakefile``, or ``gl:gitlab.example.org:group/project@ref:path/to/Snakefile``. If the final path is omitted, Snakemake assumes ``workflow/Snakefile``.
+
+.. note::
+    Note that referring to remote workflows via ``-s`` will only retrieve the snakefiles and everything directly referred by them, allowing an ad-hoc run. For workflows that expect configuration files or provide workflow profiles, it is usually more convenient to use `snakedeploy <https://snakedeploy.readthedocs.io/en/stable/workflow_users/workflow_deployment.html>`__ to retrieve a complete and templated instance.
 
 By issuing
 
@@ -121,9 +128,9 @@ Adapting runs of Snakemake workflows to a particular computing environment can e
 Therefore, since Snakemake 4.1, it is possible to set default options in configuration profile files in YAML format.
 Two kinds of profiles are supported:
 
-1. **:ref:`global-profiles`** are used to define default options for a particular system or compute environment, like the default cluster submission command, the default number of jobs to run in parallel or the default amount of memory to reserve for a job.
+1. :ref:`global-profiles` are used to define default options for a particular system or compute environment, like the default cluster submission command, the default number of jobs to run in parallel or the default amount of memory to reserve for a job.
    They should be applicable to all Snakemake workflows a user runs in that compute environment.
-2. A **:ref:`workflow-specific-profile`** profile (introduced in Snakemake 7.29) is used to define default and rule-specific :ref:`snakefiles-resources` specifications for a particular workflow instance. 
+2. A :ref:`workflow-specific-profile` profile (introduced in Snakemake 7.29) is used to define default and rule-specific :ref:`snakefiles-resources` specifications for a particular workflow instance.
 
 .. _profile-files:
 
@@ -181,13 +188,17 @@ These enable ``profile.yaml`` entries like:
 .. code-block:: yaml
 
     default-resources:
-      mem_mb: max(1.5 * input.size_mb, 100)
+      mem_mb: "max(1.5 * input.size_mb, 100)"
     set-threads:
-      myrule: max(input.size_mb / 5, 2)
+      myrule: "max(input.size_mb / 5, 2)"
     set-resources:
       myrule:
-        mem_mb: attempt * 200
+        mem_mb: "attempt * 200"
 
+.. note::
+
+    For profile entries with :ref:`dynamic resource <snakefiles-dynamic-resources>` definitions, it helps to always quote the python code used.
+    Otherwise, those statements can render the YAML syntax invalid, leading to respective errors during linting or at runtime.
 
 Also, values in profiles can make use of globally available environment variables, for example the ``$USER`` variable.
 For example, the following entry would set the default prefix for storing local copies of remote storage files to a user specific directory
@@ -551,4 +562,3 @@ All Options
    :prog: snakemake
 
    All command line options can be printed by calling ``snakemake -h``.
-

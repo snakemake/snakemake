@@ -1,0 +1,50 @@
+rule all:
+    input:
+        "test_basic.out",
+        "test_single.out",
+         "test_unnamed_input.out",
+        "test_no_space.out",
+
+
+rule:
+    params:
+        data=prepend_param("--input", input.data),
+    input:
+        data=['1.dat', '2.dat', '3.dat'],
+    output:
+        'test_basic.out'
+    shell:
+        '''python test.py {params.data} > {output}'''
+
+
+rule:
+    params:
+        data=prepend_param("--input", input.data),
+    input:
+        data="1.dat",
+    output:
+        'test_single.out'
+    shell:
+        '''python test.py {params.data} > {output}'''
+
+
+rule:
+    params:
+        data=prepend_param("--input", input),
+    input:
+        "1.dat",
+    output:
+        'test_unnamed_input.out'
+    shell:
+        '''python test.py {params.data} > {output}'''
+
+
+rule:
+    params:
+        data=prepend_param("-I", input.data, space=False),
+    input:
+        data=['1.dat', '2.dat', '3.dat'],
+    output:
+        'test_no_space.out'
+    shell:
+       '''echo {params.data} > {output}'''

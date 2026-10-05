@@ -1,0 +1,15 @@
+container: "docker://master_image"
+
+
+module mymodule:
+    snakefile:
+        "module/Snakefile"
+
+
+use rule * from mymodule
+
+
+rule all:
+    default_target: True
+    input:
+        "result.txt",

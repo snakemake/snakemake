@@ -1,7 +1,7 @@
 rule a:
     output:
-        "1.txt",
-        "2.txt",
+        first="1.txt",
+        second="2.txt",
     cache: True
     shell:
         "touch {output}"
