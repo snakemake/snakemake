@@ -35,8 +35,8 @@ rule combine:
 def get_batches_pairs(src_lang, trg_lang):
     src_batches = []
     trg_batches = []
-    with open(checkpoints.shard.get(lang=src_lang).output[0]) as src_f, \
-            open(checkpoints.shard.get(lang=trg_lang).output[0]) as trg_f:
+    with checkpoints.shard.get(lang=src_lang).output[0].open() as src_f, \
+            checkpoints.shard.get(lang=trg_lang).output[0].open() as trg_f:
         for line in src_f:
             src_batches.append(line.strip().split('/')[-2:])
         for line in trg_f:

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from snakemake_interface_common.io import AnnotatedStringInterface
 
 
 @dataclass
@@ -26,6 +27,7 @@ checkpoint a:
     params:
         l="{dataset}",
     run:
+        assert not isinstance(output.meta, AnnotatedStringInterface)
         shell("mkdir -p {output.outdir}")
         shell("cd {output.outdir} && touch a b c")
         filestems = [i.stem for i in Path(output.outdir).iterdir()]
@@ -41,6 +43,7 @@ rule b:
     run:
         val = input.meta.load().some_threshold
         assert isinstance(input.meta, str)
+        assert not isinstance(input.meta, AnnotatedStringInterface)
         shell("echo {val} {input.meta} > {output}")
 
 

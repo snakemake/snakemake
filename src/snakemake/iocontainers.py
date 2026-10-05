@@ -288,8 +288,8 @@ class InputFiles(Namedlist):
             from snakemake.io import _IOFile
 
             async def get_size(f: _IOFile) -> Optional[int]:
-                if await predicate(f):
-                    return await f.size()  # type: ignore[reportCallIssue]
+                if isinstance(f, _IOFile) and await predicate(f):
+                    return await f.size()
                 return None
 
             sizes = await asyncio.gather(*map(get_size, self))

@@ -1,5 +1,5 @@
 def get_input(wildcards):
-    with open(checkpoints.a.get().output[0]) as f:
+    with checkpoints.a.get().output[0].open() as f:
         f.read()
         return "test.txt"
 

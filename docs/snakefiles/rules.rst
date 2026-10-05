@@ -3242,7 +3242,7 @@ To illustrate the possibilities of this mechanism, consider the following comple
   # input function for the rule aggregate
   def aggregate_input(wildcards):
       # decision based on content of output file
-      with open(checkpoints.somestep.get(sample=wildcards.sample).output[0]) as f:
+      with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
           if f.read().strip() == "a":
               return "post/{sample}.txt"
           else:

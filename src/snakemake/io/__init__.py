@@ -513,7 +513,7 @@ class _IOFile(AnnotatedStringFormatMixin, str):  # type: ignore[reportIncompatib
             )
 
     @property
-    def plainstr(self):
+    def plainstr(self) -> str:
         """
         Use original query if storage is not retrieved by snakemake
         Decorated by typed if set

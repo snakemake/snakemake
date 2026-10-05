@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING
 from snakemake.exceptions import IncompleteCheckpointException, WorkflowError
-from snakemake.io import checkpoint_target
+from snakemake.io import _IOFile, checkpoint_target, get_flag_value
 from snakemake.logging import logger
 
 if TYPE_CHECKING:
     from snakemake.rules import Rule
-    from snakemake.io.container import OutputFiles
+    from snakemake.iocontainers import OutputFiles
+    from snakemake.io.typed import _TypedFile
 
 
 class Checkpoints:
@@ -77,16 +78,28 @@ class Checkpoint:
         raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
 
 
+class CheckpointTypedFile(_IOFile):
+    """A resolved checkpoint output with synchronous typed content access."""
+
+    def load(self):
+        """Synchronously read this checkpoint output using its typed loader."""
+        x = self.plainstr
+        if TYPE_CHECKING:
+            assert isinstance(x, _TypedFile)
+        return x.load()
+
+
+def typed_guard(iofile: _IOFile):
+    typed_factory = get_flag_value(iofile, "typed")
+    if typed_factory:
+        return CheckpointTypedFile(iofile, iofile.rule)
+    return iofile
+
+
 class CheckpointJob:
     __slots__ = ["rule", "output"]
 
     def __init__(self, rule: "Rule", output: "OutputFiles"):
-        # Convert _IOFile objects to their plain string (or TypedFile) equivalents,
-        # matching the format of `output` as seen inside `run`/`shell` blocks.
-        #
-        # Previously this held raw _IOFile objects, which leaked an internal async
-        # API into the synchronous input-function context where it cannot be used.
-        # Unifying the format means `checkpoints.somestep.get().output.meta` behaves
-        # identically whether accessed in an input function or a run block.
-        self.output = output._plainstrings()
+        # Keep file flags and names when outputs are reused as downstream inputs.
+        self.output = output.__class__(toclone=output, custom_map=typed_guard)
         self.rule = rule
