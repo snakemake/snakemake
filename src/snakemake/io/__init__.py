@@ -303,7 +303,7 @@ class AnnotatedStringFormatMixin(AnnotatedStringInterface):
         return formatted
 
 
-class _IOFile(AnnotatedStringFormatMixin, str):
+class _IOFile(AnnotatedStringFormatMixin, str):  # type: ignore[reportIncompatibleMethodOverride]
     """
     A file that is either input or output of a rule.
     """
@@ -1061,7 +1061,7 @@ class _IOFile(AnnotatedStringFormatMixin, str):
         return self._file.__hash__()
 
 
-class AnnotatedString(AnnotatedStringFormatMixin, str):
+class AnnotatedString(AnnotatedStringFormatMixin, str):  # type: ignore[reportIncompatibleMethodOverride]
     def __init__(self, value):
         self._flags = {}
         self.callable = value if is_callable(value) else None
@@ -1759,7 +1759,7 @@ def is_multiext_items(
     )
 
 
-def typed(value, type_, loader=None, dumper=None):
+def typed(value, type_=None, loader=None, dumper=None):
     """
     Flag the file(=value) as a specific format(=type_).
     value must be a single file
@@ -1767,7 +1767,7 @@ def typed(value, type_, loader=None, dumper=None):
     v = flag(value, "typed", None)
     if not isinstance(v, AnnotatedStringInterface):
         raise ValueError("typed can only be used on single files")
-    return flag(v, "typed", typed_factory(type_, loader=loader, dumper=loader))  # type: ignore[call-overload]
+    return flag(v, "typed", typed_factory(type_, loader=loader, dumper=dumper))  # type: ignore[call-overload]
 
 
 def limit(pattern: Union[str, AnnotatedString], **wildcards):

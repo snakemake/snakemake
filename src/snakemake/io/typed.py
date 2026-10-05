@@ -4,17 +4,26 @@ import sys
 T = TypeVar("T")
 
 
+def disabled_func(disabled: str, supplied: str):
+    def _(*args, **kwargs):
+        raise ValueError(
+            f"{disabled} is disabled when {supplied} is supplied without {disabled}. "
+        )
+
+    return _
+
+
 class _TypedFile(str, Generic[T]):
 
-    _loader: Callable[[str], T]
-    _dumper: Callable[[T, str], None]
+    _loader: Callable[[str], T] = disabled_func("loader", "dumper")
+    _dumper: Callable[[T, str], Any] = disabled_func("dumper", "loader")
 
     def dump(self, obj: T):
-        """Construct an instance of type_ and serialize it to the file as JSON."""
+        """Write the supplied object using the configured dumper."""
         self._dumper(obj, self)
 
     def load(self):
-        """Deserialize the file and return an instance of type_."""
+        """Read the file using the configured loader and return its result."""
         return self._loader(self)  # type: ignore[arg-type]
 
 
@@ -22,9 +31,12 @@ class TypedFile(_TypedFile, Generic[T]):
     """
     A file path associated with a specific type for structured serialization.
 
-    Behaves as a plain string (file path) in all contexts, but provides ``dump()`` and ``load()`` methods to serialize and deserialize instances of the associated type to and from disk as JSON.
+    Behaves as a string file path, with ``dump()`` and ``load()`` methods
+    that construct instances of the associated type when writing and reading.
+    Custom callable dumpers and loaders replace these methods entirely.
 
-    The associated type must be convertible to a dict (see :func:`typed_to_dict`).
+    Formats that serialize mappings require instances to be convertible to
+    dictionaries (see :func:`typed_to_dict`).
     Type annotations serve as documentation only; no runtime type checking is performed.
     """
 
@@ -36,12 +48,12 @@ class TypedFile(_TypedFile, Generic[T]):
         return self
 
     def dump(self, *args, **kwargs):
-        """Construct an instance of type_ and serialize it to the file as JSON."""
+        """Construct ``type_(*args, **kwargs)`` and write it using the dumper."""
         obj = self.type_(*args, **kwargs)
         self._dumper(obj, self)
 
     def load(self):
-        """Deserialize the file and return an instance of type_."""
+        """Read a mapping using the loader and return ``type_(**data)``."""
         return self.type_(**self._loader(self))  # type: ignore[arg-type]
 
 
@@ -50,73 +62,119 @@ def typed_factory(
     type_: "None | str" = None,
     *,
     loader: "None | str | Callable[[str], T]" = None,
-    dumper: "None | str | Callable[[T, str], None]" = None,
+    dumper: "None | str | Callable[[T, str], Any]" = None,
 ) -> Callable[[str], _TypedFile[T]]: ...
 @overload
 def typed_factory(
     type_: "Type[T]",
     *,
     loader: "None | str | Callable[[str], T]" = None,
-    dumper: "None | str | Callable[[T, str], None]" = None,
+    dumper: "None | str | Callable[[T, str], Any]" = None,
 ) -> Callable[[str], TypedFile[T]]: ...
 def typed_factory(  # type: ignore[reportInconsistentOverloads]
     type_: "None | str | Type[T]" = None,
     *,
     loader: "None | str | Callable[[str], T]" = None,
-    dumper: "None | str | Callable[[T, str], None]" = None,
+    dumper: "None | str | Callable[[T, str], Any]" = None,
 ):
     """
-    Returns a constructor for TypedFile bound to the given type.
+    Return a constructor that accepts a path and creates a string subclass.
 
-    To determe how to load data from file, it could be:
-    1. file type<str> => will be used to resolve the file format, and new a `T(**value)` instance.
-    2. <None>         => file type will be inferred from actual file name, then follow 1.
-    3. Callable[[str], type_] => ignore file type and replace default `.load(` method. Can be sth like `T.load` (classmethod called by `T.load(file)`) or `pd.read_csv`.
+    The subclass behaves as a plain string (file path) in all contexts,
+    but provides ``dump()`` and ``load()`` methods to write and read
+    instances of the associated type to and from disk.
+    Constructing it does not perform I/O.
 
-    To determe hwo to dump data to file, it could be:
-    1. file type<str> => will be used to resolve the file format, then a `T(**value)` instance will be first generated.
-                         For file types that should be converted to dict (e.g., json),
-                         class `T` should be NamedTuple/Dataclass/[objects with asdict function],
-                         and the `T(**value)` instance will be converted to dict before dumping.
-    2. <None>         => file type will be inferred from actual file name (prior) or loader (only if it is a string), then follow 1.
-    3. Callable[[T, str], None] => ignore file type and replace default `.dump(` method. Can be sth like `T.dump` (normally called by `T(sth).dump(file)`) or `pd.write_csv`.
+    ``type_`` controls object construction and default format selection:
+    ---
+    * ``Type`` (a class).
+      ``load()`` constructs ``T(**data)`` from the decoded mapping and
+      ``dump(*args, **kwargs)`` constructs ``T(*args, **kwargs)`` before writing.
+    * ``str`` (A file format name), such as "json", "csv", or "json.gz",
+      supplies defaults for any unspecified ``loader`` and ``dumper``
+      via ``resolve_file_format`` (see below).
+      In this case, supplying both ``loader`` and ``dumper`` is invalid.
+
+    ``loader`` selects how to read the file:
+    ---
+    * ``str`` (A file format name)
+      The decoded ``value`` is returned as ``T(**value)``
+      when ``type_`` is a class, or directly otherwise.
+    * ``Callable[[str], T]`` (receives the path),
+      e.g., ``pd.read_csv`` or a class method ``T.load``.
+      It overrides ``load()`` to return its result directly.
+
+    ``dumper`` selects how to write the file:
+    ---
+    * ``str`` (A file format name).
+      Formats such as JSON, YAML, and TOML convert the object to a dict.
+      convert ``obj: T`` using ``obj.asdict()``
+      if ``T`` is not dataclass, NamedTuple, or a Pydantic model.
+    * ``Callable[[T, str], Any]`` (save ``T`` to path),
+      e.g., ``pd.DataFrame.to_csv``.
+      It overrides ``dump()`` to accept an already constructed object.
+
+    If any of ``loader`` or ``dumper`` is not set:
+    ---
+    * ``(type_: str)`` (only ``type_`` supplied a file format name)
+      equivalent to ``(loader=type_, dumper=type_)``.
+    * ``(type_: str, loader: str | Callable)``
+      and ``(type_: str, dumper: str | Callable)``
+      equivalent to ``(loader=loader, dumper=type_)``
+      and ``(loader=type_, dumper=dumper)``, respectively.
+    * ``(type_: Type[T])`` (only ``type_`` supplied a class)
+      both are inferred from the path suffix.
+    * ``(type_: Type[T] | None, dumper: str)``
+      (``type_`` is a class or is omitted, with a file format name for ``dumper``)
+      equivalent to ``(type_=type_, loader=dumper, dumper=dumper)``.
+    * ``(type_: Type[T] | None, dumper: Callable)``
+      (``type_`` is a class or is omitted, with a callable for ``dumper``)
+      dumper is replaced entirely, so loader cannot be inferred automatically.
+      a ``ValueError`` is raised if ``load()`` is called
+    * ``(type_: Type[T] | None, loader: Callable | str)``
+      loader is replaced entirely, so dumper cannot be inferred automatically.
+      a ``ValueError`` is raised if ``dump(*args, **kwargs)`` is called
     """
     typed_ = _TypedFile
     if type_ is None:
-        assert loader or dumper
+        if not (loader or dumper):
+            raise ValueError(
+                "At least one of type_, loader, or dumper must be supplied"
+            )
     elif isinstance(type_, str):
-        loader = loader or type_
+        if not loader:
+            loader = type_
+        elif dumper:
+            raise ValueError(
+                f"Declared file format '{type_}' is completely overridden"
+                " by supplied loader and dumper,"
+                " please omit it or supply only one of loader or dumper"
+            )
         dumper = dumper or type_
     else:
         typed_ = lambda file: TypedFile(file, type_)  # type: ignore[assignment]
 
     def _(file: str):
-        typed_file: _TypedFile[T] | TypedFile[T] = typed_(file)
-        loader_set = False
-        if loader:
-            loader_set = True
-            if isinstance(loader, str):
-                typed_file._loader, _dumper = resolve_file_format(loader)
-            else:
-                typed_file.load = lambda: loader(typed_file)  # type: ignore[method-assign]
+        typed_file: _TypedFile[T] = typed_(file)
         if dumper:
             if isinstance(dumper, str):
-                if dumper == loader:
-                    typed_file._dumper = _dumper
-                else:
-                    typed_file._dumper = resolve_file_format(dumper)[1]
+                default_loader, typed_file._dumper = resolve_file_format(dumper)
+                if not loader:
+                    typed_file._loader = default_loader
             else:
                 typed_file.dump = lambda obj: dumper(obj, typed_file)  # type: ignore[method-assign, misc]
-        else:
-            try:
-                _loader, typed_file._dumper = resolve_file_format(file)
-            except NotImplementedError:
-                if isinstance(loader, str):
-                    typed_file._dumper = _dumper
+
+        if loader:
+            if isinstance(loader, str):
+                if loader == dumper:
+                    typed_file._loader = default_loader
                 else:
-                    raise
-            if not loader_set:
-                typed_file._loader = _loader
+                    typed_file._loader = resolve_file_format(loader)[0]
+            else:
+                typed_file.load = lambda: loader(typed_file)  # type: ignore[method-assign]
+        elif not dumper:
+            typed_file._loader, typed_file._dumper = resolve_file_format(file)
+
         return typed_file
 
     return _

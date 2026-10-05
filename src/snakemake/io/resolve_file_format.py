@@ -4,7 +4,7 @@ from typing import Callable, Any, Tuple
 
 def typed_to_dict(obj):
     """
-    Convert NamedTuple/Dataclass/[objects with asdict function] to json.
+    Convert NamedTuple/Dataclass/[objects with asdict function] to a dict.
     All the key must be valid varnames and all the values must be json serializable.
     """
     if dataclasses.is_dataclass(obj):
@@ -13,12 +13,14 @@ def typed_to_dict(obj):
     elif isinstance(obj, tuple):
         if hasattr(obj, "_asdict"):  # NamedTuple
             return obj._asdict()  # type: ignore[reportAttributeAccessIssue]
-    elif hasattr(obj, "asdict"):
-        return obj.asdict()  # type: ignore[reportAttributeAccessIssue]
+    elif callable(getattr(obj, "model_dump", None)):  # Pydantic
+        return obj.model_dump(mode="json")
+    elif callable(getattr(obj, "asdict", None)):
+        return obj.asdict()
     raise NotImplementedError(f"Cannot convert {type(obj)} to dict")
 
 
-def _compressed_mode(mode: str) -> str:
+def _compressed_mode(mode: str):
     return mode if "b" in mode else f"{mode}t"
 
 

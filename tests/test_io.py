@@ -254,7 +254,7 @@ def test_typed():
     objd = {"a": 1, "b": [1, 2, 3]}
     obj = _CustomType(**objd)
     with TemporaryDirectory() as tmpdir:
-        typed, file = typed_factory(_CustomType, loader="yaml"), "test.yaml"
+        typed, file = typed_factory(_CustomType, dumper="yaml"), "test.yaml"
         assert dump_load(**objd) == obj
         typed, file = typed_factory("pkl"), "test.pkl"
         assert dump_load(objd) == objd
@@ -275,6 +275,32 @@ def test_typed():
         assert dump_load(df).drop(columns="Unnamed: 0").equals(df)
         typed, file = typed_factory("tsv"), "test.tsv"
         assert dump_load(df).equals(df)
+
+
+def test_typed_format_defaults(tmp_path):
+    import json
+
+    obj = _CustomType(a=1, b=[2, 3])
+    path = tmp_path / "data.yaml"
+    file = typed_factory(_CustomType, dumper="json")(str(path))
+    file.dump(*obj)
+    assert json.loads(path.read_text()) == obj._asdict()
+    assert file.load() == obj
+
+    for loader in ("json", lambda path: obj):
+        file = typed_factory(_CustomType, loader=loader)(str(path))
+        assert file.load() == obj
+        with pytest.raises(ValueError, match="dumper is disabled"):
+            file.dump(*obj)
+
+    file = typed_factory(_CustomType, dumper=lambda obj, path: None)(str(path))
+    with pytest.raises(ValueError, match="loader is disabled"):
+        file.load()
+
+    file = typed_factory(_CustomType, loader="yaml", dumper="json")(str(path))
+    file.dump(*obj)
+    assert json.loads(path.read_text()) == obj._asdict()
+    assert file.load() == obj  # YAML can also read JSON mappings.
 
 
 def test_typed_compress():

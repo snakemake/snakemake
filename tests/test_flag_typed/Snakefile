@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class MyType:
     some_threshold: float
@@ -14,16 +15,16 @@ class MyType:
 rule all:
     input:
         "direct1.txt",
-        "reduced2.txt"
+        "reduced2.txt",
 
 
 # generate typed output
 checkpoint a:
     output:
         outdir=directory("something/{dataset}"),
-        meta=typed("metadata/{dataset}.json", MyType)
+        meta=typed("metadata/{dataset}.json", MyType),
     params:
-        l="{dataset}"
+        l="{dataset}",
     run:
         shell("mkdir -p {output.outdir}")
         shell("cd {output.outdir} && touch a b c")
@@ -36,7 +37,7 @@ rule b:
     input:
         meta=rules.a.output.meta,
     output:
-        "direct{dataset}.txt"
+        "direct{dataset}.txt",
     run:
         val = input.meta.load().some_threshold
         assert isinstance(input.meta, str)
@@ -46,7 +47,7 @@ rule b:
 # process individual items
 rule c:
     output:
-        touch("processed/{dataset}/{item}.txt")
+        touch("processed/{dataset}/{item}.txt"),
 
 
 # scatter over items in the typed output
@@ -58,8 +59,8 @@ def get_processed(wildcards):
 
 rule d:
     input:
-        get_processed
+        get_processed,
     output:
-        "reduced{dataset}.txt"
+        "reduced{dataset}.txt",
     shell:
         "ls {input} > {output}"

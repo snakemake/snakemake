@@ -2299,7 +2299,9 @@ Using the ``typed`` function
 
 The ``typed`` function wraps an output file path with a specific type, enabling structured serialization and deserialization of typed objects directly within Snakemake rules.
 
-Declare a output data structure and reference it in a rule (or checkpoint rule)::
+Declare an output data structure and reference it in a rule (or checkpoint rule)::
+
+    from dataclasses import dataclass
 
     @dataclass
     class MyType:
@@ -2313,10 +2315,12 @@ Declare a output data structure and reference it in a rule (or checkpoint rule):
             output.meta.dump(some_threshold=0.3, filestems=["a"])
 
 The ``dump`` method constructs an instance of ``MyType`` from the given keyword arguments and serializes it to the declared file path as JSON.
-The type passed to ``typed`` can be a ``dataclass``, a ``NamedTuple``, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
+The type passed to ``typed`` can be a ``dataclass``, a ``NamedTuple``, a Pydantic v2 model, or any class that implements an ``.asdict() -> dict[str, Any]`` method.
+Callers of ``dump()`` supply constructor arguments without needing to import the associated class.
 
 .. note::
-   The structured data is serialized as JSON, so field values should be JSON-native types (``str``, ``int``, ``float``, ``bool``, ``list``, ``dict``), or types with built-in coercion support such as ``Path``.
+   In this example, the structured data is serialized as JSON, so field values must be JSON serializable.
+   Pydantic models are converted using ``model_dump(mode="json")``, which can convert fields such as ``Path`` to strings; dataclass and NamedTuple fields do not receive this conversion automatically.
    Runtime type checking is not enforced; use a validated type like `pydantic.BaseModel <https://docs.pydantic.dev/latest/api/base_model/>`_ if strict validation is required.
 
 Accessing typed output
@@ -2331,9 +2335,11 @@ To retrieve the underlying file path as a string, use ``str()``.
       rule b:
           input:
               meta=rules.a.output.meta
+          output:
+              "thresholds/{dataset}.txt"
           run:
               val = input.meta.load().some_threshold
-              shell("ls {input.meta}")
+              shell("echo {val} > {output}")
 
 Scattering over typed output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2345,35 +2351,43 @@ This pattern avoids parsing raw text files and maintains a typed interface betwe
         out = checkpoints.a.get(**wildcards).output
         meta = out.meta.load()
         for f in meta.filestems:
-            yield f"{out.outdir}/{f}-processed.txt"
+            yield f"processed/{wildcards.dataset}/{f}.txt"
+
+    rule process:
+        output:
+            touch("processed/{dataset}/{item}.txt")
 
     rule d:
         input:
             get_processed
+        output:
+            "results/{dataset}.txt"
+        shell:
+            "cat {input} > {output}"
 
 Supported file formats
 ~~~~~~~~~~~~~~~~~~~~~~
 
 The file format can be inferred automatically from the file extension, or manually selected like ``typed(file, "csv")``.
-The following formats including: json, yaml/yml, toml, pkl, npy, npz, csv, tsv, parquet, xlsx.
+Supported formats include: json, yaml/yml, toml, pkl/pickle, npy, npz, csv, tsv, parquet, xlsx.
 
 Compressed files (``.gz``, ``.bz2``, ``.xz``) are transparently supported for text-based formats such as JSON and YAML.
 The format is resolved from the inner extension::
 
     typed("results/{sample}.json.gz", MyType)   # gzip-compressed JSON
 
-Using ``typed`` with customed loaders and dumpers
+Using ``typed`` with custom loaders and dumpers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When working with tabular data, a type wrapper is often unnecessary.
-Passing only a ``loader`` keyword argument returns a plain file handle whose ``.load()`` returns
-the raw object (e.g. a ``DataFrame``) and ``.dump(obj)`` writes it back::
+Passing a file format name as ``type_`` returns a string file path whose ``.load()`` returns the raw object (e.g. a ``DataFrame``) and ``.dump(obj)`` writes it back::
 
     checkpoint a:
         output:
             table=typed("counts/{dataset}.csv", "csv")
         run:
-            df = ...
+            import pandas as pd
+            df = pd.DataFrame({"sample": ["a", "b"]})
             output.table.dump(df)
 
     def get_samples(wildcards):
@@ -2381,15 +2395,19 @@ the raw object (e.g. a ``DataFrame``) and ``.dump(obj)`` writes it back::
         df: "pd.DataFrame" = out.table.load()
         return df["sample"].tolist()
 
-The ``loader`` and ``dumper`` arguments also accept ``str`` (format name) or any callable,
+A callable loader receives the path and returns its result directly; a callable dumper receives ``(obj, path)`` and accepts an already constructed object via ``dump(obj)``.
+The ``loader`` and ``dumper`` arguments also accept ``str`` (format name),
 allowing full customisation without subclassing::
 
-    # use a custom loader, infer dumper from file extension
+    # select JSON as the file format by dumper, so it is applied to the loader by default
+    typed("results/data.out", MyType, dumper="json")
+
+    # use a custom loader; writing is disabled
     typed("results/data.json", loader=MyClass.load)
 
-    # explicit format strings, independent of the actual file extension
-    typed("results/data.out", loader="json", dumper="json")
-
+When ``type_`` is a class or is omitted, supplying a file format name as ``dumper`` also configures the matching reader unless ``loader`` is explicitly supplied.
+Otherwise, supplying only one of ``loader`` or ``dumper`` disables the other operation, which raises ``ValueError`` when called, unless ``type_`` supplies a default file format.
+When ``type_`` is a file format name, supplying both ``loader`` and ``dumper`` raises ``ValueError`` because they completely override that format.
 
 Shadow rules
 ------------
