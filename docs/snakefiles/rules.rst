@@ -3242,6 +3242,9 @@ To illustrate the possibilities of this mechanism, consider the following comple
   # input function for the rule aggregate
   def aggregate_input(wildcards):
       # decision based on content of output file
+      # Important: use the method open() of the returned file!
+      # This way, Snakemake is able to automatically download the file if it is generated in
+      # a cloud environment without a shared filesystem.
       with checkpoints.somestep.get(sample=wildcards.sample).output[0].open() as f:
           if f.read().strip() == "a":
               return "post/{sample}.txt"
@@ -3268,12 +3271,8 @@ As can be seen, the rule aggregate uses an input function.
 
 .. note::
 
-    The ``.open()`` method previously available on checkpoint output files has been removed.
-    Replace all usages of ``output[0].open()`` with the standard ``open(output[0])``.
-    Cloud storage and path remapping are still handled transparently by Snakemake.
-
     Currently, you can use the ``typed`` function (see :ref:`tutorial-typed`) to declare structured output files on a checkpoint,
-    which allows downstream rules and input functions to deserialize the checkpoint's output into a typed object directly,
+    and use ``checkpoints.somestep.get(**wildcards).output[0].load()`` to access the structured output of the checkpoint,
     without manually parsing files.
 
 
