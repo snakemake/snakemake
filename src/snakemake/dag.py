@@ -1903,7 +1903,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             self.workflow.software_deployment_manager.collect_envs(self.jobs)
             await self.update_needrun()
         self.update_priority()
-        self.handle_pipes_and_services()
+        self.handle_pipes_and_services(
+            defer_missing_consumers=update_incomplete_input_expand_jobs
+        )
         self.handle_update_flags()
         self.update_groups()
         self.update_storage_inputs()
@@ -1963,9 +1965,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
             self._checked_jobs.add(job)
 
-    def handle_pipes_and_services(self):
+    def handle_pipes_and_services(self, defer_missing_consumers=False):
         """Use pipes and services to determine job groups. Check if every pipe has exactly
         one consumer"""
+
+        if defer_missing_consumers:
+            # Consumers whose input functions are still incomplete (e.g. because they
+            # await a groupid) are not wired to their producers yet. In that case,
+            # the no-consumer check below is deferred to the second postprocess pass
+            # that runs after update_incomplete_input_expand_jobs.
+            consumers_may_be_incomplete = any(
+                job.incomplete_input_expand for job in self.jobs
+            )
+        else:
+            consumers_may_be_incomplete = False
 
         visited = set()
         for job in self.needrun_jobs():
@@ -2011,13 +2024,14 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             rule=job.rule,
                         )
                     elif not is_nodelocal and len(depending) == 0:
-                        raise WorkflowError(
-                            "Output file {} is marked as pipe or service "
-                            "but it has no consumer. This is "
-                            "invalid because it can lead to "
-                            "a dead lock.".format(f),
-                            rule=job.rule,
-                        )
+                        if not consumers_may_be_incomplete:
+                            raise WorkflowError(
+                                "Output file {} is marked as pipe or service "
+                                "but it has no consumer. This is "
+                                "invalid because it can lead to "
+                                "a dead lock.".format(f),
+                                rule=job.rule,
+                            )
                     elif is_pipe and depending[0].is_norun:
                         raise WorkflowError(
                             f"Output file {fmt_iofile(f)} is marked as pipe but is requested by a rule that "

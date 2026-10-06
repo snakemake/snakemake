@@ -1,0 +1,25 @@
+rule all:
+    input:
+        expand("out/{i}.txt", i=range(2)),
+
+
+rule the_service:
+    output:
+        service("foo.{groupid}.socket"),
+    group: "g"
+    shell:
+        "ln -s /dev/random {output}; sleep 20"
+
+
+def get_socket(wildcards, groupid):
+    return f"foo.{groupid}.socket"
+
+
+rule consumer:
+    input:
+        get_socket,
+    output:
+        "out/{i}.txt",
+    group: "g"
+    shell:
+        "head -c1 {input} > {output}"
