@@ -48,3 +48,24 @@ def test_target_jobs_wildcard_roundtrip():
         "x": '5" pipe',
         "y": "next",
     }
+
+    # A quote after a later "=" is literal, not structural: only the entry's
+    # first "=" starts a value.
+    assert parse_target_jobs_cli_args(['r:x=a="b,y=next'])[0].wildcards_dict == {
+        "x": 'a="b',
+        "y": "next",
+    }
+
+    # An encoder-wrapped comma value keeps its comma and still splits before
+    # the following wildcard.
+    assert parse_target_jobs_cli_args(['r:x="a,b",y=next'])[0].wildcards_dict == {
+        "x": "a,b",
+        "y": "next",
+    }
+
+    # A value that is itself quoted and contains a comma is wrapped by the
+    # encoder a second time; the inner quotes must survive the round trip.
+    assert parse_target_jobs_cli_args(['r:x=""a,b"",y=next'])[0].wildcards_dict == {
+        "x": '"a,b"',
+        "y": "next",
+    }

@@ -41,15 +41,24 @@ def _split_at_unquoted_commas(arg):
     buf = []
     quoted = False
     prev = ""
-    for char in arg:
-        # The encoder only wraps values containing commas in double quotes, so a
-        # quote is structural only when it opens a value (right after "=") or
-        # closes one. A quote in the middle of a value is part of the value.
-        if char == '"' and (quoted or prev == "="):
-            quoted = not quoted
+    equals_in_item = 0
+    for pos, char in enumerate(arg):
+        # The encoder only wraps values containing commas in double quotes, so
+        # a quote is structural only when it opens a value (right after the
+        # entry's first "=") or closes one (followed by "," or the end of the
+        # argument). Quotes elsewhere are literal.
+        if char == '"':
+            if not quoted:
+                if prev == "=" and equals_in_item == 1:
+                    quoted = True
+            elif pos + 1 == len(arg) or arg[pos + 1] == ",":
+                quoted = False
+        elif char == "=":
+            equals_in_item += 1
         elif char == "," and not quoted:
             items.append("".join(buf))
             buf = []
+            equals_in_item = 0
             prev = char
             continue
         buf.append(char)
