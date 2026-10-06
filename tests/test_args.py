@@ -22,7 +22,15 @@ def test_target_jobs_wildcard_roundtrip():
 
     # Quotes and commas must survive the
     # encode_target_jobs_cli_args -> parse_target_jobs_cli_args round trip.
-    for want in ["'quoted name'", '"dq"', "plain", "a,b", "'a,b'", ""]:
+    for want in [
+        "'quoted name'",
+        '"dq"',
+        '5" pipe',
+        "plain",
+        "a,b",
+        "'a,b'",
+        "",
+    ]:
         args = encode_target_jobs_cli_args([TargetSpec("r", {"w": want})])
         got = parse_target_jobs_cli_args(args)[0].wildcards_dict["w"]
         assert got == want, (want, args, got)
@@ -31,4 +39,12 @@ def test_target_jobs_wildcard_roundtrip():
     assert parse_target_jobs_cli_args(args)[0].wildcards_dict == {
         "a": "1,2",
         "b": "'x'",
+    }
+
+    # A literal quote in an unwrapped (comma-free) value must not flip the
+    # parser into quote mode and swallow the separator.
+    args = encode_target_jobs_cli_args([TargetSpec("r", {"x": '5" pipe', "y": "next"})])
+    assert parse_target_jobs_cli_args(args)[0].wildcards_dict == {
+        "x": '5" pipe',
+        "y": "next",
     }

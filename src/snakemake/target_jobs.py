@@ -40,13 +40,19 @@ def _split_at_unquoted_commas(arg):
     items = []
     buf = []
     quoted = False
+    prev = ""
     for char in arg:
-        if char == '"':
+        # The encoder only wraps values containing commas in double quotes, so a
+        # quote is structural only when it opens a value (right after "=") or
+        # closes one. A quote in the middle of a value is part of the value.
+        if char == '"' and (quoted or prev == "="):
             quoted = not quoted
         elif char == "," and not quoted:
             items.append("".join(buf))
             buf = []
+            prev = char
             continue
         buf.append(char)
+        prev = char
     items.append("".join(buf))
     return items
