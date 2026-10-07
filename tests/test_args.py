@@ -69,3 +69,10 @@ def test_target_jobs_wildcard_roundtrip():
         "x": '"a,b"',
         "y": "next",
     }
+
+    # A comma-free value starting with a quote has no structural closer; the
+    # quote is literal and the following wildcard must still be split out.
+    assert parse_target_jobs_cli_args(['r:x="b,y=next'])[0].wildcards_dict == {
+        "x": '"b',
+        "y": "next",
+    }

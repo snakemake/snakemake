@@ -42,6 +42,17 @@ def _split_at_unquoted_commas(arg):
     quoted = False
     prev = ""
     equals_in_item = 0
+    # A '"' closes a structural quote only when followed by "," or the end of
+    # the argument. Precompute those positions: a '"' at the start of a value
+    # is an opener only if a closer exists after it, otherwise it is literal
+    # (e.g. the comma-free value `"b` in `x="b,y=next`, which the encoder
+    # emits without wrapping quotes).
+    closers = {
+        pos
+        for pos, char in enumerate(arg)
+        if char == '"' and (pos + 1 == len(arg) or arg[pos + 1] == ",")
+    }
+    last_closer = max(closers, default=-1)
     for pos, char in enumerate(arg):
         # The encoder only wraps values containing commas in double quotes, so
         # a quote is structural only when it opens a value (right after the
@@ -49,9 +60,9 @@ def _split_at_unquoted_commas(arg):
         # argument). Quotes elsewhere are literal.
         if char == '"':
             if not quoted:
-                if prev == "=" and equals_in_item == 1:
+                if prev == "=" and equals_in_item == 1 and pos < last_closer:
                     quoted = True
-            elif pos + 1 == len(arg) or arg[pos + 1] == ",":
+            elif pos in closers:
                 quoted = False
         elif char == "=":
             equals_in_item += 1
