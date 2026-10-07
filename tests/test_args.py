@@ -11,3 +11,68 @@ def test_parse_batch():
     from snakemake.cli import parse_batch
 
     assert parse_batch("aggregate=1/2") == Batch("aggregate", 1, 2)
+
+
+def test_target_jobs_wildcard_roundtrip():
+    from snakemake.target_jobs import parse_target_jobs_cli_args
+    from snakemake_interface_executor_plugins.utils import (
+        TargetSpec,
+        encode_target_jobs_cli_args,
+    )
+
+    # Quotes and commas must survive the
+    # encode_target_jobs_cli_args -> parse_target_jobs_cli_args round trip.
+    for want in [
+        "'quoted name'",
+        '"dq"',
+        '5" pipe',
+        "plain",
+        "a,b",
+        "'a,b'",
+        "",
+    ]:
+        args = encode_target_jobs_cli_args([TargetSpec("r", {"w": want})])
+        got = parse_target_jobs_cli_args(args)[0].wildcards_dict["w"]
+        assert got == want, (want, args, got)
+
+    args = encode_target_jobs_cli_args([TargetSpec("r", {"a": "1,2", "b": "'x'"})])
+    assert parse_target_jobs_cli_args(args)[0].wildcards_dict == {
+        "a": "1,2",
+        "b": "'x'",
+    }
+
+    # A literal quote in an unwrapped (comma-free) value must not flip the
+    # parser into quote mode and swallow the separator.
+    args = encode_target_jobs_cli_args([TargetSpec("r", {"x": '5" pipe', "y": "next"})])
+    assert parse_target_jobs_cli_args(args)[0].wildcards_dict == {
+        "x": '5" pipe',
+        "y": "next",
+    }
+
+    # A quote after a later "=" is literal, not structural: only the entry's
+    # first "=" starts a value.
+    assert parse_target_jobs_cli_args(['r:x=a="b,y=next'])[0].wildcards_dict == {
+        "x": 'a="b',
+        "y": "next",
+    }
+
+    # An encoder-wrapped comma value keeps its comma and still splits before
+    # the following wildcard.
+    assert parse_target_jobs_cli_args(['r:x="a,b",y=next'])[0].wildcards_dict == {
+        "x": "a,b",
+        "y": "next",
+    }
+
+    # A value that is itself quoted and contains a comma is wrapped by the
+    # encoder a second time; the inner quotes must survive the round trip.
+    assert parse_target_jobs_cli_args(['r:x=""a,b"",y=next'])[0].wildcards_dict == {
+        "x": '"a,b"',
+        "y": "next",
+    }
+
+    # A comma-free value starting with a quote has no structural closer; the
+    # quote is literal and the following wildcard must still be split out.
+    assert parse_target_jobs_cli_args(['r:x="b,y=next'])[0].wildcards_dict == {
+        "x": '"b',
+        "y": "next",
+    }
