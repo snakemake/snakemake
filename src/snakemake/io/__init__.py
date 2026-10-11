@@ -37,10 +37,11 @@ from typing import (
     TypeVar,
 )
 
+from snakemake.io.flags import access_patterns
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
-from snakemake_interface_common.io import AnnotatedStringInterface
+from snakemake_interface_common.io import AnnotatedStringInterface, AccessPattern
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -366,6 +367,9 @@ class _IOFile(AnnotatedStringFormatMixin, str):
 
     def is_callable(self) -> bool:
         return self._is_callable
+
+    def access_pattern(self) -> Optional[AccessPattern]:
+        return self.flags.get(access_patterns.STORE_KEY)
 
     async def inventory(self):
         """Starting from the given file, try to cache as much existence and
@@ -1066,6 +1070,9 @@ class AnnotatedString(AnnotatedStringFormatMixin, str):
     @flags.setter
     def flags(self, value):
         self._flags = value
+
+    def access_pattern(self) -> Optional[AccessPattern]:
+        return self.flags.get(access_patterns.STORE_KEY)
 
 
 MaybeAnnotated = Union[AnnotatedStringInterface, str, Callable]
