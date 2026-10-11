@@ -1390,16 +1390,15 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 or not self.forcefiles.isdisjoint(job.output)
             )
 
+        def is_allowed(job):
+            return (
+                not self.rules_allowed_for_needrun
+                or job.rule.name in self.rules_allowed_for_needrun
+            )
+
         async def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-
-            if (
-                self.rules_allowed_for_needrun
-                and job.rule.name not in self.rules_allowed_for_needrun
-            ):
-                reason.clear()
-                return reason
 
             if is_forced(job):
                 reason.forced = True
@@ -1520,8 +1519,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
+        # With checkpoints, the DAG also contains jobs of rules outside of
+        # --allowed-rules. They are no candidates, so that neither the
+        # bi-directional BFS below nor forcing can make them run.
         candidates = [
-            [job for job in level if not self.finished(job)]
+            [job for job in level if not self.finished(job) and is_allowed(job)]
             for level in self.toposorted()
         ]
 

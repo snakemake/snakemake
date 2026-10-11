@@ -1,0 +1,21 @@
+# a.txt exists, as if the main process had run the checkpoint.
+checkpoint a:
+    output:
+        touch("a.txt"),
+
+
+rule b:
+    output:
+        touch("b.txt"),
+
+
+def get_input(wildcards):
+    checkpoints.a.get()
+    return "b.txt"
+
+
+rule c:
+    input:
+        get_input,
+    output:
+        touch("c.txt"),
