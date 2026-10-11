@@ -1818,6 +1818,14 @@ def test_default_resources_mebibytes():
     )
 
 
+@skip_on_windows
+def test_default_resources_rulename():
+    run(
+        dpath("test_default_resources_rulename"),
+        default_resources=(["mem_mb=1000 if rulename == 'a' else 2000"]),
+    )
+
+
 @skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
 def test_tmpdir():
     test_path = dpath("test_tmpdir")

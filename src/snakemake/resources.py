@@ -757,6 +757,7 @@ class Resource:
                 wildcards=wildcards,
                 input=input,
                 attempt=attempt,
+                rulename=rulename,
                 async_run=async_run,
                 threads=threads,
             )
@@ -774,6 +775,7 @@ class Resource:
                 wildcards=wildcards,
                 input=input,
                 attempt=attempt,
+                rulename=rulename,
                 async_run=async_run,
             )
 
@@ -790,6 +792,7 @@ class Resource:
         wildcards: Wildcards,
         input: Any,
         attempt: int,
+        rulename: str | None = None,
         threads: int | None = None,
         async_run: Callable[[Awaitable[_T]], _T],
     ):
@@ -809,6 +812,7 @@ class Resource:
                 "wildcards": wildcards,
                 "input": input,
                 "attempt": attempt,
+                "rulename": rulename,
                 "system_tmpdir": tempfile.gettempdir(),
                 "shutil": shutil,
                 "async_run": async_run,
