@@ -3217,6 +3217,7 @@ def test_python_import_from_github_module():
     run(dpath("test_python_import_from_github_module"))
 
 
+@skip_on_windows
 def test_keep_local(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
@@ -3264,6 +3265,7 @@ def test_keep_local(dummy_server):
         assert os.path.exists(local_img.replace("http", "http_local"))
 
 
+@skip_on_windows
 def test_retrieve(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "retrieve.smk")
