@@ -3217,12 +3217,14 @@ def test_python_import_from_github_module():
     run(dpath("test_python_import_from_github_module"))
 
 
-def test_keep_local():
+@skip_on_windows
+def test_keep_local(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
         local_img = os.path.join(
             tmpdir,
-            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+            ".snakemake/storage/http",
+            dummy_server.split("://", 1)[1],
         )
 
         p = sp.check_output(
@@ -3263,12 +3265,14 @@ def test_keep_local():
         assert os.path.exists(local_img.replace("http", "http_local"))
 
 
-def test_retrieve():
+@skip_on_windows
+def test_retrieve(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "retrieve.smk")
         local_img = os.path.join(
             tmpdir,
-            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+            ".snakemake/storage/http",
+            dummy_server.split("://", 1)[1],
         )
 
         p = sp.check_output(
