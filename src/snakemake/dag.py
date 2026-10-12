@@ -30,7 +30,7 @@ from snakemake.common.typing import AnySet
 from snakemake.io.flags.access_patterns import AccessPattern
 from snakemake.io.fmt import fmt_iofile
 from snakemake.rules import Rule
-from snakemake import script
+from snakemake.script import runner as script
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_report_plugins.interfaces import DAGReportInterface

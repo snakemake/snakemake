@@ -8,7 +8,7 @@ __license__ = "MIT"
 import re
 from typing import Optional, Dict
 from snakemake.exceptions import WorkflowError
-from snakemake.script import script
+from snakemake.script.runner import script
 from snakemake.sourcecache import GithubFile, SourceCache, infer_source_file
 from snakemake.executors.local import RunArgs
 from snakemake.sourcecache import SourceFile
