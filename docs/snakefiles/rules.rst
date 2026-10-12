@@ -2414,6 +2414,12 @@ Re-run can be automated by invoking Snakemake as follows:
 
     $ snakemake -R `snakemake --list-code-changes`
 
+For Python ``run:`` directives, Snakemake compares the parsed Python code.
+Changes that only affect formatting or comments therefore do not count as code changes, while changes to executable code do.
+If the code cannot be parsed, Snakemake falls back to comparing the original source text.
+
+Shell commands are compared as text.
+
 
 .. _snakefiles-job_lifetime_handlers:
 

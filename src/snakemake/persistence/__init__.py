@@ -1,4 +1,5 @@
 from snakemake.common.misc import is_serializable
+import ast
 import asyncio
 import os
 import shutil
@@ -27,6 +28,31 @@ import snakemake.exceptions
 
 RECORD_FORMAT_VERSION = 7
 UNREPRESENTABLE = object()
+
+
+def _parse_python_code(source: str) -> ast.Module:
+    """Parse an indented run block or standalone Python."""
+    try:
+        # Wrap run blocks in a function because they retain their Snakefile indentation.
+        wrapped = ast.parse(f"def __snakemake_run_block__():\n{source}")
+    except IndentationError:
+        return ast.parse(source)
+    function = wrapped.body[0]
+    assert isinstance(function, ast.FunctionDef)
+    return ast.Module(body=function.body, type_ignores=[])
+
+
+def _normalize_python_code(source: str) -> str:
+    """Return a canonical AST string, ignoring comments and whitespace."""
+    try:
+        tree = _parse_python_code(source)
+    except (SyntaxError, ValueError):
+        return source
+
+    for node in ast.walk(tree):
+        if hasattr(node, "type_comment"):
+            node.type_comment = None
+    return ast.dump(tree, annotate_fields=True, include_attributes=False)
 
 
 class MetadataRecord(SQLModel):
@@ -591,7 +617,15 @@ class PersistenceBase(
         if fmt_version is None or fmt_version < 3:
             return False
         recorded = self.code(file)
-        return recorded is not None and recorded != self._code(job.rule)
+        current = self._code(job.rule)
+        if (
+            recorded is not None
+            and current is not None
+            and self.shellcmd(file) is None
+            and job.rule.shellcmd is None
+        ):
+            return _normalize_python_code(recorded) != _normalize_python_code(current)
+        return recorded is not None and recorded != current
 
     def _input_changed(self, job, file=None) -> bool:
         fmt_version = self.record_format_version(file)
