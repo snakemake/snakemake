@@ -23,7 +23,7 @@ checkpoint a1:
 
 
 def usea1(wildcards):
-    with open(checkpoints.a1.get().output[0], "r") as f:
+    with checkpoints.a1.get().output[0].open() as f:
         lines = [i.strip() for i in f]
     return [f"inputs/a/{i}.out" for i in lines]
 

@@ -113,6 +113,7 @@ from snakemake.io import (
     from_queue,
     IOFile,
     sourcecache_entry,
+    typed,
 )
 
 from snakemake.persistence import PersistenceBase
