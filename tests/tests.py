@@ -2405,6 +2405,14 @@ def test_service_jobs():
     run(dpath("test_service_jobs"), check_md5=False)
 
 
+@skip_on_windows
+def test_group_service_wildcards():
+    # Regression test for issue #4329: a group-local service job whose
+    # consumers carry wildcards must not be picked for the group id, since
+    # its uuid itself depends on the groupid wildcard.
+    run(dpath("test_group_service_wildcards"), cluster="./qsub", check_md5=False)
+
+
 def test_incomplete_params():
     run(
         dpath("test_incomplete_params"),
