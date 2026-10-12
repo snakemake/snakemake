@@ -83,7 +83,7 @@ class RuntimeDependencyManager:
             )
         except sp.CalledProcessError as e:
             raise WorkflowError(
-                f"Failed to deploy auxilliary global python packages (--with-pkgs option): {e.stderr}"
+                f"Failed to deploy auxiliary global python packages (--with-pkgs option): {e.stderr}"
             )
 
         # get final versions of global packages and all their dependencies in the prefix
@@ -111,7 +111,7 @@ class RuntimeDependencyManager:
                 )
             except sp.CalledProcessError as e2:
                 raise WorkflowError(
-                    "Failed to deploy auxilliary workflow python packages (--workflow-with-pkgs option)."
+                    "Failed to deploy auxiliary workflow python packages (--workflow-with-pkgs option)."
                     f"\nSeparate solve: {e.stderr}\nJoint fallback solve: {e2.stderr}"
                 )
 

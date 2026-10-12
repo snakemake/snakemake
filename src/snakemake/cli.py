@@ -1709,7 +1709,7 @@ def get_argument_parser(profiles=None, with_plugins: bool = True):
         default=set(),
         type=set,
         help="Specify global auxiliary python packages to be deployed (e.g. snakemake plugins). "
-        "They will be auto-deployed by Snakemake in an auxilliary environment in the user "
+        "They will be auto-deployed by Snakemake in an auxiliary environment in the user "
         "cache directory of the system. Expects pip-compatible version specifications.",
     )
     group_deployment.add_argument(
