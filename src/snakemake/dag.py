@@ -1573,33 +1573,51 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             visited = set(queue)
             candidates_set = set(job for level in candidates for job in level)
             while queue:
-                job = queue.popleft()
-                _needrun.add(job)
+                while queue:
+                    job = queue.popleft()
+                    _needrun.add(job)
 
-                for job_, files in dependencies[job].items():
-                    if job_ in candidates_set:
-                        missing_output = [f async for f in job_.missing_output(files)]
-                        reason(job_).missing_output.update(missing_output)
-                        if missing_output and job_ not in visited:
+                    for job_, files in dependencies[job].items():
+                        if job_ in candidates_set:
+                            missing_output = [
+                                f async for f in job_.missing_output(files)
+                            ]
+                            reason(job_).missing_output.update(missing_output)
+                            if missing_output and job_ not in visited:
+                                logger.debug(
+                                    f"Need to rerun job {job_} because of missing output required by {job}."
+                                )
+                                visited.add(job_)
+                                queue.append(job_)
+
+                    for job_, files in depending[job].items():
+                        if job_ in candidates_set:
+                            if job_ not in visited:
+                                if all(
+                                    [f.is_ancient and await f.exists() for f in files]
+                                ):
+                                    # No other reason to run job_.
+                                    # Since all files are ancient, we do not trigger it.
+                                    continue
+                                visited.add(job_)
+                                queue.append(job_)
                             logger.debug(
-                                f"Need to rerun job {job_} because of missing output required by {job}."
+                                f"Need to rerun job {job_} because job {job} has to be rerun."
                             )
-                            visited.add(job_)
-                            queue.append(job_)
+                            reason(job_).updated_input_run.update(files)
 
-                for job_, files in depending[job].items():
-                    if job_ in candidates_set:
-                        if job_ not in visited:
-                            if all([f.is_ancient and await f.exists() for f in files]):
-                                # No other reason to run job_.
-                                # Since all files are ancient, we do not trigger it.
-                                continue
-                            visited.add(job_)
-                            queue.append(job_)
-                        logger.debug(
-                            f"Need to rerun job {job_} because job {job} has to be rerun."
-                        )
-                        reason(job_).updated_input_run.update(files)
+                # Masked jobs that the BFS did not reach, because every path to
+                # them from a needrun job passes through ancient input files,
+                # have not been checked for their own reasons (e.g. missing
+                # output) yet (#4166). Check them now in topological order and
+                # continue the BFS from those that have to be run.
+                for level in candidates:
+                    for job in level:
+                        if job in masked and job not in visited:
+                            masked.discard(job)
+                            if await update_needrun(job):
+                                visited.add(job)
+                                queue.append(job)
 
         # update _n_until_ready
         for job in _needrun:
