@@ -313,9 +313,11 @@ class SpawnedJobArgsFactory:
             w2a("config_settings.config_args", flag="--config"),
             w2a("output_settings.printshellcmds"),
             w2a("output_settings.benchmark_extended"),
-            w2a("execution_settings.latency_wait"),
+            # str so that 0 is not dropped
+            w2a("execution_settings.latency_wait", convert_value=str),
             w2a("scheduling_settings.scheduler", flag="--scheduler"),
-            w2a("workflow_settings.cache"),
+            # a bare --cache is an empty list; forward it rather than drop it
+            w2a("workflow_settings.cache", convert_value=lambda rules: rules or True),
             local_storage_prefix,
             format_cli_arg(
                 "--scheduler-solver-path",
