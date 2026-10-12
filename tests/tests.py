@@ -2728,6 +2728,54 @@ def test_module_global_container():
             )
 
 
+def test_info_header_unknown_user(monkeypatch):
+    """
+    Test that the workflow info header does not fail if getpass.getuser()
+    raises (e.g. when running under a UID with no passwd entry).
+    """
+    import getpass
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    exc_types = (OSError, KeyError, ImportError)
+
+    try:
+        real_user = getpass.getuser()
+    except exc_types:
+        real_user = None
+
+    def make_fake_getuser(exc_type: type[Exception]):
+        def fake_getuser():
+            raise exc_type("no user")
+
+        return fake_getuser
+
+    # Just need a minimal Snakefile, we're not running it
+    test_path = dpath("test_unlock")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
+        )
+        workflow = workflow_api._workflow
+
+        # Without patching - check it matches the real user
+        if real_user is not None:
+            assert workflow.info_header["user"] == real_user
+        else:
+            assert workflow.info_header["user"] == "unavailable"
+
+        # Patch getuser() to raise each expected exception type
+        for exc_type in exc_types:
+            monkeypatch.setattr(getpass, "getuser", make_fake_getuser(exc_type))
+            assert workflow.info_header["user"] == "unavailable"
+
+
 @skip_on_windows
 def test_config_yte():
     run(dpath("test_config_yte"))
@@ -3169,12 +3217,14 @@ def test_python_import_from_github_module():
     run(dpath("test_python_import_from_github_module"))
 
 
-def test_keep_local():
+@skip_on_windows
+def test_keep_local(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
         local_img = os.path.join(
             tmpdir,
-            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+            ".snakemake/storage/http",
+            dummy_server.split("://", 1)[1],
         )
 
         p = sp.check_output(
@@ -3215,12 +3265,14 @@ def test_keep_local():
         assert os.path.exists(local_img.replace("http", "http_local"))
 
 
-def test_retrieve():
+@skip_on_windows
+def test_retrieve(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "retrieve.smk")
         local_img = os.path.join(
             tmpdir,
-            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+            ".snakemake/storage/http",
+            dummy_server.split("://", 1)[1],
         )
 
         p = sp.check_output(

@@ -376,9 +376,6 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         self, jobs: List[Union[Job, GroupJob]], also_missing_internal=False
     ):
 
-        def access_pattern(f):
-            return f.flags.get(flags.access_patterns.STORE_KEY)
-
         to_retrieve = defaultdict(list)
         for job in jobs:
             if isinstance(job, GroupJob):
@@ -399,7 +396,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             )
                         )
                     ):
-                        to_retrieve[f].append(access_pattern(f))
+                        to_retrieve[f].append(f.access_pattern())
 
         if to_retrieve:
             try:
