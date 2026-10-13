@@ -1,0 +1,9 @@
+rule echo_runtime:
+    output:
+        "output.txt"
+    resources:
+        runtime=60
+    shell:
+        """
+        echo "Runtime resource: {resources.runtime}" > {output}
+        """
