@@ -1125,7 +1125,7 @@ class Workflow(WorkflowExecutorInterface):
         with self.persistence.lock():
             containerize(self, self.dag, fmt=fmt)
 
-    def export_cwl(self, path: Path):
+    def export_to_cwl(self, path: Path):
         """Export the workflow as CWL document.
 
         Arguments

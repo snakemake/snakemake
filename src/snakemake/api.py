@@ -455,7 +455,13 @@ class WorkflowApi(ApiBase):
         if isinstance(self.snakefile, Path) and not self.snakefile.exists():
             raise ApiError(f'Snakefile "{self.snakefile}" not found.')
 
+def _no_exec(method):
+        @functools.wraps(method)
+        def _handle_no_exec(self: "DAGApi", *args, **kwargs):
+            self.workflow_api.resource_settings.cores = 1
+            return method(self, *args, **kwargs)
 
+        return _handle_no_exec
 @dataclass
 class DAGApi(ApiBase):
     """The DAG API.
@@ -699,13 +705,7 @@ class DAGApi(ApiBase):
             updated_files=updated_files,
         )
 
-    def _no_exec(method):
-        @functools.wraps(method)
-        def _handle_no_exec(self, *args, **kwargs):
-            self.workflow_api.resource_settings.cores = 1
-            return method(self, *args, **kwargs)
 
-        return _handle_no_exec
 
     @_no_exec
     def generate_unit_tests(self, path: Path):
