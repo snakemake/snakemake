@@ -240,11 +240,12 @@ class SnakemakeApi(ApiBase):
         storage_provider = storage_provider_settings.get(
             storage_settings.default_storage_provider
         )
-        plugin_settings = (
-            storage_provider.get_settings(None)
-            if storage_provider is not None
-            else None
-        )
+        if storage_provider is not None:
+            plugin_settings = storage_provider.get_settings(None)
+        elif plugin.settings_cls is not None:
+            plugin_settings = plugin.settings_cls()
+        else:
+            plugin_settings = None
         if plugin_settings is not None:
             plugin.validate_settings(plugin_settings)
 
