@@ -725,8 +725,6 @@ class DAGApi(ApiBase):
             updated_files=updated_files,
         )
 
-
-
     @_no_exec
     def generate_unit_tests(self, path: Path):
         """Generate unit tests for the workflow.
