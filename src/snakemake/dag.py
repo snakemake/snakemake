@@ -1393,11 +1393,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         def is_allowed(job):
             """Return whether the rule of the job may run, given --allowed-rules.
 
-            rules_allowed_for_needrun restricts the rules only in workflows with
-            checkpoints. In other workflows, --allowed-rules already pruned the
-            rules before the DAG was built, and the value is None. Without
-            --allowed-rules, the value is None (CLI) or an empty set (API).
-            Both mean that every rule may run.
+            If rules_allowed_for_needrun is None or empty, every rule may run.
             """
             if not self.rules_allowed_for_needrun:
                 return True
