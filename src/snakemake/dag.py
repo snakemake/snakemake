@@ -125,7 +125,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         omitfiles=None,
         omitrules=None,
         ignore_incomplete=False,
-        rules_allowed_for_needrun: AnySet[str] = frozenset(),
+        rules_allowed_for_needrun: Optional[AnySet[str]] = frozenset(),
     ):
         self.dag_processors: List["DAGProcessorBase"] = [
             ScriptProcessor(self),
@@ -1391,10 +1391,20 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             )
 
         def is_allowed(job):
-            return (
-                not self.rules_allowed_for_needrun
-                or job.rule.name in self.rules_allowed_for_needrun
-            )
+            """Return whether the rule of the job may run, given --allowed-rules.
+
+            rules_allowed_for_needrun restricts the rules only in workflows with
+            checkpoints. In other workflows, --allowed-rules already pruned the
+            rules before the DAG was built, and the value is None. Without
+            --allowed-rules, the value is an empty set. Both None and the empty
+            set mean that every rule may run.
+            """
+            if (
+                self.rules_allowed_for_needrun is None
+                or len(self.rules_allowed_for_needrun) == 0
+            ):
+                return True
+            return job.rule.name in self.rules_allowed_for_needrun
 
         async def update_needrun(job):
             reason = self.reason(job)
