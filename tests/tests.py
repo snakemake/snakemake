@@ -2339,6 +2339,23 @@ def test_checkpoint_allowed_rules():
 
 
 @skip_on_windows
+def test_checkpoint_allowed_rules_target_jobs():
+    # Emulates the job step of rule c, as executor plugins run it.
+    # Rule b would produce the missing input of c, but it is not allowed to run.
+    path = dpath("test_checkpoint_allowed_rules_target_jobs")
+    with prepare_tmpdir(path) as tmpdir:
+        run(
+            path,
+            shellcmd="snakemake --target-jobs c: --allowed-rules c --force "
+            "--cores 1 --latency-wait 0 --mode remote",
+            shouldfail=True,
+            tmpdir=tmpdir,
+            cleanup=False,
+        )
+        assert not (Path(tmpdir) / "b.txt").exists()
+
+
+@skip_on_windows
 def test_modules_ruledeps_inheritance():
     run(dpath("test_modules_ruledeps_inheritance"))
 
