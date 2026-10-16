@@ -153,8 +153,6 @@ cmd = [
   "pytest",
   "-m",
   "not needs_envmodules",
-  "-k",
-  "not test_conda_global",
   "tests/tests.py",
 ]
 description = "Run tests only for tests/tests.py"
@@ -166,7 +164,7 @@ cmd = [
   "-m",
   "not (needs_s3 or needs_envmodules)", # needs_s3 is not supported on osx-arm64
   "-k",
-  "not (test_conda_global or queue)", # queue is buggy on osx-arm64
+  "not queue", # queue is buggy on osx-arm64
   "tests/tests.py",
   "tests/test_internals.py",
   "tests/test_expand.py",
@@ -186,8 +184,6 @@ cmd = [
   # TODO for the two excluded tests, see https://github.com/snakemake/snakemake/pull/3369#issuecomment-2718056637
   "-m",
   "not needs_envmodules",
-  "-k",
-  "not test_conda_global",
   "tests/tests.py",                    # tested in test-simple
   "tests/tests_using_conda.py",
   "tests/test_expand.py",
