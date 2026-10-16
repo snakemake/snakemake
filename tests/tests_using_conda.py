@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, conda, connected
+from .common import run, dpath, apptainer, conda, connected, serve_directory
 from .conftest import (
     skip_on_macos_arm,
     skip_on_windows,
@@ -349,6 +349,18 @@ def test_conda_global():
         deployment_method={"conda"},
         executor="dryrun",
     )
+
+
+@skip_on_windows
+@conda
+def test_conda_global_remote_module():
+    with serve_directory(dpath("test_conda_global_remote_module/module")) as url:
+        run(
+            dpath("test_conda_global_remote_module"),
+            deployment_method={"conda"},
+            executor="dryrun",
+            config={"module_url": url},
+        )
 
 
 @skip_on_macos_arm

@@ -1,0 +1,6 @@
+module remote:
+    snakefile:
+        config["module_url"] + "/Snakefile"
+
+
+use rule * from remote
