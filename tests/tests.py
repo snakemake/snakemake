@@ -2226,6 +2226,24 @@ def test_module_with_script():
         run(dpath("test_module_with_script"))
 
 
+def test_module_local_git_script(tmp_path):
+    import git
+
+    repo_dir = tmp_path / "module"
+    shutil.copytree(dpath("test_module_local_git_script/module"), repo_dir)
+    repo = git.Repo.init(repo_dir)
+    repo.git.add(A=True)
+    actor = git.Actor("Snakemake Test", "test@snakemake.invalid")
+    repo.index.commit("init", author=actor, committer=actor)
+    repo.create_tag("v0.0.1")
+    config = {"module_repo": str(repo_dir)}
+    tmpdir = run(dpath("test_module_local_git_script"), config=config, cleanup=False)
+    assert tmpdir
+    # with existing output, the script mtime is checked, which joins the script path
+    # with the LocalGitFile basedir of the module rule
+    run(dpath("test_module_local_git_script"), config=config, tmpdir=tmpdir)
+
+
 def test_module_worfklow_namespacing():
     run(dpath("test_module_workflow_snakefile_usage"))
 
