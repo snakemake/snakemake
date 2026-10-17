@@ -117,6 +117,11 @@ Development with ``pixi``
 your development environment. It acts as a drop-in replacement for
 `conda <https://docs.conda.io/en/latest/>`_.
 
+Snakemake development requires ``pixi`` 0.63 or newer as specified by ``requires-pixi`` in ``pyproject.toml``.
+Check your installed version with ``pixi --version``.
+If it is older run ``pixi self-update`` before continuing.
+If you installed ``pixi`` through a package manager use that package manager to update it instead.
+
 After having cloned the Snakemake repository and changed to the directory,
 use the following command to get `pixi` set up for Snakemake development:
 
