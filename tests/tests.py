@@ -2821,6 +2821,30 @@ def test_issue2574():
     assert "line 4," in stderr
 
 
+@pytest.mark.parametrize(
+    "snakefile, message, line",
+    [
+        ("Snakefile.keyword", "Unexpected keyword outptu", 15),
+        ("Snakefile.string", "unterminated string literal", 8),
+    ],
+)
+def test_issue3875(snakefile, message, line):
+    # Syntax errors detected while parsing the Snakefile have to report the
+    # line in the Snakefile where they occur.
+    snakefile = os.path.join(dpath("test_issue3875"), snakefile)
+    p = sp.Popen(
+        f"snakemake -s {snakefile}",
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+    )
+    _, stderr = p.communicate()
+    stderr = stderr.decode()
+    assert p.returncode == 1
+    assert message in stderr
+    assert f"line {line}:" in stderr
+
+
 @skip_on_windows  # not platform dependent, only cli
 def test_default_storage_provider_none():
     run(dpath("test01"), shellcmd="snakemake --default-storage-provider none -c3")
