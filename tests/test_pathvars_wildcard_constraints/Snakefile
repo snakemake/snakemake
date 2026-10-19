@@ -28,4 +28,4 @@ rule all:
     default_target: True
     input:
         expand(rules.alpha_sample.output.sample, sample="foo"),
-        expand(rules.alpha_sample.output.sample, sample="42"),
+        expand(rules.numeric_sample.output.sample, sample="42"),
