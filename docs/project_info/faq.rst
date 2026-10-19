@@ -722,7 +722,8 @@ In case your administrator does not provide you with a proper configuration of t
 In which order are resource definitions prioritized?
 ----------------------------------------------------
 
-Resources as ``resources`` and ``threads`` can be defined in different places, e.g. in the rule definition (see :ref:`snakefiles-threads` and :ref:`snakefiles-resources`), in a profile (see :ref:`profiles`), or via the command line (see :ref:`all_options`).
+All snakemake command-line arguments, such as ``resources`` and ``threads``, can be defined in different places.
+For resources and threads, this can be in the rule definition (see :ref:`snakefiles-threads` and :ref:`snakefiles-resources`), in a profile (see :ref:`profiles`), or via the command line (see :ref:`all_options`).
 Thereby, the resources are gathered in the following order, where succeeding definitions overwrite previous ones:
 
 1. Rule definition (for details refer to :ref:`snakefiles-threads` and :ref:`snakefiles-resources`)
