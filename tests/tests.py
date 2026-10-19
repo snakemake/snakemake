@@ -2226,6 +2226,7 @@ def test_module_with_script():
         run(dpath("test_module_with_script"))
 
 
+@skip_on_windows  # git+file:// source paths are not supported on Windows
 def test_module_local_git_script(tmp_path):
     import git
 
