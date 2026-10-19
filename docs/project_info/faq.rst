@@ -727,7 +727,7 @@ For resources and threads, this can be in the rule definition (see :ref:`snakefi
 Resources are gathered in the following order, where later definitions overwrite previous ones:
 
 1. Rule definition (for details refer to :ref:`snakefiles-threads` and :ref:`snakefiles-resources`)
-2. Global profile (for details refer to :ref:`global-profiles`)
+2. Global profile (for details refer to :ref:`global-profiles` and :ref:`using-multiple-global-profiles`).
 3. Workflow specific profile (for details refer to :ref:`workflow-specific-profile`)
 4. Command line e.g. via ``--set-threads myrule=2`` or ``--set-resources myrule:partition="foo"`` (for details refer to :ref:`all_options`)
 
