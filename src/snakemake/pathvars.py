@@ -111,9 +111,9 @@ class Pathvars:
     def get(self, name: str) -> str:
         return self.items[name]
 
-
     def apply(self, path: str) -> str:
         from snakemake.io import AnnotatedString
+
         applied_path = path
         while PATHVAR_REGEX.search(applied_path):
             try:
