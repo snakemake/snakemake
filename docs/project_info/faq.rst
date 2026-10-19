@@ -731,6 +731,8 @@ Resources are gathered in the following order, where later definitions overwrite
 3. Workflow specific profile (for details refer to :ref:`workflow-specific-profile`)
 4. Command line e.g. via ``--set-threads myrule=2`` or ``--set-resources myrule:partition="foo"`` (for details refer to :ref:`all_options`)
 
+Overwriting happens on the top-level keys, so one command-line argument at a time.
+For a detailed example, see the explanation of :ref:`using-multiple-global-profiles`.
 
 CLI
 ---
