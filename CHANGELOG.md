@@ -1,6 +1,33 @@
 # Changelog
 
 
+## [10.0.0](https://github.com/snakemake/snakemake/compare/v9.27.0...v10.0.0) (2026-10-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* generic software deployment plugin support ([#3339](https://github.com/snakemake/snakemake/issues/3339))
+
+### Features
+
+* expose iofile access_pattern to plugins via AnnotatedStringInterface ([#4337](https://github.com/snakemake/snakemake/issues/4337)) ([4523356](https://github.com/snakemake/snakemake/commit/4523356973a83aa237a121717ee81dd2e09175da))
+* generic software deployment plugin support ([#3339](https://github.com/snakemake/snakemake/issues/3339)) ([91763d6](https://github.com/snakemake/snakemake/commit/91763d644db0a6051c40014fa8ffad340f7d39a0))
+
+
+### Bug Fixes
+
+* handle getpass.getuser() failure in workflow info header ([#4322](https://github.com/snakemake/snakemake/issues/4322)) ([5bf5e21](https://github.com/snakemake/snakemake/commit/5bf5e21b0d0e7e65e247c1f2c61c1a4f74a1a752))
+
+
+### Performance Improvements
+
+* correctly propagate inventory instruction in recursive DAG construction ([#4342](https://github.com/snakemake/snakemake/issues/4342)) ([1c67a66](https://github.com/snakemake/snakemake/commit/1c67a66cbe14bbb91fa54c960c4e26d8de2b171f))
+
+
+### Documentation
+
+* Add faq section on resource definition priorization ([#4081](https://github.com/snakemake/snakemake/issues/4081)) ([f78d99b](https://github.com/snakemake/snakemake/commit/f78d99ba1ee54cb92e98349fce5a53f0c0783d6a))
+
 ## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
 
 
