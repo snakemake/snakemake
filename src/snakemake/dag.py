@@ -1276,6 +1276,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                         visited=visited,
                         known_producers=known_producers,
                         progress=progress,
+                        create_inventory=create_inventory,
                     )
                     producer[res.file] = selected_job
                 except (
