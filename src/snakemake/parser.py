@@ -169,9 +169,10 @@ class TokenAutomaton:
                     yield t, orig
                     self.lasttoken = t
             except tokenize.TokenError as e:
-                self.error(
-                    str(e).split(",")[0].strip("()''"), token
-                )  # TODO the inferred line number seems to be wrong sometimes
+                # Use the position reported by the tokenizer: the current token
+                # can be several lines before the place where the error occurs.
+                msg, (line, _) = e.args
+                raise SyntaxError(msg, (self.snakefile.path, line, None, None))
 
     def error(self, msg, token, naming_hint=None):
         if naming_hint is not None:

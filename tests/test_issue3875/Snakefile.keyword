@@ -1,0 +1,18 @@
+rule all:
+    input:
+        "a.txt",
+        "b.txt",
+
+
+rule a:
+    output:
+        "a.txt",
+    shell:
+        "touch {output}"
+
+
+rule b:
+    outptu:
+        "b.txt",
+    shell:
+        "touch {output}"
