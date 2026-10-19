@@ -5,6 +5,8 @@ pathvars:
 rule numeric_sample:
     output:
         sample="<sample>.txt",
+    log:
+        "<sample>.log",
     wildcard_constraints:
         sample="[0-9]+",
     shell:
@@ -14,6 +16,8 @@ rule numeric_sample:
 rule alpha_sample:
     output:
         sample="<sample>.txt",
+    log:
+        "<sample>.log",
     wildcard_constraints:
         sample="[a-z]+",
     shell:

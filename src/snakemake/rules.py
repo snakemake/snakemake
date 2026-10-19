@@ -377,8 +377,6 @@ class Rule(RuleInterface):
         for name, item in kwoutput.items():
             self._set_inoutput_item(item, output=True, name=name)
 
-        self.update_wildcard_constraints()
-
         for item in self.output:
             self.register_wildcards(item)
         # Check output file name list for duplicates
@@ -409,13 +407,16 @@ class Rule(RuleInterface):
         assert path_modifier is not None
         apply = partial(path_modifier.modify, property=property)
 
+        def modify_path(path):
+            return apply(self.pathvars.apply(path))
+
         assert not callable(item)
         if isinstance(item, dict):
-            return {k: apply(v) for k, v in item.items()}
+            return {k: modify_path(v) for k, v in item.items()}
         elif isinstance(item, collections.abc.Iterable) and not isinstance(item, str):
-            return [apply(e) for e in item]
+            return [modify_path(e) for e in item]
         else:
-            return apply(item)
+            return modify_path(item)
 
     def update_wildcard_constraints(self):
         for i in range(len(self.output)):
@@ -527,6 +528,7 @@ class Rule(RuleInterface):
                 self.dependencies[item] = rule_dependency
 
             if output:
+                item = self._update_item_wildcard_constraints(item)
                 if self.workflow.storage_settings.all_temp:
                     # mark as temp if all output files shall be marked as temp
                     item = flag(item, "temp")

@@ -111,7 +111,9 @@ class Pathvars:
     def get(self, name: str) -> str:
         return self.items[name]
 
+
     def apply(self, path: str) -> str:
+        from snakemake.io import AnnotatedString
         applied_path = path
         while PATHVAR_REGEX.search(applied_path):
             try:
@@ -128,6 +130,13 @@ class Pathvars:
                     f"Undefined pathvar '{e.args[0]}' when expanding "
                     f"pathvars in {path}{intermediate_msg}"
                 ) from e
+
+        # Preserve flags
+        flags = getattr(path, "flags", None)
+        if flags:
+            applied_path = AnnotatedString(applied_path)
+            applied_path.flags = dict(flags)
+
         return applied_path
 
     @classmethod

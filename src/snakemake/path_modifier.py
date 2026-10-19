@@ -132,10 +132,8 @@ class PathModifier:
         prefix = self.workflow.storage_settings.default_storage_prefix
         if prefix and not prefix.endswith("/"):
             prefix = f"{prefix}/"
-        resolved_path = self.workflow.pathvars.apply(str(path))
-        query = f"{prefix}{os.path.normpath(resolved_path)}"
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
-            query
+            f"{prefix}{os.path.normpath(path)}"
         )
         validation_res = storage_object.is_valid_query()
         if not validation_res:
