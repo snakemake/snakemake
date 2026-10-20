@@ -260,6 +260,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         cache_prefix: Optional[Path] = None,
         pinfile_prefix: Optional[Path] = None,
         not_block_search_path_envvars: bool = False,
+        with_pkgs: AnySet[str] = frozenset(),
+        workflow_with_pkgs: AnySet[str] = frozenset(),
     ) -> None:
         super().__init__()
         self.deployment_methods: AnySet[str] = deployment_methods
@@ -269,6 +271,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         self.cache_prefix: Path = cache_prefix or Path(".snakemake/software/cache")
         self.pinfile_prefix: Path = pinfile_prefix or Path(".snakemake/software/pins")
         self.not_block_search_path_envvars: bool = not_block_search_path_envvars
+        self.with_pkgs: AnySet[str] = with_pkgs
+        self.workflow_with_pkgs: AnySet[str] = workflow_with_pkgs
 
     def deployment_method(self) -> AnySet[str]:
         return self.deployment_methods
