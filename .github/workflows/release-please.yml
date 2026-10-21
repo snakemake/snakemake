@@ -2,18 +2,22 @@ on:
   push:
     branches:
       - main
+      - v9_backports
 
 name: release-please
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    env:
+      STABLE_BRANCH: v9_backports # TODO change this upon release of v10
     steps:
 
       - uses: googleapis/release-please-action@v5
         id: release
         with:
           release-type: python
+          target-branch: ${{ github.ref_name }}
           token: ${{ secrets.RELEASE_PLEASE_PR_CI_TOKEN }}
 
       - uses: actions/checkout@v7.0.1
@@ -47,4 +51,4 @@ jobs:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-          tags: "v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}.${{ steps.release.outputs.patch }},stable"
+          tags: ${{ format('v{0}.{1}.{2}{3}', steps.release.outputs.major, steps.release.outputs.minor, steps.release.outputs.patch, github.ref_name == env.STABLE_BRANCH && ',stable' || '') }}
