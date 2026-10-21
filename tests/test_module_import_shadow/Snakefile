@@ -1,0 +1,16 @@
+shell.executable("bash")
+
+import parse
+
+module test:
+    snakefile:
+        "module.smk"
+
+
+use rule * from test
+
+
+rule all:
+    input:
+        "test.out"
+    default_target: True
