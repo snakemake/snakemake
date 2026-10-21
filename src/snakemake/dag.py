@@ -1299,8 +1299,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                             ),
                         )
                         known_producers[res.file] = None
-                    if isinstance(ex, CyclicGraphException) or isinstance(
-                        ex, PeriodicWildcardError
+                    if isinstance(
+                        ex,
+                        (
+                            CyclicGraphException,
+                            PeriodicWildcardError,
+                            InputFunctionException,
+                        ),
                     ):
                         print_exception_warning(ex, self.workflow.linemaps)
 
