@@ -1,4 +1,4 @@
-import sys, os, subprocess
+import sys, os, shlex, subprocess
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -63,6 +63,49 @@ def test_precommand_auto_deploy_disabled():
         _make_common_settings(auto_deploy_default_storage_provider=False)
     )
     assert "pip install" not in cmd
+
+
+def _general_args(cache=None, latency_wait=5):
+    """The general args a spawned job receives, as a token list."""
+    workflow = _make_mock_workflow()
+    workflow.workflow_settings.cache = cache
+    workflow.execution_settings.latency_wait = latency_wait
+    factory = SpawnedJobArgsFactory(workflow=workflow)
+    args = factory.general_args(
+        _make_common_settings(auto_deploy_default_storage_provider=False)
+    )
+    return shlex.split(args)
+
+
+def _flag_values(tokens, flag):
+    """The values following flag (up to the next flag), or None if flag is absent."""
+    if flag not in tokens:
+        return None
+    values = []
+    for token in tokens[tokens.index(flag) + 1 :]:
+        if token.startswith("--"):
+            break
+        values.append(token)
+    return values
+
+
+@pytest.mark.parametrize(
+    "cache, expected",
+    [
+        (None, None),
+        # a bare --cache must still be forwarded
+        ([], []),
+        (["a", "b"], ["a", "b"]),
+    ],
+)
+def test_general_args_forward_cache(cache, expected):
+    assert _flag_values(_general_args(cache=cache), "--cache") == expected
+
+
+@pytest.mark.parametrize("latency_wait", [0, 5])
+def test_general_args_forward_latency_wait(latency_wait):
+    tokens = _general_args(latency_wait=latency_wait)
+    assert _flag_values(tokens, "--latency-wait") == [str(latency_wait)]
 
 
 def test_deploy_sources(s3_storage):
