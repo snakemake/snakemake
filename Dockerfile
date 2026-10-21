@@ -9,9 +9,12 @@ USER root
 ENV APT_PKGS bzip2 ca-certificates curl wget gnupg2 squashfs-tools git
 
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ${APT_PKGS} \
     && apt-get clean \
     && rm -rf /var/lib/apt /var/lib/dpkg /var/lib/cache /var/lib/log
+
+RUN micromamba install -y -c conda-forge pip>=26.2.2 # https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576
 
 RUN micromamba create -q -y -c conda-forge -n apptainer apptainer
 
