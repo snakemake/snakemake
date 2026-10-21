@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.27.1](https://github.com/snakemake/snakemake/compare/v9.27.0...v9.27.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* handle emudhra incident in dockerfile ([1a8fa42](https://github.com/snakemake/snakemake/commit/1a8fa42dd6b90e67e798a2a307f3fa26228b663a))
+
 ## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
 
 
