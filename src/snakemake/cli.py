@@ -3,33 +3,32 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import defaultdict
+import logging
 import os
 import re
 import sys
-import logging
+from collections import defaultdict
+from collections.abc import Mapping
 from pathlib import Path
-from typing import List, Mapping, Optional, Set, Tuple, Union, Dict
-from snakemake import caching
-from snakemake_interface_executor_plugins.settings import ExecMode
+
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.utils import maybe_base64
-from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_logger_plugins.registry import LoggerPluginRegistry
+from snakemake_interface_report_plugins.registry import ReportPluginRegistry
 from snakemake_interface_scheduler_plugins.registry import SchedulerPluginRegistry
 from snakemake_interface_software_deployment_plugins.registry import (
     SoftwareDeploymentPluginRegistry,
 )
-
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 import snakemake.common.argparse
+from snakemake import __version__, caching
 from snakemake.api import (
     SnakemakeApi,
     resolve_snakefile,
 )
 from snakemake.common.constants import SNAKEFILE_CHOICES
-from snakemake import __version__
 from snakemake.common.misc import (
     async_run,
     get_appdirs,
@@ -46,18 +45,21 @@ from snakemake.resources import (
     Resources,
     ResourceScopes,
 )
-from snakemake.settings.enums import PersistenceBackend
+from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
+from snakemake.settings.enums import ChangeType, PersistenceBackend
 from snakemake.settings.types import (
     Batch,
     ConfigSettings,
     DAGSettings,
     DeploymentSettings,
     ExecutionSettings,
+    GlobalReportSettings,
     GroupSettings,
     MaxJobsPerTimespan,
     NotebookEditMode,
     OutputSettings,
     PreemptibleRules,
+    PrintDag,
     Quietness,
     RemoteExecutionSettings,
     RerunTrigger,
@@ -65,15 +67,11 @@ from snakemake.settings.types import (
     SchedulingSettings,
     SharedFSUsage,
     StorageSettings,
-    WorkflowSettings,
     StrictDagEvaluation,
-    PrintDag,
-    GlobalReportSettings,
+    WorkflowSettings,
 )
-from snakemake.settings.enums import ChangeType
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.utils import available_cpu_count, update_config
-from snakemake.scheduling.milp import SchedulerSettings as MILPSchedulerSettings
 
 
 def parse_size_in_bytes(value):
@@ -126,8 +124,8 @@ def parse_set_threads(args):
 
 
 def parse_consider_ancient(
-    args: Optional[List[str]],
-) -> Mapping[str, Set[Union[str, int]]]:
+    args: list[str] | None,
+) -> Mapping[str, set[str | int]]:
     """Parse command line arguments for marking input files as ancient.
 
     Args:
@@ -146,14 +144,14 @@ def parse_consider_ancient(
         "rule (given as name or index (0-based)), separated by commas."
     )
 
-    def parse_item(item: str) -> Union[str, int]:
+    def parse_item(item: str) -> str | int:
         try:
             return int(item)
         except ValueError:
             if item.isidentifier():
                 return item
             else:
-                raise ValueError(f"{errmsg} (Unparsable value: {repr(item)})")
+                raise ValueError(f"{errmsg} (Unparsable value: {item!r})")
 
     consider_ancient = defaultdict(set)
 
@@ -161,13 +159,13 @@ def parse_consider_ancient(
         for entry in args:
             rule, items = parse_key_value_arg(entry, errmsg=errmsg, strip_quotes=True)
             if not rule.isidentifier():
-                raise ValueError(f"{errmsg} (Invalid rule name: {repr(rule)})")
+                raise ValueError(f"{errmsg} (Invalid rule name: {rule!r})")
             items = items.split(",")
             consider_ancient[rule] = {parse_item(item) for item in items}
     return consider_ancient
 
 
-def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
+def parse_set_resources(args: list[str] | None) -> dict[str, Resources]:
     errmsg = (
         "Invalid resource definition: entries have to be defined as "
         "RULE:RESOURCE=VALUE, with VALUE being a positive integer a quoted string, or "
@@ -179,7 +177,7 @@ def parse_set_resources(args: List[str] | None) -> Dict[str, Resources]:
     if args is None:
         return {}
 
-    assignments: Dict[str, List[str]] = defaultdict(list)
+    assignments: dict[str, list[str]] = defaultdict(list)
 
     for entry in args:
         rule, assign = entry.split(":", maxsplit=1)
@@ -354,7 +352,7 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
+def get_profile_dir(profile: str) -> tuple[Path, Path] | None:
     config_pattern = re.compile(
         r"(?P<main_file_name>profile|config)(?:\.v(?P<min_major>\d+)\+)?.yaml"
     )
@@ -418,15 +416,11 @@ def get_argument_parser(profiles=None):
                 config_files.append(config_file)
             else:
                 print(
-                    "Error: profile directory given ({profile}), but no profile.yaml (or config.yaml) found. "
+                    f"Error: profile directory given ({profile}), but no profile.yaml (or config.yaml) found. "
                     "Profile has to be given as either absolute path, relative "
                     "path or name of a directory available in either "
-                    "{site} or {user}. "
-                    "Alternatively, you can explicitly specify a path and file name.".format(
-                        profile=profile,
-                        site=dirs.site_config_dir,
-                        user=dirs.user_config_dir,
-                    ),
+                    f"{dirs.site_config_dir} or {dirs.user_config_dir}. "
+                    "Alternatively, you can explicitly specify a path and file name.",
                     file=sys.stderr,
                 )
                 exit(1)
@@ -1944,7 +1938,7 @@ def parse_args(argv):
     return parser, args
 
 
-def parse_quietness(quietness) -> Set[Quietness]:
+def parse_quietness(quietness) -> set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
         quietness = {Quietness.PROGRESS, Quietness.RULES}
@@ -1975,7 +1969,7 @@ def parse_wait_for_files(args):
         )
 
         with open(args.wait_for_files_file) as fd:
-            extra_wait_files = [line.strip() for line in fd.readlines()]
+            extra_wait_files = [line.strip() for line in fd]
 
         if aggregated_wait_for_files is None:
             aggregated_wait_for_files = extra_wait_files

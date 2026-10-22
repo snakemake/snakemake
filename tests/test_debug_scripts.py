@@ -1,12 +1,14 @@
 import json
 import os
 import socket
+import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import time
 from pathlib import Path
 from typing import Any, Callable
 
+import psutil
 import pytest
 
 from snakemake import api
@@ -89,9 +91,31 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
-def test_debug_scripts_stops_at_breakpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+def wait_until(condition: Callable[[], bool]) -> None:
+    deadline = time.monotonic() + TIMEOUT
+    while not condition():
+        assert time.monotonic() < deadline
+        time.sleep(0.05)
+
+
+def listens_on(process: psutil.Process, port: int) -> bool:
+    return any(
+        conn.status == psutil.CONN_LISTEN and conn.laddr.port == port
+        for child in process.children(recursive=True)
+        for conn in child.net_connections()
+    )
+
+
+@pytest.mark.parametrize("host, warned", [("127.0.0.1", False), ("0.0.0.0", True)])
+def test_debug_scripts_stops_at_breakpoint(
+    host: str,
+    warned: bool,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """An attached debugger stops at a breakpoint set in the real script file."""
     port = free_port()
+    monkeypatch.setenv("SNAKEMAKE_DEBUGPY_HOST", host)
     monkeypatch.setenv("SNAKEMAKE_DEBUGPY_PORT", str(port))
     path = dpath("test_debug_scripts")
     with prepare_tmpdir(path) as tmpdir:
@@ -108,6 +132,33 @@ def test_debug_scripts_stops_at_breakpoint(monkeypatch: pytest.MonkeyPatch) -> N
             frame = client.result(TIMEOUT)
 
     assert (Path(frame["source"]["path"]), frame["line"]) == (source, 2)
+    assert ("reachable from other machines" in capsys.readouterr().out) == warned
+
+
+def test_debug_scripts_job_exits_when_snakemake_is_killed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A script waiting for a debugger exits once the Snakemake process is gone."""
+    port = free_port()
+    monkeypatch.setenv("SNAKEMAKE_DEBUGPY_PORT", str(port))
+    with prepare_tmpdir(dpath("test_debug_scripts")) as tmpdir:
+        with subprocess.Popen(
+            [sys.executable, "-m", "snakemake", "--cores", "1", "--debug-scripts"],
+            cwd=tmpdir,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ) as process:
+            snakemake = psutil.Process(process.pid)
+            wait_until(lambda: listens_on(snakemake, port))
+            jobs = snakemake.children(recursive=True)
+            snakemake.kill()
+            process.wait()
+            _, alive = psutil.wait_procs(jobs, timeout=10)
+
+    assert alive == []
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", port))
 
 
 def test_debug_does_not_pause_scripts() -> None:

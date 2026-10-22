@@ -24835,7 +24835,7 @@ packages:
   - conda-inject>=1.3.1,<2.0
   - pip
   - sqlmodel>=0.0.37,<0.0.43
-  - debugpy
+  - debugpy>=1.6.4
   - eido ; extra == 'pep'
   - peppy ; extra == 'pep'
   - pygments ; extra == 'reports'

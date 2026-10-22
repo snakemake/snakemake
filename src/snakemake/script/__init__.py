@@ -9,6 +9,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+import ipaddress
 import itertools
 import json
 import math
@@ -16,6 +17,7 @@ import os
 import pickle
 import re
 import shlex
+import socket
 import sys
 import tempfile
 import textwrap
@@ -375,6 +377,13 @@ class ScriptBase(ABC):
         )
 
 
+def _is_loopback(host: str) -> bool:
+    return all(
+        ipaddress.ip_address(info[4][0]).is_loopback
+        for info in socket.getaddrinfo(host, None)
+    )
+
+
 class PythonScript(ScriptBase):
 
     @staticmethod
@@ -417,6 +426,12 @@ class PythonScript(ScriptBase):
             ) from e
         host = os.environ.get("SNAKEMAKE_DEBUGPY_HOST", "127.0.0.1")
         port = int(os.environ.get("SNAKEMAKE_DEBUGPY_PORT", "5678"))
+        if not _is_loopback(host):
+            logger.warning(
+                f"--debug-scripts: debugpy listens on {host}:{port}, which is reachable "
+                "from other machines. Anyone who can connect can execute arbitrary code "
+                "as your user. Prefer 127.0.0.1 and an SSH tunnel for remote debugging."
+            )
         src = self._debug_source_path()
         debugpy_dir = os.path.dirname(os.path.dirname(debugpy.__file__))
         logger.info(
@@ -425,41 +440,10 @@ class PythonScript(ScriptBase):
             f"    Attach your IDE's Python debugger (debugpy) to {host}:{port} to continue.\n"
             f"    The job resumes once a debugger is attached; press Ctrl-C to abort."
         )
-        pid = os.getpid()
-        watchdog = (
-            f"""
-            import ctypes
-            __snakemake_parent = ctypes.windll.kernel32.OpenProcess(0x00100000, False, {pid})
-            if not __snakemake_parent:
-                raise ctypes.WinError()
-            def __snakemake_watchdog(handle):
-                ctypes.windll.kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
-                os._exit(1)
-            """
-            if ON_WINDOWS
-            else f"""
-            __snakemake_parent = {pid}
-            def __snakemake_watchdog(pid):
-                while True:
-                    time.sleep(0.5)
-                    try:
-                        os.kill(pid, 0)
-                    except ProcessLookupError:
-                        os._exit(1)
-            """
-        )
-        launcher = f"""
-            threading.Thread(target=__snakemake_watchdog, args=(__snakemake_parent,), daemon=True).start()
-            os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-            sys.path.append({debugpy_dir!r})
-            import debugpy
-            debugpy.listen(({host!r}, {port}), in_process_debug_adapter=True)
-            debugpy.wait_for_client()
-            exec(compile(open({src!r}).read(), {src!r}, "exec"), {{**globals(), "__file__": {self._file_override!r}}})
-            """
-        return "".join(
-            textwrap.dedent(part)
-            for part in ("\nimport os, threading, time", watchdog, launcher)
+        return (
+            "from snakemake.debug_launcher import launch\n"
+            f"launch({src!r}, {self._file_override!r}, {host!r}, {port}, "
+            f"{os.getpid()}, {debugpy_dir!r}, globals())\n"
         ).encode()
 
     def get_preamble(self):
