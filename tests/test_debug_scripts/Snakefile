@@ -1,0 +1,5 @@
+rule hello:
+    output:
+        "out.txt",
+    script:
+        "scripts/hello.py"

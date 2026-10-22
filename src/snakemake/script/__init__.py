@@ -425,9 +425,20 @@ class PythonScript(ScriptBase):
             f"    Attach your IDE's Python debugger (debugpy) to {host}:{port} to continue.\n"
             f"    The job resumes once a debugger is attached; press Ctrl-C to abort."
         )
-        return textwrap.dedent(
+        pid = os.getpid()
+        watchdog = (
             f"""
-            import os, threading, time
+            import ctypes
+            __snakemake_parent = ctypes.windll.kernel32.OpenProcess(0x00100000, False, {pid})
+            if not __snakemake_parent:
+                raise ctypes.WinError()
+            def __snakemake_watchdog(handle):
+                ctypes.windll.kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
+                os._exit(1)
+            """
+            if ON_WINDOWS
+            else f"""
+            __snakemake_parent = {pid}
             def __snakemake_watchdog(pid):
                 while True:
                     time.sleep(0.5)
@@ -435,7 +446,10 @@ class PythonScript(ScriptBase):
                         os.kill(pid, 0)
                     except ProcessLookupError:
                         os._exit(1)
-            threading.Thread(target=__snakemake_watchdog, args=({os.getpid()},), daemon=True).start()
+            """
+        )
+        launcher = f"""
+            threading.Thread(target=__snakemake_watchdog, args=(__snakemake_parent,), daemon=True).start()
             os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
             sys.path.append({debugpy_dir!r})
             import debugpy
@@ -443,6 +457,9 @@ class PythonScript(ScriptBase):
             debugpy.wait_for_client()
             exec(compile(open({src!r}).read(), {src!r}, "exec"), {{**globals(), "__file__": {self._file_override!r}}})
             """
+        return "".join(
+            textwrap.dedent(part)
+            for part in ("\nimport os, threading, time", watchdog, launcher)
         ).encode()
 
     def get_preamble(self):
