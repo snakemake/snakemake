@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* Debug scripts using `debugpy`-compatible IDEs using new `--debug-scripts` flag ([#2932](https://github.com/snakemake/snakemake/issues/2932))
 
 ## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
 

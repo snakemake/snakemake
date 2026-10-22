@@ -144,6 +144,7 @@ class Executor(RealExecutor):
             benchmark_extended=self.workflow.output_settings.benchmark_extended,
             linemaps=self.workflow.linemaps,
             debug=self.workflow.execution_settings.debug,
+            debug_scripts=self.workflow.execution_settings.debug_scripts,
             cleanup_scripts=self.workflow.execution_settings.cleanup_scripts,
             shadow_dir=job.shadow_dir,
             jobid=job.jobid,
@@ -292,6 +293,7 @@ class RunArgs:
     benchmark_extended: bool
     linemaps: Dict[str, Dict[int, int]]
     debug: bool
+    debug_scripts: bool
     cleanup_scripts: bool
     shadow_dir: Path
     jobid: Union[int, str]

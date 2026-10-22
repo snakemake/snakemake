@@ -586,6 +586,14 @@ class DAGApi(ApiBase):
                 "For local execution, --shared-fs-usage has to be unrestricted."
             )
 
+        debug_flags = " and ".join(
+            flag
+            for flag, enabled in (
+                ("--debug", execution_settings.debug),
+                ("--debug-scripts", execution_settings.debug_scripts),
+            )
+            if enabled
+        )
         if executor_plugin.common_settings.local_exec:
             if (
                 not executor_plugin.common_settings.dryrun_exec
@@ -602,12 +610,9 @@ class DAGApi(ApiBase):
                 # set cores if that is not done yet
                 if self.workflow_api.resource_settings.cores is None:
                     self.workflow_api.resource_settings.cores = 1
-            if (
-                execution_settings.debug
-                and self.workflow_api.resource_settings.cores > 1
-            ):
+            if debug_flags and self.workflow_api.resource_settings.cores > 1:
                 raise ApiError(
-                    "debug mode cannot be used with multi-core execution, "
+                    f"{debug_flags} cannot be used with multi-core execution, "
                     "please enforce a single core by setting --cores 1"
                 )
         else:
@@ -626,8 +631,8 @@ class DAGApi(ApiBase):
                 raise ApiError(
                     "notebook edit mode is only allowed with local execution."
                 )
-            if execution_settings.debug:
-                raise ApiError("debug mode cannot be used with non-local execution")
+            if debug_flags:
+                raise ApiError(f"{debug_flags} cannot be used with non-local execution")
 
         # Note: use_threads is derived from the validation executor's
         # CommonSettings (executor_plugin), not from the actual executor

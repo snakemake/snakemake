@@ -105,6 +105,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     latency_wait: int = 3
     keep_going: bool = False
     debug: bool = False
+    debug_scripts: bool = False
     standalone: bool = False
     ignore_ambiguity: bool = False
     lock: bool = True
