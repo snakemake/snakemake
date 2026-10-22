@@ -1597,6 +1597,15 @@ def get_argument_parser(profiles=None):
         "allows to set breakpoints in run blocks.",
     )
     group_behavior.add_argument(
+        "--debug-scripts",
+        action="store_true",
+        help="Pause each Python script job and wait for an IDE debugger (debugpy) "
+        "to attach, such that breakpoints set in the script file are hit. "
+        "Requires local execution and --cores 1. Host and port can be set via "
+        "the environment variables SNAKEMAKE_DEBUGPY_HOST and "
+        "SNAKEMAKE_DEBUGPY_PORT (default: 127.0.0.1:5678).",
+    )
+    group_behavior.add_argument(
         "--runtime-profile",
         metavar="FILE",
         help="Profile Snakemake and write the output to FILE. This requires yappi "
@@ -2268,6 +2277,7 @@ def args_to_api(args, parser):
                             execution_settings=ExecutionSettings(
                                 keep_going=args.keep_going,
                                 debug=args.debug,
+                                debug_scripts=args.debug_scripts,
                                 standalone=True,
                                 ignore_ambiguity=args.allow_ambiguity,
                                 lock=not args.nolock,

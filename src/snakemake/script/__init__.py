@@ -381,17 +381,69 @@ class PythonScript(ScriptBase):
     def _minify_preamble(preamble: str) -> str:
         return textwrap.dedent(preamble).replace("\n", "")
 
-    def preamble_addendum(self) -> str:
+    @property
+    def _file_override(self) -> str:
         if isinstance(self.path, LocalSourceFile):
-            file_override = os.path.realpath(
-                self.path.get_path_or_uri(secret_free=True)
-            )
-        else:
-            file_override = self.path.get_path_or_uri(secret_free=True)
+            return os.path.realpath(self.path.get_path_or_uri(secret_free=True))
+        return self.path.get_path_or_uri(secret_free=True)
 
+    def preamble_addendum(self) -> str:
         return "__real_file__ = __file__; __file__ = {file_override};".format(
-            file_override=repr(file_override)
+            file_override=repr(self._file_override)
         )
+
+    def write_script(self, preamble, fd):
+        if not self.run_args.debug_scripts:
+            return super().write_script(preamble, fd)
+        fd.write(preamble.encode())
+        fd.write(self._debug_launcher())
+
+    def _debug_source_path(self) -> str:
+        if isinstance(self.path, LocalSourceFile):
+            return self._file_override
+        if self.cache_path is None or not os.path.isfile(self.cache_path):
+            raise WorkflowError(
+                f"No local copy of script {self._file_override} available for debugging."
+            )
+        return str(self.cache_path)
+
+    def _debug_launcher(self) -> bytes:
+        try:
+            import debugpy
+        except ImportError as e:
+            raise WorkflowError(
+                "Debugging Python scripts with --debug-scripts requires debugpy to be "
+                "installed in the environment running Snakemake."
+            ) from e
+        host = os.environ.get("SNAKEMAKE_DEBUGPY_HOST", "127.0.0.1")
+        port = int(os.environ.get("SNAKEMAKE_DEBUGPY_PORT", "5678"))
+        src = self._debug_source_path()
+        debugpy_dir = os.path.dirname(os.path.dirname(debugpy.__file__))
+        logger.info(
+            f"Rule {self.run_args.job_rule.name} (jobid {self.run_args.jobid}) is paused, waiting for a debugger to attach.\n"
+            f"    Script to set breakpoints in: {src}\n"
+            f"    Attach your IDE's Python debugger (debugpy) to {host}:{port} to continue.\n"
+            f"    The job resumes once a debugger is attached; press Ctrl-C to abort."
+        )
+        return textwrap.dedent(
+            f"""
+            import os, threading, time
+            def __snakemake_watchdog(pid):
+                while True:
+                    time.sleep(0.5)
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        os._exit(1)
+            threading.Thread(target=__snakemake_watchdog, args=({os.getpid()},), daemon=True).start()
+            os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+            sys.path.append({debugpy_dir!r})
+            import debugpy
+            debugpy.listen(({host!r}, {port}), in_process_debug_adapter=True)
+            debugpy.wait_for_client()
+            exec(compile(open({src!r}).read(), {src!r}, "exec"), {{**globals(), "__file__": {self._file_override!r}}})
+            """
+        ).encode()
 
     def get_preamble(self):
         snakemake = Snakemake(
@@ -948,6 +1000,8 @@ class BashScript(ScriptBase):
 
 
 class XonshScript(PythonScript):
+    write_script = ScriptBase.write_script
+
     def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd(
             "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
