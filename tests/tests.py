@@ -433,6 +433,65 @@ def test_persistence_backend_db_run_directive_concurrency(tmp_path):
         ), f"Expected 100 DB records, but found {len(records)}!"
 
 
+def test_persistence_backend_db_schema_migration(tmp_path):
+    import sqlite3
+    from sqlalchemy import inspect
+    from snakemake.persistence import MetadataRecord
+    from snakemake.persistence.db import LockORM, MetadataRecordORM, SettingsORM
+
+    # tables as written by Snakemake 9.x, keep as is when the ORM classes change
+    schema_9x = """
+    CREATE TABLE snakemake_locks (
+        namespace VARCHAR NOT NULL,
+        file_path VARCHAR NOT NULL,
+        lock_type VARCHAR NOT NULL,
+        PRIMARY KEY (namespace, file_path, lock_type)
+    );
+    CREATE TABLE snakemake_metadata (
+        rule VARCHAR,
+        input JSON,
+        log JSON,
+        shellcmd VARCHAR,
+        params JSON,
+        code VARCHAR,
+        record_format_version INTEGER NOT NULL,
+        conda_env VARCHAR,
+        container_img_url VARCHAR,
+        software_stack_hash VARCHAR,
+        job_hash INTEGER,
+        starttime FLOAT,
+        endtime FLOAT,
+        incomplete BOOLEAN,
+        external_jobid VARCHAR,
+        input_checksums JSON,
+        namespace VARCHAR NOT NULL,
+        target VARCHAR NOT NULL,
+        PRIMARY KEY (namespace, target)
+    );
+    CREATE TABLE snakemake_persistence_db_settings (
+        namespace TEXT PRIMARY KEY, is_network_fs BOOLEAN
+    );
+    """
+    with sqlite3.connect(tmp_path / "metadata.db") as conn:
+        conn.executescript(schema_9x)
+        conn.execute(
+            "INSERT INTO snakemake_metadata (namespace, target, rule, "
+            "record_format_version) VALUES (?, 'old.out', 'a', 7)",
+            (str(tmp_path),),
+        )
+
+    persistence = DbPersistence(path=tmp_path)
+    inspector = inspect(persistence.engine)
+    for orm in (LockORM, MetadataRecordORM, SettingsORM):
+        columns = {col["name"] for col in inspector.get_columns(orm.__tablename__)}
+        missing = set(orm.__table__.columns.keys()) - columns
+        assert not missing, f"add {missing} to DbPersistence._migrate_schema"
+
+    assert persistence._read_record("old.out").rule == "a"
+    persistence._write_record("new.out", MetadataRecord(rule="b", software=["c"]))
+    assert persistence._read_record("new.out").software == ["c"]
+
+
 def test_same_wildcard():
     run(dpath("test_same_wildcard"))
 
