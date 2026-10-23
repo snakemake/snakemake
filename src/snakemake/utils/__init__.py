@@ -12,6 +12,7 @@ import sys
 # re-export functions from submodules
 from snakemake.utils.format import format
 from snakemake.utils.argvquote import argvquote, cmd_exe_quote
+from snakemake.utils.misc import makedirs
 
 if sys.version_info >= (3, 11):
     # import utils that are not <3.11 compatible
@@ -21,7 +22,6 @@ if sys.version_info >= (3, 11):
         simplify_path,
         linecount,
         listfiles,
-        makedirs,
         report,
         R,
         read_job_properties,

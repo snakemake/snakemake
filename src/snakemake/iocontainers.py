@@ -129,8 +129,6 @@ class Namedlist(list, Generic[_TNamedList]):
         fromdict -- a dict that shall be converted to a
             Namedlist (keys become names)
         """
-        from snakemake.io import _IOFile, strip_wildcard_constraints
-
         list.__init__(self)
         self._names: Dict[str, Tuple[int, int | None]] = dict()
 
@@ -144,6 +142,9 @@ class Namedlist(list, Generic[_TNamedList]):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
+                # imported here since snakemake.io is not Python 3.7 compatible
+                from snakemake.io import _IOFile
+
                 self.extend(
                     # use original query if storage is not retrieved by snakemake
                     (
@@ -158,6 +159,8 @@ class Namedlist(list, Generic[_TNamedList]):
                     for x in toclone
                 )
             elif strip_constraints:
+                from snakemake.io import strip_wildcard_constraints
+
                 self.extend(map(strip_wildcard_constraints, toclone))
             else:
                 self.extend(toclone)
