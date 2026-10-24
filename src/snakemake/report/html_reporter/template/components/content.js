@@ -81,6 +81,14 @@ class ContentDisplay extends React.Component {
                     "iframe",
                     { src: this.props.app.state.contentPath, className: "w-full h-screen", key: `${this.props.app.state.renderTrigger}` }
                 );
+            case "vega":
+                return e(
+                    VegaPlot,
+                    {
+                        specUri: this.props.app.state.contentPath,
+                        key: this.props.app.state.contentPath
+                    }
+                );
             case "text":
                 return e(
                     "div",
