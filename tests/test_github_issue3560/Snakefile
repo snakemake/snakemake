@@ -1,0 +1,14 @@
+from shlex import join
+
+rule test:
+    output:
+        args="args.txt",
+        quoted="quoted.txt"
+    params:
+        a=[""],
+        b=join([""]),
+    shell:
+        r"""
+        set -- {params.a:q}; echo $# > {output.args}
+        set -- {params.b}; echo $# > {output.quoted}
+        """
