@@ -85,8 +85,8 @@ class ContentDisplay extends React.Component {
                 return e(
                     VegaPlot,
                     {
-                        specUri: this.props.app.state.contentPath,
-                        key: this.props.app.state.contentPath
+                        resultPath: this.props.app.state.resultPath,
+                        key: this.props.app.state.resultPath
                     }
                 );
             case "text":

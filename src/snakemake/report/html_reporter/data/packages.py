@@ -133,6 +133,10 @@ def get_packages():
             "d3-contour": Package(
                 license_path="d3-contour/LICENSE",
             ),
+            "lz-string": Package(
+                source_path="lz-string/lz-string.min.js",
+                license_path="lz-string/LICENSE",
+            ),
             # End copied/derived/adapted code in vega, included in vega/vega.js
             "vega-lite": Package(
                 source_path="vega-lite/vega-lite.js",

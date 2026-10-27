@@ -13,13 +13,18 @@ class VegaPlot extends React.Component {
 
     componentDidMount() {
         const el = this.container.current;
-        fetch(this.props.specUri)
-            .then((response) => response.json())
+        const result = results[this.props.resultPath];
+        const specPromise = result.vega_spec
+            ? Promise.resolve(
+                JSON.parse(LZString.decompressFromBase64(result.vega_spec))
+            )
+            : fetch(result.data_uri).then((response) => response.json());
+        specPromise
             .then((spec) => vegaEmbed(el, spec, { actions: true }))
-            .then((result) => {
-                this.view = result.view;
-                this.baseWidth = result.view.width();
-                this.baseHeight = result.view.height();
+            .then((embedded) => {
+                this.view = embedded.view;
+                this.baseWidth = embedded.view.width();
+                this.baseHeight = embedded.view.height();
             })
             .catch((err) => {
                 this.setState({ error: "Could not render plot: " + err });
@@ -62,5 +67,5 @@ class VegaPlot extends React.Component {
 }
 
 VegaPlot.propTypes = {
-    specUri: PropTypes.string.isRequired
+    resultPath: PropTypes.string.isRequired
 };
