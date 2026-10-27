@@ -1,0 +1,23 @@
+rule all:
+    input:
+        "b.txt"
+
+
+rule a:
+    output:
+        temp("a.txt")
+    group:
+        "group1"
+    shell:
+        "echo a > {output}"
+
+
+rule b:
+    input:
+        "a.txt"
+    output:
+        "b.txt"
+    group:
+        "group1"
+    shell:
+        "echo b > {output}"
