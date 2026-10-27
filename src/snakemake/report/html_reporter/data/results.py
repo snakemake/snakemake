@@ -2,10 +2,10 @@ import json
 import os
 
 from humanfriendly import format_size
+from snakemake_interface_common.exceptions import WorkflowError
 
 from snakemake.report.common import VEGA_MIME_TYPES
 from snakemake.report.html_reporter.common import get_result_uri
-from snakemake_interface_common.exceptions import WorkflowError
 
 
 def compress_vega_spec(res):
