@@ -2,16 +2,9 @@ from enum import Enum
 from snakemake.io import flag
 from snakemake.io.flags import FlaggableItemOrIterable
 
+from snakemake_interface_common.io import AccessPattern
+
 STORE_KEY = "access_pattern"
-
-
-class AccessPattern(Enum):
-    RANDOM = "random"
-    SEQUENTIAL = "sequential"
-    MULTI = "multi"
-
-    def __str__(self):
-        return self.value
 
 
 class AccessPatternFactory:
