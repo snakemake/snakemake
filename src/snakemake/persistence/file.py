@@ -23,8 +23,6 @@ class FilePersistence(PersistenceBase):
         self,
         nolock=False,
         dag=None,
-        conda_prefix=None,
-        singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
@@ -32,8 +30,6 @@ class FilePersistence(PersistenceBase):
         super().__init__(
             nolock=nolock,
             dag=dag,
-            conda_prefix=conda_prefix,
-            singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=warn_only,
             path=path,
@@ -196,6 +192,14 @@ class FilePersistence(PersistenceBase):
         self._io_write(self._incomplete_path, {"external_jobid": external_jobid}, key)
         if self._incomplete_cache is not None:
             self._incomplete_cache.add(self._record_path(self._incomplete_path, key))
+
+    def _get_recorded_starttime(self, key: str) -> float | None:
+        path = self._record_path(self._incomplete_path, key)
+        if os.path.exists(path):
+            return os.path.getmtime(path)
+        # Sometimes finished is called twice, if so, lookup the previous starttime
+        record = self._read_record(key)
+        return record.starttime if record else None
 
     def _unmark_incomplete(self, key: str) -> None:
         self._io_delete(self._incomplete_path, key)

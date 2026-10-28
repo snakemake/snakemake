@@ -53,24 +53,26 @@ class AbstractOutputFileCache:
                 apply_wildcards(job.rule.output[0].multiext_prefix, job.wildcards)
             )
             yield from ((f, f[prefix_len:]) for f in job.output)
-        else:
-            assert (
-                len(job.output) == 1
-            ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
+        elif len(job.output) == 1:
             # It is crucial to distinguish cacheable objects by the file extension.
             # Otherwise, for rules that generate different output based on the provided
             # extension a wrong cache entry can be returned.
             # Another nice side effect is that the cached files become more accessible
             # because their extension is presented in the cache dir.
-            ext = Path(job.output[0]).suffix
-            yield (job.output[0], ext)
+            yield (job.output[0], Path(job.output[0]).suffix)
+        else:
+            for name, outputfile in job.output._allitems():
+                assert (
+                    name is not None
+                ), "bug: multiple unnamed output files in cacheable job"
+                yield (outputfile, f"_{name}{Path(outputfile).suffix}")
 
     def raise_write_error(self, entry, exception=None):
         raise WorkflowError(
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not writeable.".format(
                 entry, self.cache_location
             ),
-            *[exception],
+            exception,
         )
 
     def raise_read_error(self, entry, exception=None):
@@ -78,7 +80,7 @@ class AbstractOutputFileCache:
             "Given output cache entry {} ($SNAKEMAKE_OUTPUT_CACHE={}) is not readable.".format(
                 entry, self.cache_location
             ),
-            *[exception],
+            exception,
         )
 
     def raise_cache_miss_exception(self, job: Job):

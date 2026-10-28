@@ -1,5 +1,3 @@
-conda_env = Path(os.environ['CONDA_PREFIX']) / 'envs' / 'test_issue3192'
-
 rule all:
     input:
         "c.txt"
@@ -10,7 +8,7 @@ rule a2b:
     output:
         "b.txt"
     conda:
-        conda_env
+        config["env_path"]
     script:
         "script.py"
 
@@ -20,6 +18,6 @@ rule b2c:
     output:
         "c.txt"
     conda:
-        conda_env
+        config["env_path"]
     script:
         "script.py"

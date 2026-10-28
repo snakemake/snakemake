@@ -39,23 +39,37 @@ class TemplateRenderer(ABC):
     def render(self): ...
 
 
-def render_template(engine, input, output, params, wildcards, config, rule):
+def render_template(engine, run_args, config):
     try:
         if engine == "yte":
             from snakemake.template_rendering.yte import YteRenderer
 
-            return YteRenderer(input, output, params, wildcards, config).render()
+            return YteRenderer(
+                run_args.input,
+                run_args.output,
+                run_args.params,
+                run_args.wildcards,
+                config,
+            ).render()
         elif engine == "jinja2":
             from snakemake.template_rendering.jinja2 import Jinja2Renderer
 
-            return Jinja2Renderer(input, output, params, wildcards, config).render()
+            return Jinja2Renderer(
+                run_args.input,
+                run_args.output,
+                run_args.params,
+                run_args.wildcards,
+                config,
+            ).render()
         else:
             raise WorkflowError(
-                f"Unsupported template engine {engine} in rule {rule}. "
+                f"Unsupported template engine {engine} in rule {run_args.job_rule.name}. "
                 "So far, only yte and jinja2 are supported."
             )
     except Exception as e:
-        raise WorkflowError(f"Error rendering template in rule {rule}.", e)
+        raise WorkflowError(
+            f"Error rendering template in rule {run_args.job_rule.name}.", e
+        )
 
 
 def check_template_output(job):
