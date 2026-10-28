@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import hashlib
 import os
 import shutil
 import sys
@@ -406,7 +407,7 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
 )
 def test_github_issue4240(mocker, tmp_path, backend, PersistenceClass):
     # input checksums must be computed once per job, not once per output file,
-    # while every output record still carries the checksums of all inputs
+    # while every output record still carries the checksums of all eligible inputs
     spy = mocker.spy(_IOFile, "checksum")
     write_spy = mocker.spy(PersistenceClass, "_write_record")
     run(
@@ -418,13 +419,22 @@ def test_github_issue4240(mocker, tmp_path, backend, PersistenceClass):
             else None
         ),
     )
+    # big.txt exceeds the checksum size threshold: it is still checked once,
+    # but no checksum is recorded for it
     calls = sorted(os.path.basename(call.args[0]) for call in spy.call_args_list)
-    assert calls == ["in0.txt", "in1.txt", "in2.txt"]
+    assert calls == ["big.txt", "in0.txt", "in1.txt", "in2.txt"]
 
+    expected = {
+        f"in{i}.txt": "sha256:"
+        + hashlib.sha256(
+            (Path(dpath("test_github_issue4240")) / f"in{i}.txt").read_bytes()
+        ).hexdigest()
+        for i in range(3)
+    }
     records = {call.args[1]: call.args[2] for call in write_spy.call_args_list}
-    assert sorted(records) == ["out0.txt", "out1.txt", "out2.txt"]
-    for record in records.values():
-        assert sorted(record.input_checksums) == ["in0.txt", "in1.txt", "in2.txt"]
+    assert sorted(records) == ["big.txt", "out0.txt", "out1.txt", "out2.txt"]
+    for out in ["out0.txt", "out1.txt", "out2.txt"]:
+        assert records[out].input_checksums == expected
 
 
 def test_persistence_backend_db_run_directive_concurrency(tmp_path):
