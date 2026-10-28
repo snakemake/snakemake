@@ -1,0 +1,13 @@
+rule all:
+    """
+    Target rule for module, shouldn't run.
+    """
+    input:
+        lambda wc: checkpoints.checkpoint_rule.get(**wc).output,
+
+
+checkpoint checkpoint_rule:
+    output:
+        "generated.txt",
+    shell:
+        "touch {output}"
