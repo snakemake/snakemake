@@ -406,6 +406,16 @@ class PersistenceBase(
             shellcmd = job.shellcmd
             fallback_time = time.time()
             job_hash_val = hash(job)
+            # input checksums do not depend on the output file, compute them once
+            checksums = (
+                {
+                    str(infile): await infile.checksum(self.max_checksum_file_size)
+                    for infile in job.input
+                }
+                if job.output
+                else {}
+            )
+            checksums = {k: v for k, v in checksums.items() if v is not None}
 
             for f in job.output:
                 key = self._get_key(f)
@@ -414,12 +424,6 @@ class PersistenceBase(
                     if await f.exists()
                     else fallback_time
                 )
-
-                checksums = {
-                    str(infile): await infile.checksum(self.max_checksum_file_size)
-                    for infile in job.input
-                }
-                checksums = {k: v for k, v in checksums.items() if v is not None}
 
                 record = self._read_record(key) or MetadataRecord()
 

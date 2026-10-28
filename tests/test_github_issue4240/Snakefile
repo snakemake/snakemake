@@ -1,0 +1,15 @@
+rule all:
+    input:
+        expand("out{j}.txt", j=range(3)),
+
+
+rule a:
+    input:
+        expand("in{i}.txt", i=range(3)),
+    output:
+        expand("out{j}.txt", j=range(3)),
+    run:
+        content = "".join(open(f).read() for f in input)
+        for f in output:
+            with open(f, "w") as out:
+                out.write(content)

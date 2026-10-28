@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
+from snakemake.io import _IOFile
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
@@ -394,6 +395,36 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
 
     assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
     assert spy.spy_return == True
+
+
+@pytest.mark.parametrize(
+    "backend, PersistenceClass",
+    [
+        (PersistenceBackend.FILE, FilePersistence),
+        (PersistenceBackend.DB, DbPersistence),
+    ],
+)
+def test_github_issue4240(mocker, tmp_path, backend, PersistenceClass):
+    # input checksums must be computed once per job, not once per output file,
+    # while every output record still carries the checksums of all inputs
+    spy = mocker.spy(_IOFile, "checksum")
+    write_spy = mocker.spy(PersistenceClass, "_write_record")
+    run(
+        dpath("test_github_issue4240"),
+        persistence_backend=backend,
+        persistence_backend_db_url=(
+            f"sqlite:///{tmp_path / 'metadata.db'}"
+            if backend == PersistenceBackend.DB
+            else None
+        ),
+    )
+    calls = sorted(os.path.basename(call.args[0]) for call in spy.call_args_list)
+    assert calls == ["in0.txt", "in1.txt", "in2.txt"]
+
+    records = {call.args[1]: call.args[2] for call in write_spy.call_args_list}
+    assert sorted(records) == ["out0.txt", "out1.txt", "out2.txt"]
+    for record in records.values():
+        assert sorted(record.input_checksums) == ["in0.txt", "in1.txt", "in2.txt"]
 
 
 def test_persistence_backend_db_run_directive_concurrency(tmp_path):
