@@ -55,14 +55,23 @@ class CheckpointsProxy:
         self._child_refs: "dict[tuple[str | None, str], str]" = {}
 
     def _register(self, module_name: "str | None", orig_name: str, name: str):
-        self._child_refs.setdefault((module_name, orig_name), name)
+        key = module_name, orig_name
+        if key in self._child_refs:
+            if self._child_refs[key] != name:
+                logger.warning(
+                    f"Checkpoint {orig_name!r} of module {module_name!r} is already "
+                    f"mapped to {self._child_refs[key]!r} in the parent namespace, "
+                    f"this mapping will not overwrite the existing mapping."
+                )
+            return
+        self._child_refs[key] = name
 
     def _resolve(self, module_name: "str | None", name: str) -> "Checkpoint":
         key = module_name, name
         try:
             local_name = self._child_refs[key]
         except KeyError:
-            raise WorkflowError(
+            raise AttributeError(
                 f"Checkpoint {name!r} of module {module_name!r} is not mapped "
                 "in the parent checkpoint namespace."
             )
@@ -75,12 +84,12 @@ class CheckpointsProxy:
             ) from err
 
     def get(self, name: str):
-        if name.startswith("_"):
-            raise AttributeError(name)
         return self._parent._resolve(self._module_name, name)
 
     def as_namespace(self):
-        return type("Checkpoints", (), {"__getattr__": lambda _, name: self.get(name)})()
+        return type(
+            "Checkpoints", (), {"__getattr__": lambda _, name: self.get(name)}
+        )()
 
 
 class Checkpoint:
