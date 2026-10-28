@@ -223,6 +223,7 @@ class WorkflowModifier:
     ):
         self.workflow = workflow
         self.globals = globals
+        self.checkpoints = globals["checkpoints"]
         self.pathvars = pathvars
         self.rule_proxies = rule_proxies
         self.path_modifier = path_modifier
@@ -256,7 +257,16 @@ class WorkflowModifier:
         self.globals["__name__"] = self.namespace
         self.globals["config"] = {} if config is None else config
         self.globals["rules"] = self.rule_proxies
-        self.globals["checkpoints"] = self.globals["checkpoints"].spawn_new_namespace()
+        if self.is_module and self.parent_modifier:  # is_module assert parent_modifier
+            parent_checkpoints = self.parent_modifier.checkpoints
+            module_name = self.namespace
+        else:
+            parent_checkpoints = None
+            module_name = None
+        self.checkpoints = self.workflow.checkpoints._spawn_new_namespace(
+            module_name, parent_checkpoints
+        )
+        self.globals["checkpoints"] = self.checkpoints.as_namespace()
 
     @classmethod
     def for_modifier0(cls, workflow, globals: Dict):
@@ -330,6 +340,7 @@ class WorkflowModifier:
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=allow_overwrite | parent_modifier.allow_rule_overwrite,
         )
+        self.checkpoints = parent_modifier.checkpoints
         self.wildcard_constraints = parent_modifier.wildcard_constraints
         self.rules = parent_modifier.rules
         self.modules = parent_modifier.modules
@@ -353,6 +364,8 @@ class WorkflowModifier:
                 continue
             name1 = child_modifier._modify_rulename(name)
             self.rule_proxies._register_rule(name1, rule)
+            if rule.rule.is_checkpoint:
+                self.checkpoints._register(child_modifier.namespace, name, name1)
 
     def avail_rulename(self, rulename):
         if self._skip_rulename(rulename):

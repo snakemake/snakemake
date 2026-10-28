@@ -1847,7 +1847,14 @@ class Workflow(WorkflowExecutorInterface):
             [linecache.getline(sourcefile, lineno) for lineno in sorted(line_numbers)]
         )
 
-    def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+    def rule(
+        self,
+        name=None,
+        lineno=None,
+        snakefile=None,
+        checkpoint=False,
+        orig_globals=None,
+    ):
         # choose a name for an unnamed rule
         orig_name = name or str(len(self._rules) + 1)
 
@@ -1906,16 +1913,16 @@ class Workflow(WorkflowExecutorInterface):
                 rule.group = group
 
             # If requested, modify ruleinfo via the modifier.
-            rule.module_globals = self.modifier.globals
+            rule.module_globals = orig_globals or self.modifier.globals
+            rule.is_checkpoint = checkpoint
 
             if not name:
                 # keep necessary info and leave quickly, as not in the workflow
                 return ruleinfo.func
 
             self.add_rule(rule, allow_overwrite=self.modifier.allow_rule_overwrite)
-            rule.is_checkpoint = checkpoint
             if checkpoint:
-                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
+                self._checkpoints.register(rule, rule.name)
 
             # initialize rule with default resources
             rule.resources = self.resource_settings._parsed_default_resources.copy()
@@ -2514,7 +2521,7 @@ class Workflow(WorkflowExecutorInterface):
                 # avail_rulename will delegate to the parent chain which still carries the module-level prefixes.
                 with WorkflowModifier.for_userule(
                     self,
-                    globals=orig_rule.module_globals,
+                    globals=self.globals,
                     pathvars=orig_rule.pathvars,
                     snakefile=orig_snakefile,
                     ruleinfo=ruleinfo,
@@ -2527,6 +2534,7 @@ class Workflow(WorkflowExecutorInterface):
                         lineno=lineno,
                         snakefile=orig_snakefile,
                         checkpoint=orig_rule.is_checkpoint,
+                        orig_globals=orig_rule.module_globals,
                     )(orig_ruleinfo)
 
         return decorate

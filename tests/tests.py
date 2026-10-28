@@ -1718,6 +1718,10 @@ def test_module_checkpoint():
     run(dpath("test_module_checkpoint"))
 
 
+def test_module_checkpoint_overwrite():
+    run(dpath("test_module_checkpoint_overwrite"), check_results=False)
+
+
 def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 

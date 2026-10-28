@@ -16,36 +16,71 @@ class Checkpoints:
 
     def __init__(self):
         self._created_output = set()
+        self._rules: dict[str, "Rule"] = {}
 
     @property
     def created_output(self):
         return self._created_output
 
-    def spawn_new_namespace(self):
+    def register(self, rule: "Rule", name: "str | None" = None):
+        self._rules[name or rule.name] = rule
+
+    def _resolve(self, module_name: "str | None", name: str):
+        try:
+            rule = self._rules[name]
+        except KeyError:
+            raise AttributeError(name)
+        return Checkpoint(rule, self)
+
+    def _spawn_new_namespace(
+        self, module_name: "str | None" = None, parent: "CheckpointsProxy | None" = None
+    ):
         """Make a new namespace for checkpoints in the module."""
-        return CheckpointsProxy(self)
+        return CheckpointsProxy(parent or self, module_name)
 
 
-class CheckpointsProxy(Checkpoints):
-    """A namespace for checkpoints so that they can be accessed via dot notation.
+class CheckpointsProxy:
+    """A view on the workflow checkpoints for one module namespace.
 
-    It will be created once a module is created,
-    and different module will have different checkpoint namespace,
-    but share a single created_output set.
+    The proxy stores no checkpoints itself. It only maps local checkpoint
+    names to names in its parent namespace. Resolution walks up the parent
+    chain until the workflow's true checkpoint registry is reached.
     """
 
-    def __init__(self, parent: Checkpoints):
-        self.parent = parent
+    def __init__(
+        self, parent: "Checkpoints | CheckpointsProxy", module_name: "str | None" = None
+    ):
+        self._parent = parent
+        self._module_name = module_name
+        self._child_refs: "dict[tuple[str | None, str], str]" = {}
 
-    @property
-    def created_output(self):
-        return self.parent.created_output
+    def _register(self, module_name: "str | None", orig_name: str, name: str):
+        self._child_refs.setdefault((module_name, orig_name), name)
 
-    def register(self, rule: "Rule", fallback_name=None):
-        checkpoint = Checkpoint(rule, self)
-        if fallback_name:
-            setattr(self, fallback_name, checkpoint)
-        setattr(self, rule.name, checkpoint)
+    def _resolve(self, module_name: "str | None", name: str) -> "Checkpoint":
+        key = module_name, name
+        try:
+            local_name = self._child_refs[key]
+        except KeyError:
+            raise WorkflowError(
+                f"Checkpoint {name!r} of module {module_name!r} is not mapped "
+                "in the parent checkpoint namespace."
+            )
+        try:
+            return self._parent._resolve(self._module_name, local_name)
+        except AttributeError as err:
+            raise WorkflowError(
+                f"Checkpoint {name!r} points to missing checkpoint "
+                f"{local_name!r} in the parent namespace."
+            ) from err
+
+    def get(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return self._parent._resolve(self._module_name, name)
+
+    def as_namespace(self):
+        return type("Checkpoints", (), {"__getattr__": lambda _, name: self.get(name)})()
 
 
 class Checkpoint:
