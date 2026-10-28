@@ -388,6 +388,16 @@ class PersistenceBase(
             self._mark_incomplete(self._get_key(f), external_jobid)
 
     async def finished(self, job: Any) -> None:
+        """
+        Unmark the outputs of a finished job as incomplete.
+
+        Unless metadata is dropped, the main Snakemake process (or the remote
+        executor with immediate submit) also stores a metadata record for each
+        output. The input checksums of that record are computed once per job.
+
+        Args:
+            job (Any): The finished job.
+        """
         self._clear_cache()
 
         if not self.dag.workflow.execution_settings.keep_metadata:

@@ -406,8 +406,9 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
     ],
 )
 def test_github_issue4240(mocker, tmp_path, backend, PersistenceClass):
-    # input checksums must be computed once per job, not once per output file,
-    # while every output record still carries the checksums of all eligible inputs
+    """Input checksums are computed once per job, not once per output file,
+    while every output record still carries the checksums of all eligible inputs
+    """
     spy = mocker.spy(_IOFile, "checksum")
     write_spy = mocker.spy(PersistenceClass, "_write_record")
     run(
