@@ -11,7 +11,7 @@ import functools
 import hashlib
 from pathlib import Path
 import sys
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Literal, Mapping, Optional, overload
 import os
 import tarfile
 from snakemake.common.constants import MIN_PY_VERSION, SNAKEFILE_CHOICES
@@ -77,6 +77,14 @@ class ApiBase(ABC):
         pass
 
 
+@overload
+def resolve_snakefile(
+    path: Optional[Path | str], allow_missing: Literal[False] = False
+) -> Path | str: ...
+@overload
+def resolve_snakefile(
+    path: Optional[Path | str], allow_missing: Literal[True] = True
+) -> Path | str | None: ...
 def resolve_snakefile(path: Optional[Path | str], allow_missing: bool = False):
     """Get path or URI to the snakefile.
 
@@ -156,6 +164,8 @@ class SnakemakeApi(ApiBase):
             deployment_settings = DeploymentSettings()
         if storage_provider_settings is None:
             storage_provider_settings = {}
+        if software_deployment_provider_settings is None:
+            software_deployment_provider_settings = {}
 
         self._check_is_in_context()
 
@@ -192,7 +202,10 @@ class SnakemakeApi(ApiBase):
         else:
             self.logger_manager.stop()
 
-        if self._workflow_api is not None:
+        if (
+            self._workflow_api is not None
+            and self._workflow_api._workdir_handler is not None
+        ):
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
                 self._workflow_api._workflow_store.tear_down()
@@ -224,10 +237,15 @@ class SnakemakeApi(ApiBase):
                 "is not a read-write storage provider."
             )
 
-        plugin_settings = storage_provider_settings.get(
+        storage_provider = storage_provider_settings.get(
             storage_settings.default_storage_provider
-        ).get_settings(None)
-
+        )
+        if storage_provider is not None:
+            plugin_settings = storage_provider.get_settings(None)
+        elif plugin.settings_cls is not None:
+            plugin_settings = plugin.settings_cls()
+        else:
+            plugin_settings = None
         if plugin_settings is not None:
             plugin.validate_settings(plugin_settings)
 
@@ -456,6 +474,15 @@ class WorkflowApi(ApiBase):
             raise ApiError(f'Snakefile "{self.snakefile}" not found.')
 
 
+def _no_exec(method):
+    @functools.wraps(method)
+    def _handle_no_exec(self: "DAGApi", *args, **kwargs):
+        self.workflow_api.resource_settings.cores = 1
+        return method(self, *args, **kwargs)
+
+    return _handle_no_exec
+
+
 @dataclass
 class DAGApi(ApiBase):
     """The DAG API.
@@ -662,7 +689,7 @@ class DAGApi(ApiBase):
             if scheduler_settings is None:
                 scheduler_settings = IlpSchedulerSettings()
 
-            if not scheduler_settings.lp_solver_available:
+            if not getattr(scheduler_settings, "lp_solver_available", False):
                 logger.warning(
                     "Falling back to greedy scheduler because no ILP solver "
                     "is found (you have to install pulp and either coincbc "
@@ -698,14 +725,6 @@ class DAGApi(ApiBase):
             greedy_scheduler_settings=greedy_scheduler_settings,
             updated_files=updated_files,
         )
-
-    def _no_exec(method):
-        @functools.wraps(method)
-        def _handle_no_exec(self, *args, **kwargs):
-            self.workflow_api.resource_settings.cores = 1
-            return method(self, *args, **kwargs)
-
-        return _handle_no_exec
 
     @_no_exec
     def generate_unit_tests(self, path: Path):

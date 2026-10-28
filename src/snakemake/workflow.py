@@ -172,7 +172,7 @@ class Workflow(WorkflowExecutorInterface):
     output_settings: Optional[OutputSettings] = None
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
-    executor_settings: ExecutorSettingsBase = None
+    executor_settings: Optional[ExecutorSettingsBase] = None
     storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     software_deployment_provider_settings: Optional[
         Mapping[str, SoftwareDeploymentSettingsBase]
@@ -1125,7 +1125,7 @@ class Workflow(WorkflowExecutorInterface):
         with self.persistence.lock():
             containerize(self, self.dag, fmt=fmt)
 
-    def export_cwl(self, path: Path):
+    def export_to_cwl(self, path: Path):
         """Export the workflow as CWL document.
 
         Arguments
@@ -1148,7 +1148,7 @@ class Workflow(WorkflowExecutorInterface):
     def create_report(
         self,
         report_plugin: ReportPlugin,
-        report_settings: ReportSettingsBase,
+        report_settings: Optional[ReportSettingsBase],
         global_report_settings: GlobalReportSettings,
     ):
         from snakemake.report import auto_report
@@ -1263,7 +1263,7 @@ class Workflow(WorkflowExecutorInterface):
     def execute(
         self,
         executor_plugin: ExecutorPlugin,
-        executor_settings: ExecutorSettingsBase,
+        executor_settings: Optional[ExecutorSettingsBase],
         scheduler_plugin: SchedulerPlugin,
         scheduler_settings: Optional[SchedulerSettingsBase],
         greedy_scheduler_settings: GreedySchedulerSettings,

@@ -478,7 +478,7 @@ async def expand_labels(labels, wildcards, job):
 async def auto_report(
     dag,
     report_plugin: ReportPlugin,
-    report_settings: ReportSettingsBase,
+    report_settings: Optional[ReportSettingsBase],
     global_report_settings: GlobalReportSettings,
 ):
     try:
