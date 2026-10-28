@@ -2490,6 +2490,9 @@ class Workflow(WorkflowExecutorInterface):
                     )
                 rule_proxy = self.modifier.rule_proxies._rules
                 check_overwrite = lambda rule_whitelist, rulename_modifier: False
+            rulename_modifier = get_name_modifier_func(rule_whitelist, modifier) or (
+                lambda x: x
+            )
             for rulename in rule_whitelist:
                 if rulename not in rule_proxy:
                     if from_module is not None:
@@ -2509,9 +2512,6 @@ class Workflow(WorkflowExecutorInterface):
                 # Resolve the final name before entering for_userule so that the proxy is registered under the new name.
                 # Passing None as the modifier to for_userule avoids double-application,
                 # avail_rulename will delegate to the parent chain which still carries the module-level prefixes.
-                rulename_modifier = get_name_modifier_func(rule_, modifier) or (
-                    lambda x: x
-                )
                 with WorkflowModifier.for_userule(
                     self,
                     globals=orig_rule.module_globals,
@@ -2526,6 +2526,7 @@ class Workflow(WorkflowExecutorInterface):
                         name=rulename_modifier(rulename),
                         lineno=lineno,
                         snakefile=orig_snakefile,
+                        checkpoint=orig_rule.is_checkpoint,
                     )(orig_ruleinfo)
 
         return decorate

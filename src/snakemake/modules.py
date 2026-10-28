@@ -233,7 +233,7 @@ class WorkflowModifier:
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
 
-        self.is_module = True
+        self.is_module = False
         self.namespace = None
         self.wildcard_constraints = dict()
         self.rules = set()
@@ -295,6 +295,7 @@ class WorkflowModifier:
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=workflow.modifier.allow_rule_overwrite,
         )
+        self.is_module = True
         self.namespace = module_info.name
         self._post_set_globals(module_info.config)
         self.skip_configfile = module_info.config is not None
@@ -329,7 +330,6 @@ class WorkflowModifier:
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=allow_overwrite | parent_modifier.allow_rule_overwrite,
         )
-        self.is_module = False
         self.wildcard_constraints = parent_modifier.wildcard_constraints
         self.rules = parent_modifier.rules
         self.modules = parent_modifier.modules
