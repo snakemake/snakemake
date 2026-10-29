@@ -183,6 +183,7 @@ So the following would parse to the same command line argument setup:
 
 All of these resource specifications can also be made dynamic, by using expressions and certain variables that are available.
 For details of the variables you can use, refer to the callable signatures given in the documentation sections on the specification of :ref:`threads <snakefiles-threads>` and :ref:`dynamic resources <snakefiles-dynamic-resources>`.
+In addition, ``rulename`` holds the name of the rule of the job being evaluated, so that a single ``default-resources`` entry can depend on the rule.
 These enable ``profile.yaml`` entries like:
 
 .. code-block:: yaml
