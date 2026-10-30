@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from copy import copy
 
 from snakemake.common.prefix_lookup import PrefixLookup
 from snakemake.exceptions import WorkflowError
@@ -62,11 +63,12 @@ class PathModifier:
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
             if is_flagged(modified_path, "multiext"):
-                multiext_value = modified_path.flags["multiext"]
+                multiext_value = copy(modified_path.flags["multiext"])
                 multiext_value.prefix = self.apply_default_storage(
                     self.replace_prefix(multiext_value.prefix, property),
                     pathvars=pathvars,
                 )
+                modified_path.flags["multiext"] = multiext_value
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
         return modified_path

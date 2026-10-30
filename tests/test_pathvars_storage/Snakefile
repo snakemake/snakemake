@@ -6,6 +6,8 @@ rule all:
     input:
         "<output>/result.txt",
         "custom/sample_a/sample_a.txt",
+        "child/result.txt",
+        "child/result.csv",
 
 
 rule a:
@@ -28,3 +30,20 @@ rule b:
         results="custom/{sample}",
     shell:
         "mkdir -p {output.directory}; cp {input} {output.text}"
+
+
+rule multiext_parent:
+    input:
+        "input.txt",
+    output:
+        multiext("<results>/result", ".txt", ".csv"),
+    pathvars:
+        results="parent/{sample}",
+    cache: True
+    shell:
+        "cp {input} {output[0]}; cp {input} {output[1]}"
+
+
+use rule multiext_parent as multiext_child with:
+    pathvars:
+        results="child",
