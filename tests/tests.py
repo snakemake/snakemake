@@ -3610,6 +3610,10 @@ def test_github_issue672():
     run(dpath("test_github_issue672"))
 
 
+def test_github_issue4312():
+    run(dpath("test_github_issue4312"))
+
+
 def test_github_issue2255():
     run(dpath("test_github_issue2255"), check_results=False)
 

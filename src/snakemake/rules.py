@@ -721,6 +721,15 @@ class Rule(RuleInterface):
                     # where input files are not yet present, we need to skip such cases and
                     # mark them as <TBD>.
                     value = TBDString()
+                elif (
+                    isinstance(e, AttributeError)
+                    and isinstance(getattr(e, "obj", None), Namedlist)
+                    and aux_params.get("incomplete_input_expand")
+                ):
+                    # Names introduced by an incomplete input expansion
+                    # (e.g. from unpack()) do not exist until the expansion is
+                    # re-evaluated once the checkpoint has been executed.
+                    value = TBDString()
                 elif raw_exceptions:
                     raise e
                 else:
@@ -994,6 +1003,7 @@ class Rule(RuleInterface):
                     "resources": resources,
                     "output": output._plainstrings(),
                     "threads": threads,
+                    "incomplete_input_expand": job.incomplete_input_expand,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
                 non_derived_items=non_derived_params,
