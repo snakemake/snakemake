@@ -29,40 +29,58 @@ def _make_common_settings(auto_deploy_default_storage_provider: bool) -> CommonS
     )
 
 
-def _make_mock_workflow(
-    default_storage_provider=None,
-    storage_provider_settings_keys=(),
-):
-    """Return a minimal mock workflow for SpawnedJobArgsFactory.precommand() testing."""
-    workflow = MagicMock()
-    workflow.remote_execution_settings.precommand = None
-    workflow.storage_settings.default_storage_provider = default_storage_provider
-    # storage_provider_settings.keys() must return the given plugin names
-    workflow.storage_provider_settings.keys.return_value = list(
-        storage_provider_settings_keys
+def _general_args(tmp_path, auto_deploy, **deployment_kwargs):
+    """Return SpawnedJobArgsFactory.general_args() of a real workflow."""
+    snakefile = tmp_path / "Snakefile"
+    snakefile.write_text("rule a:\n    output: 'a.txt'\n    shell: 'touch {output}'\n")
+    # from_cli=True avoids actually deploying the requested packages
+    with api.SnakemakeApi(settings.OutputSettings(), from_cli=True) as snakemake_api:
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            deployment_settings=settings.DeploymentSettings(**deployment_kwargs),
+            snakefile=snakefile,
+            workdir=tmp_path,
+        )
+        workflow = workflow_api.dag().workflow_api._workflow
+        workflow.execution_settings = settings.ExecutionSettings()
+        workflow.remote_execution_settings = settings.RemoteExecutionSettings()
+        workflow.scheduling_settings = settings.SchedulingSettings()
+        workflow.group_settings = settings.GroupSettings()
+        workflow._prepare_dag(
+            forceall=False,
+            ignore_incomplete=False,
+            lock_warn_only=False,
+        )
+        return workflow.spawned_job_args_factory.general_args(
+            _make_common_settings(auto_deploy_default_storage_provider=auto_deploy)
+        )
+
+
+def test_general_args_auto_deploy_with_default_provider(tmp_path):
+    """--workflow-with-pkgs includes the storage plugin packages."""
+    args = _general_args(tmp_path, auto_deploy=True)
+    assert "--workflow-with-pkgs" in args
+    assert "snakemake-storage-plugin-s3" in args
+
+
+def test_general_args_auto_deploy_disabled(tmp_path):
+    """No package args are passed when auto_deploy is disabled and no pkgs given."""
+    args = _general_args(tmp_path, auto_deploy=False)
+    assert "--with-pkgs" not in args
+    assert "--workflow-with-pkgs" not in args
+
+
+def test_general_args_with_pkgs(tmp_path):
+    """User-specified packages are passed to spawned jobs."""
+    args = _general_args(
+        tmp_path,
+        auto_deploy=False,
+        with_pkgs=frozenset({"foo-pkg"}),
+        workflow_with_pkgs=frozenset({"bar-pkg"}),
     )
-    return workflow
-
-
-def test_precommand_auto_deploy_with_default_provider():
-    """precommand includes pip install for the default storage provider."""
-    workflow = _make_mock_workflow(default_storage_provider="s3")
-    factory = SpawnedJobArgsFactory(workflow=workflow)
-    cmd = factory.precommand(
-        _make_common_settings(auto_deploy_default_storage_provider=True)
-    )
-    assert "snakemake-storage-plugin-s3" in cmd
-    assert "pip install" in cmd
-
-
-def test_precommand_auto_deploy_disabled():
-    """precommand does NOT include pip install when auto_deploy is disabled."""
-    workflow = _make_mock_workflow(default_storage_provider="s3")
-    factory = SpawnedJobArgsFactory(workflow=workflow)
-    cmd = factory.precommand(
-        _make_common_settings(auto_deploy_default_storage_provider=False)
-    )
-    assert "pip install" not in cmd
+    assert "--with-pkgs foo-pkg" in args
+    assert "--workflow-with-pkgs" in args
+    assert "bar-pkg" in args
 
 
 def test_deploy_sources(s3_storage):

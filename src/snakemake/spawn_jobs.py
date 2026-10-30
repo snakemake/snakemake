@@ -354,12 +354,12 @@ class SpawnedJobArgsFactory:
                     self.workflow.deployment_settings.workflow_with_pkgs,
                 )
             }
-            legacy_plugin_packages = set(
+            plugin_packages = set(
                 StoragePluginRegistry().get_plugin_package_name(plugin_name)
                 for plugin_name in StoragePluginRegistry().get_registered_plugins()
             )
             workflow_with_pkgs = [
-                name for name in legacy_plugin_packages if name not in with_pkg_names
+                name for name in plugin_packages if name not in with_pkg_names
             ] + list(self.workflow.deployment_settings.workflow_with_pkgs)
 
             if self.workflow.deployment_settings.with_pkgs:
