@@ -17,6 +17,8 @@ import os
 from datetime import datetime
 from sphinxawesome_theme.postprocess import Icons
 from docutils import nodes
+import tomllib
+from pathlib import Path
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -304,6 +306,26 @@ html_js_files = ["gurubase-widget.js"]  # gurubase AI widget
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
+
+
+with open(Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
+    _pyproject = tomllib.load(f)
+
+
+def _flatten(d, prefix=""):
+    for k, v in d.items():
+        key = f"{prefix}{k}"
+        if isinstance(v, dict):
+            yield from _flatten(v, f"{key}.")
+        elif isinstance(v, (str, int, float)):
+            yield key, str(v)
+
+
+# Use markup like |pyproject.tool.pixi.workspace.requires-pixi| in your reStructuredText files to reference values from pyproject.toml.
+# Never hard-copy values from pyproject.toml into the documentation!
+rst_prolog = "\n".join(
+    f".. |pyproject.{k}| replace:: {v}" for k, v in _flatten(_pyproject)
+)
 
 
 def anchor_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
