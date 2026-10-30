@@ -5,6 +5,7 @@ pathvars:
 rule all:
     input:
         "<output>/result.txt",
+        "custom/sample_a/sample_a.txt",
 
 
 rule a:
@@ -14,3 +15,16 @@ rule a:
         "<output>/result.txt",
     shell:
         "cp {input} {output}"
+
+
+rule b:
+    input:
+        "input.txt",
+    output:
+        # With fs, the directory must retain the rule-level pathvar's wildcard.
+        directory=directory("<results>"),
+        text="<results>/{sample}.txt",
+    pathvars:
+        results="custom/{sample}",
+    shell:
+        "mkdir -p {output.directory}; cp {input} {output.text}"

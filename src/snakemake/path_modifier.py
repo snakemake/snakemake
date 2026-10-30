@@ -39,7 +39,7 @@ class PathModifier:
             else None
         )
 
-    def modify(self, path, property=None):
+    def modify(self, path, property=None, pathvars=None):
         if get_flag_value(path, PATH_MODIFIER_FLAG):
             # Path has been modified before and is reused now, no need to modify again.
             return path
@@ -49,7 +49,9 @@ class PathModifier:
             # File is local
             return path
 
-        modified_path = self.apply_default_storage(self.replace_prefix(path, property))
+        modified_path = self.apply_default_storage(
+            self.replace_prefix(path, property), pathvars=pathvars
+        )
         if modified_path == path:
             # nothing has changed
             return path
@@ -62,7 +64,8 @@ class PathModifier:
             if is_flagged(modified_path, "multiext"):
                 multiext_value = modified_path.flags["multiext"]
                 multiext_value.prefix = self.apply_default_storage(
-                    self.replace_prefix(multiext_value.prefix, property)
+                    self.replace_prefix(multiext_value.prefix, property),
+                    pathvars=pathvars,
                 )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG)
@@ -106,7 +109,7 @@ class PathModifier:
             # prefix case
             return self.prefix + path
 
-    def apply_default_storage(self, path):
+    def apply_default_storage(self, path, pathvars=None):
         """Apply the defined default remote provider to the given path and return the updated _IOFile.
         Asserts that default remote provider is defined.
         """
@@ -132,7 +135,9 @@ class PathModifier:
         prefix = self.workflow.storage_settings.default_storage_prefix
         if prefix and not prefix.endswith("/"):
             prefix = f"{prefix}/"
-        resolved_path = self.workflow.pathvars.apply(str(path))
+        if pathvars is None:
+            pathvars = self.workflow.pathvars
+        resolved_path = pathvars.apply(str(path))
         query = f"{prefix}{os.path.normpath(resolved_path)}"
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
