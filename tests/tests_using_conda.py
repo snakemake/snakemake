@@ -119,7 +119,7 @@ def test_deploy_hashing():
     deployed_envs = [
         path
         for path in (Path(tmpdir) / deployment_prefix / "conda").iterdir()
-        if path.is_dir()
+        if path.is_dir() and not path.name == "staged_packages"
     ]
     assert len(deployed_envs) == 1
 
