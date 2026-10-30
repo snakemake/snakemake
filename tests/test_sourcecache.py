@@ -6,6 +6,8 @@ from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
     GitlabFile,
+    LocalGitFile,
+    LocalSourceFile,
     infer_source_file,
 )
 
@@ -15,6 +17,18 @@ def test_gitlabfile_host_propagation():
 
     assert file.get_basedir().host == file.host
     assert file.join("another/path").host == file.host
+
+
+def test_local_git_file_join_source_file():
+    # rules from a module loaded via gitfile() have a LocalGitFile basedir, which
+    # gets joined with LocalSourceFile objects (e.g. script paths)
+    basedir = LocalGitFile("/some/repo", "workflow/Snakefile", tag="v1").get_basedir()
+    for path in ("scripts/test.py", LocalSourceFile("scripts/test.py")):
+        joined = basedir.join(path)
+        assert isinstance(joined, LocalGitFile)
+        assert joined.path == "workflow/scripts/test.py"
+        assert joined.repo_path == "/some/repo"
+        assert joined.ref == "v1"
 
 
 def test_github_file_fetch():

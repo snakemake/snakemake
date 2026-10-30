@@ -1,0 +1,11 @@
+module local_git_module:
+    snakefile:
+        gitfile(config["module_repo"], path="workflow/Snakefile", tag="v0.0.1")
+
+
+use rule * from local_git_module as local_git_module_*
+
+
+rule all:
+    input:
+        "test.out",
