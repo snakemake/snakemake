@@ -2971,13 +2971,18 @@ def test_pathvars_cycle():
 
 
 @skip_on_windows
-def test_pathvars_storage():
+def test_pathvars_storage(monkeypatch, tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("SNAKEMAKE_OUTPUT_CACHE", str(cache_dir))
     run(
         dpath("test_pathvars_storage"),
         default_storage_provider="fs",
         default_storage_prefix="storage",
+        cache=["multiext_child"],
         cores=1,
     )
+    assert sorted(path.suffix for path in cache_dir.iterdir()) == [".csv", ".txt"]
 
 
 @skip_on_windows  # OS agnostic
