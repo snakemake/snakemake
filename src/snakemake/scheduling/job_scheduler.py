@@ -203,13 +203,19 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     async def update_input_sizes(self, jobs: Iterable[AbstractJob]):
+        """Measure the input sizes of the given jobs, used for job prioritization."""
+
         async def get_size(path: _IOFile):
             return path, await path.size() if await path.exists() else None
 
         paths = {path for job in jobs for path in job.input}
-        if paths:
+        # sizes only guide job prioritization and outputs of finished jobs are
+        # dropped from the cache (see _finish_jobs), hence only measure paths
+        # that are new or did not exist when last measured
+        to_measure = [path for path in paths if self._input_sizes.get(path) is None]
+        if to_measure:
             self._input_sizes.update(
-                await asyncio.gather(*[get_size(path) for path in paths])
+                await asyncio.gather(*[get_size(path) for path in to_measure])
             )
 
         if len(self._input_sizes) > 10000:
@@ -414,6 +420,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ).start()
 
     def _finish_jobs(self):
+        """Postprocess the jobs that finished since the last scheduling round."""
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
 
@@ -421,6 +428,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         immediate_submit = self.workflow.remote_execution_settings.immediate_submit
 
         async def postprocess():
+            """Postprocess each finished job and update scheduler and DAG state."""
             for job in self._tofinish:
                 # IMPORTANT: inside of this loop, there may be no calls that have
                 # a complexity of at least the number of jobs.
@@ -484,6 +492,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             extra=dict(event=LogEvent.JOB_FINISHED, job_id=job.jobid),
                         )
                     self.progress()
+
+                # outputs may have been measured before as inputs of other jobs
+                # (e.g. update() or before_update() files), measure them again;
+                # for groups, this includes outputs consumed within the group
+                for j in job.jobs if job.is_group() else [job]:
+                    for f in j.output:
+                        self._input_sizes.pop(f, None)
 
                 await self.workflow.dag.finish(
                     job,

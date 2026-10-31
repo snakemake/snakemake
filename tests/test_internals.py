@@ -1,3 +1,8 @@
+import asyncio
+import os
+from collections import Counter
+from types import SimpleNamespace
+
 from snakemake.cli import parse_set_resources
 from io import StringIO
 from snakemake.profiles import ProfileConfigFileParser
@@ -9,6 +14,8 @@ from snakemake.common.misc import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import Wildcards, InputFiles
+from snakemake.io import _IOFile
+from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -131,3 +138,68 @@ def test_profile_parse():
         .value
         == "42"
     )
+
+
+class _CountingIOFile(_IOFile):
+    """_IOFile that counts the existence checks made while measuring its size."""
+
+    calls = Counter()
+
+    async def exists(self):
+        _CountingIOFile.calls[str(self)] += 1
+        return os.path.exists(self)
+
+    async def size(self):
+        return os.path.getsize(self)
+
+
+def _update_input_sizes(scheduler, tmp_path, *job_inputs):
+    """Run update_input_sizes for jobs with the given input files.
+
+    Each job gets distinct _IOFile objects, even for shared paths, as
+    different jobs hold their own.
+    """
+    jobs = [
+        SimpleNamespace(input=[_CountingIOFile(str(tmp_path / f), None) for f in files])
+        for files in job_inputs
+    ]
+    asyncio.run(JobScheduler.update_input_sizes(scheduler, jobs))
+
+
+def test_update_input_sizes_measures_existing_inputs_once(tmp_path):
+    _CountingIOFile.calls = Counter()
+    scheduler = SimpleNamespace(_input_sizes={})
+    (tmp_path / "a").write_text("abc")
+    (tmp_path / "empty").write_text("")
+
+    _update_input_sizes(scheduler, tmp_path, ["a", "empty"], ["a", "missing"])
+    (tmp_path / "missing").write_text("xy")
+    _update_input_sizes(scheduler, tmp_path, ["a", "empty"], ["a", "missing"])
+
+    # inputs that exist (even empty ones) are not measured again,
+    # inputs that were missing are measured again
+    assert _CountingIOFile.calls == {
+        str(tmp_path / "a"): 1,
+        str(tmp_path / "empty"): 1,
+        str(tmp_path / "missing"): 2,
+    }
+    assert scheduler._input_sizes == {
+        str(tmp_path / "a"): 3,
+        str(tmp_path / "empty"): 0,
+        str(tmp_path / "missing"): 2,
+    }
+
+
+def test_update_input_sizes_eviction_keeps_current_inputs(tmp_path):
+    _CountingIOFile.calls = Counter()
+    scheduler = SimpleNamespace(_input_sizes={f"old{i}": 1 for i in range(9999)})
+    (tmp_path / "a").write_text("abc")
+    (tmp_path / "b").write_text("xy")
+
+    _update_input_sizes(scheduler, tmp_path, ["a"])
+    # exceeds the cache limit: only sizes of the current inputs are kept,
+    # including the one that is not measured again
+    _update_input_sizes(scheduler, tmp_path, ["a"], ["b"])
+
+    assert scheduler._input_sizes == {str(tmp_path / "a"): 3, str(tmp_path / "b"): 2}
+    assert _CountingIOFile.calls == {str(tmp_path / "a"): 1, str(tmp_path / "b"): 1}
