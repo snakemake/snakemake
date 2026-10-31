@@ -1,0 +1,7 @@
+rule all:
+    input: "plot.vl.json"
+
+rule make_plot:
+    input: "spec.vl.json"
+    output: report("plot.vl.json", caption="caption.rst", category="Plots")
+    shell: "cp {input} {output}"

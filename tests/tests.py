@@ -300,6 +300,14 @@ def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
+def test_report_vega():
+    run(dpath("test_report_vega"), report="report.html", check_md5=False)
+
+
+def test_report_vega_zip():
+    run(dpath("test_report_vega"), report="report.zip", check_md5=False)
+
+
 def test_report_dir():
     run(dpath("test_report_dir"), report="report.zip", check_md5=False)
 
@@ -428,9 +436,9 @@ def test_persistence_backend_db_run_directive_concurrency(tmp_path):
     with Session(engine) as session:
         stmt = select(MetadataRecordORM)
         records = session.scalars(stmt).all()
-        assert (
-            len(records) == 100
-        ), f"Expected 100 DB records, but found {len(records)}!"
+        assert len(records) == 100, (
+            f"Expected 100 DB records, but found {len(records)}!"
+        )
 
 
 def test_same_wildcard():
@@ -1128,9 +1136,9 @@ def test_group_jobs_attempts():
 
 def assert_resources(resources: dict, **expected_resources):
     for name, expected_value in expected_resources.items():
-        assert (
-            resources.get(name) == expected_value
-        ), f"Resource '{name}' expected to be {expected_value}, but got {resources.get(name)}"
+        assert resources.get(name) == expected_value, (
+            f"Resource '{name}' expected to be {expected_value}, but got {resources.get(name)}"
+        )
 
 
 @skip_on_windows
@@ -2723,8 +2731,7 @@ def test_module_global_container():
             container_img = rules_by_name[rname].software_env_specs.legacy_container_img
             expected = f"docker://{dversion}_image"
             assert container_img == expected, (
-                f"Module rule '{rname}' has {container_img=!r}, "
-                f"expected '{expected}'"
+                f"Module rule '{rname}' has {container_img=!r}, expected '{expected}'"
             )
 
 
@@ -2756,7 +2763,6 @@ def test_info_header_unknown_user(monkeypatch):
     with api.SnakemakeApi(
         settings.OutputSettings(verbose=False),
     ) as snakemake_api:
-
         workflow_api = snakemake_api.workflow(
             resource_settings=settings.ResourceSettings(cores=1),
             snakefile=test_path / "Snakefile",
@@ -3483,9 +3489,9 @@ def test_stats_table_order_and_counts():
 
     # Check counts
     for name, exp_count in expected_counts.items():
-        assert (
-            counts.get(name) == exp_count
-        ), f"Count for {name} was {counts.get(name)} != {exp_count}"
+        assert counts.get(name) == exp_count, (
+            f"Count for {name} was {counts.get(name)} != {exp_count}"
+        )
 
 
 def test_github_issue4003():
@@ -3594,12 +3600,12 @@ def test_module_onstart_not_in_main_snakefile():
             cleanup=False,
             tmpdir=tmpdir,
         )
-        assert not (
-            Path(tmpdir) / "onstart_module1.log"
-        ).exists(), "onstart should not be executed for module1"
-        assert not (
-            Path(tmpdir) / "onstart_module2.log"
-        ).exists(), "onstart should not be executed for module2"
+        assert not (Path(tmpdir) / "onstart_module1.log").exists(), (
+            "onstart should not be executed for module1"
+        )
+        assert not (Path(tmpdir) / "onstart_module2.log").exists(), (
+            "onstart should not be executed for module2"
+        )
 
 
 def test_module_onerror():
@@ -3672,7 +3678,7 @@ def test_delete_temp_fs():
         cleanup=False,
     )
     temp_file = os.path.join(outdir, "a")
-    assert not os.path.exists(
-        temp_file
-    ), "temp file was not removed in main working directory"
+    assert not os.path.exists(temp_file), (
+        "temp file was not removed in main working directory"
+    )
     shutil.rmtree(outdir)
