@@ -101,10 +101,8 @@ class AttributeGuard:
         )
 
 
-# TODO: replace this with Self when Python 3.11 is the minimum supported version for
-#   executing scripts
 _TNamedList = TypeVar("_TNamedList")
-"Type variable for self returning methods on Namedlist deriving classes"
+"Type variable for the items of a Namedlist"
 
 
 class Namedlist(list, Generic[_TNamedList]):
@@ -197,6 +195,11 @@ class Namedlist(list, Generic[_TNamedList]):
         else:
             setattr(self, name, Namedlist(toclone=self[index:end]))
 
+    if TYPE_CHECKING:
+        # Names are set as attributes at runtime by _set_name, so type checkers
+        # cannot know them; declare them dynamic for checking only.
+        def __getattr__(self, name: str) -> Any: ...
+
     def update(self, items: Dict):
         for key, value in items.items():
             if key in self._names:
@@ -258,13 +261,13 @@ class Namedlist(list, Generic[_TNamedList]):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self: _TNamedList) -> _TNamedList:
+    def _plainstrings(self) -> "Self":
         return self.__class__.__call__(toclone=self, plainstr=True)
 
-    def _stripped_constraints(self: _TNamedList) -> _TNamedList:
+    def _stripped_constraints(self) -> "Self":
         return self.__class__.__call__(toclone=self, strip_constraints=True)
 
-    def _clone(self: _TNamedList) -> _TNamedList:
+    def _clone(self) -> "Self":
         return self.__class__.__call__(toclone=self)
 
     def get(self, key, default_value=None):
@@ -510,7 +513,7 @@ class Snakemake:
         return self._log_shell_redirect(str(self.log), stdout, stderr, append)
 
     @property
-    def params(self):
+    def params(self) -> Params:
         params = Params(toclone=list(self._params_store))
         try:
             for i, value in enumerate(params):
