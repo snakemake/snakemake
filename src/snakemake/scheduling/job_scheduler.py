@@ -490,9 +490,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self.progress()
 
                 # outputs may have been measured before as inputs of other jobs
-                # (e.g. update() or before_update() files), measure them again
-                for f in job.output:
-                    self._input_sizes.pop(f, None)
+                # (e.g. update() or before_update() files), measure them again;
+                # for groups, this includes outputs consumed within the group
+                for j in job.jobs if job.is_group() else [job]:
+                    for f in j.output:
+                        self._input_sizes.pop(f, None)
 
                 await self.workflow.dag.finish(
                     job,
