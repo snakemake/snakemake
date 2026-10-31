@@ -11,6 +11,8 @@ from sqlalchemy import (
     select,
     delete,
     event,
+    inspect,
+    text,
 )
 from sqlalchemy.engine.url import make_url, URL
 from sqlalchemy.exc import IntegrityError
@@ -89,6 +91,22 @@ class DbPersistence(PersistenceBase):
         self._attach_sqlite_pragmas(is_network_fs, busy_timeout)
 
         SQLModel.metadata.create_all(self.engine)
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        """
+        Upgrades tables written by older Snakemake versions, since create_all()
+        never alters existing tables. Add one idempotent step per schema change.
+        """
+        columns = {
+            col["name"]
+            for col in inspect(self.engine).get_columns("snakemake_metadata")
+        }
+        with self.engine.begin() as conn:
+            if "software" not in columns:  # added in #3339
+                conn.execute(
+                    text("ALTER TABLE snakemake_metadata ADD COLUMN software JSON")
+                )
 
     def _check_network_fs(self, parsed_url: URL) -> bool:
         """
