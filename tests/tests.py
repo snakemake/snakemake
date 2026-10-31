@@ -2990,6 +2990,16 @@ def test_group_temp():
     run(dpath("test_group_temp"), cluster="./qsub")
 
 
+@skip_on_windows
+def test_group_temp_notemp():
+    # --notemp has to reach the group job, which handles group-internal temp files
+    run(
+        dpath("test_group_temp_notemp"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --notemp",
+    )
+
+
 @skip_on_windows  # OS agnostic
 def test_summary():
     run(dpath("test01"), shellcmd="snakemake --summary", check_results=False)
