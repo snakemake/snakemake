@@ -14,6 +14,7 @@
 # serve to show the default.
 
 import os
+import re
 from datetime import datetime
 from sphinxawesome_theme.postprocess import Icons
 from docutils import nodes
@@ -321,10 +322,15 @@ def _flatten(d, prefix=""):
             yield key, str(v)
 
 
+def _escape(v):
+    # escape characters that start inline markup or lists (e.g. "*" versions)
+    return re.sub(r"([\\*`|_])", r"\\\1", v)
+
+
 # Use markup like |pyproject.tool.pixi.workspace.requires-pixi| in your reStructuredText files to reference values from pyproject.toml.
 # Never hard-copy values from pyproject.toml into the documentation!
 rst_prolog = "\n".join(
-    f".. |pyproject.{k}| replace:: {v}" for k, v in _flatten(_pyproject)
+    f".. |pyproject.{k}| replace:: {_escape(v)}" for k, v in _flatten(_pyproject)
 )
 
 

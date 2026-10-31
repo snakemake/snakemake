@@ -117,7 +117,7 @@ Development with ``pixi``
 your development environment. It acts as a drop-in replacement for
 `conda <https://docs.conda.io/en/latest/>`_.
 
-Snakemake development requires ``pixi`` |tool.pixi.workspace.requires-pixi| as specified by ``requires-pixi`` in ``pyproject.toml``.
+Snakemake development requires ``pixi`` |pyproject.tool.pixi.workspace.requires-pixi| as specified by ``requires-pixi`` in ``pyproject.toml``.
 Check your installed version with ``pixi --version``.
 If it is older run ``pixi self-update`` before continuing.
 If you installed ``pixi`` through a package manager use that package manager to update it instead.
