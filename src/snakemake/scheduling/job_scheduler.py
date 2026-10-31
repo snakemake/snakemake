@@ -203,6 +203,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     async def update_input_sizes(self, jobs: Iterable[AbstractJob]):
+        """Measure the input sizes of the given jobs, used for job prioritization."""
+
         async def get_size(path: _IOFile):
             return path, await path.size() if await path.exists() else None
 
@@ -418,6 +420,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ).start()
 
     def _finish_jobs(self):
+        """Postprocess the jobs that finished since the last scheduling round."""
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
 
@@ -425,6 +428,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         immediate_submit = self.workflow.remote_execution_settings.immediate_submit
 
         async def postprocess():
+            """Postprocess each finished job and update scheduler and DAG state."""
             for job in self._tofinish:
                 # IMPORTANT: inside of this loop, there may be no calls that have
                 # a complexity of at least the number of jobs.

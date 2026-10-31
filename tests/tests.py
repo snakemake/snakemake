@@ -2973,6 +2973,7 @@ def _record_db_sizes(monkeypatch):
     job_selector = JobScheduler.job_selector
 
     def recording_job_selector(self, jobs):
+        """Select jobs and record the db.txt sizes handed to the selector."""
         selected = job_selector(self, jobs)
         seen.update(
             (job.rule.name, self._input_sizes[f])

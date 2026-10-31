@@ -154,7 +154,11 @@ class _CountingIOFile(_IOFile):
 
 
 def _update_input_sizes(scheduler, tmp_path, *job_inputs):
-    # distinct _IOFile objects for the same path, as different jobs hold their own
+    """Run update_input_sizes for jobs with the given input files.
+
+    Each job gets distinct _IOFile objects, even for shared paths, as
+    different jobs hold their own.
+    """
     jobs = [
         SimpleNamespace(input=[_CountingIOFile(str(tmp_path / f), None) for f in files])
         for files in job_inputs
