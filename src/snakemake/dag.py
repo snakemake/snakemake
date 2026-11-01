@@ -785,6 +785,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     ) -> None:
         # Check whether all output files are newer than the newest input file.
         # This catches problems with non-sychronous clocks in distributed execution.
+        if not expanded_output:
+            # no output to compare, e.g. for rules without output files
+            return
         existing_input = [
             ((await f.mtime_uncached(skip_storage=True)).local(), f)
             for f in job.input

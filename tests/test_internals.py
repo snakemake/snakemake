@@ -14,7 +14,8 @@ from snakemake.common.misc import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import Wildcards, InputFiles
-from snakemake.io import _IOFile
+from snakemake.dag import DAG
+from snakemake.io import IOCache, _IOFile
 from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake_interface_common.exceptions import WorkflowError
 
@@ -232,3 +233,55 @@ def test_update_input_sizes_eviction_keeps_current_inputs(tmp_path):
 
     assert scheduler._input_sizes == {str(tmp_path / "a"): 3, str(tmp_path / "b"): 2}
     assert _CountingIOFile.calls == {str(tmp_path / "a"): 1, str(tmp_path / "b"): 1}
+
+
+def _stat_calls(monkeypatch, tmp_path):
+    """Count the os.stat and os.lstat calls on the paths under tmp_path."""
+    calls = Counter()
+    for name in ("stat", "lstat"):
+
+        def counting(path, *args, _orig=getattr(os, name), **kwargs):
+            path_str = os.fspath(path)
+            if isinstance(path_str, str) and path_str.startswith(str(tmp_path)):
+                calls[os.path.relpath(path_str, tmp_path)] += 1
+            return _orig(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, name, counting)
+    return calls
+
+
+def _check_output_mtime(tmp_path, inputs, outputs):
+    iocache = IOCache(0)
+    iocache.deactivate()
+    rule = SimpleNamespace(
+        workflow=SimpleNamespace(iocache=iocache),
+        pathvars=SimpleNamespace(apply=lambda path: path),
+    )
+    job = SimpleNamespace(
+        input=[_IOFile(str(tmp_path / f), rule) for f in inputs], rule=None
+    )
+    expanded_output = [_IOFile(str(tmp_path / f), rule) for f in outputs]
+    asyncio.run(DAG.check_output_mtime(None, job, expanded_output))
+
+
+def test_check_output_mtime_without_output_reads_no_input(tmp_path, monkeypatch):
+    (tmp_path / "a").write_text("a")
+    (tmp_path / "b").write_text("b")
+    calls = _stat_calls(monkeypatch, tmp_path)
+
+    # e.g. a target rule aggregating many inputs: nothing to compare
+    _check_output_mtime(tmp_path, ["a", "b"], [])
+
+    assert not calls
+
+
+def test_check_output_mtime_detects_older_output(tmp_path, monkeypatch):
+    (tmp_path / "in").write_text("in")
+    (tmp_path / "out").write_text("out")
+    mtime = os.stat(tmp_path / "in").st_mtime
+    os.utime(tmp_path / "out", (mtime - 10, mtime - 10))
+    calls = _stat_calls(monkeypatch, tmp_path)
+
+    with pytest.raises(WorkflowError, match="older modification time"):
+        _check_output_mtime(tmp_path, ["in"], ["out"])
+    assert calls == {"in": 2, "out": 2}
