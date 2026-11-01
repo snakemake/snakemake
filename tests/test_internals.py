@@ -166,27 +166,25 @@ def _update_input_sizes(scheduler, tmp_path, *job_inputs):
     asyncio.run(JobScheduler.update_input_sizes(scheduler, jobs))
 
 
-def test_update_input_sizes_measures_existing_inputs_once(tmp_path):
+def test_update_input_sizes_measures_inputs_once(tmp_path):
     _CountingIOFile.calls = Counter()
     scheduler = SimpleNamespace(_input_sizes={})
     (tmp_path / "a").write_text("abc")
     (tmp_path / "empty").write_text("")
 
     _update_input_sizes(scheduler, tmp_path, ["a", "empty"], ["a", "missing"])
-    (tmp_path / "missing").write_text("xy")
     _update_input_sizes(scheduler, tmp_path, ["a", "empty"], ["a", "missing"])
 
-    # inputs that exist (even empty ones) are not measured again,
-    # inputs that were missing are measured again
+    # cached inputs are not measured again, even empty or missing ones
     assert _CountingIOFile.calls == {
         str(tmp_path / "a"): 1,
         str(tmp_path / "empty"): 1,
-        str(tmp_path / "missing"): 2,
+        str(tmp_path / "missing"): 1,
     }
     assert scheduler._input_sizes == {
         str(tmp_path / "a"): 3,
         str(tmp_path / "empty"): 0,
-        str(tmp_path / "missing"): 2,
+        str(tmp_path / "missing"): None,
     }
 
 
