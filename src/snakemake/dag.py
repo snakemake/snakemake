@@ -812,8 +812,10 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def check_output_mtime(
         self, job: Job, expanded_output: List[_IOFile]
     ) -> None:
-        # Check whether all output files are newer than the newest input file.
-        # This catches problems with non-sychronous clocks in distributed execution.
+        """Check whether all output files are newer than the newest input file.
+
+        This catches problems with non-synchronous clocks in distributed execution.
+        """
         if not expanded_output:
             # no output to compare, e.g. for rules without output files
             return

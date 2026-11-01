@@ -244,6 +244,7 @@ def _stat_calls(monkeypatch, tmp_path):
     for name in ("stat", "lstat"):
 
         def counting(path, *args, _orig=getattr(os, name), **kwargs):
+            """Count the call if path is under tmp_path, then make it."""
             if isinstance(path, (str, os.PathLike)):
                 path_str = os.fspath(path)
                 if isinstance(path_str, str) and path_str.startswith(str(tmp_path)):
@@ -300,6 +301,7 @@ def _local_mtime_reference(f):
     """The existence and mtime checks that _local_mtime_if_exists combines."""
 
     async def reference():
+        """Check exists_local(), then read mtime_uncached(skip_storage=True)."""
         if not await f.exists_local():
             return None
         return (await f.mtime_uncached(skip_storage=True)).local()
@@ -308,6 +310,7 @@ def _local_mtime_reference(f):
 
 
 def _outcome(coro):
+    """Run coro and return its result, or the type and message of its exception."""
     try:
         return asyncio.run(coro)
     except Exception as e:
@@ -341,6 +344,7 @@ def _outcome(coro):
     ],
 )
 def test_local_mtime_if_exists_matches_reference(tmp_path, path, stat_calls):
+    """Same outcome as _local_mtime_reference, with the expected stat calls."""
     (tmp_path / "file").write_text("file")
     (tmp_path / "dir").mkdir()
     (tmp_path / "dir_with_timestamp").mkdir()
