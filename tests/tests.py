@@ -2430,6 +2430,9 @@ def test_max_jobs_per_timespan_wakeup(monkeypatch):
 
     def record_run(self, jobs, executor=None):
         submitted.extend(time.time() for job in jobs if job.rule.name == "work")
+        if len(submitted) == 4:
+            # let the jobs finish (they wait for this file in the workdir)
+            Path("released").touch()
         return orig_run(self, jobs, executor=executor)
 
     def record_proceed(self, job):
@@ -2442,7 +2445,9 @@ def test_max_jobs_per_timespan_wakeup(monkeypatch):
     run(
         dpath("test_max_jobs_per_timespan_wakeup"),
         cores=8,
-        max_jobs_per_timespan=MaxJobsPerTimespan(2, "1s"),
+        # the fourth job is held back, and the final rule gets a slot even
+        # when jobs are only submitted once a running one finished
+        max_jobs_per_timespan=MaxJobsPerTimespan(3, "1s"),
     )
     assert len(submitted) == 4
     assert max(submitted) < min(finished)
