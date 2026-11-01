@@ -211,8 +211,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
         paths = {path for job in jobs for path in job.input}
         # sizes only guide job prioritization and outputs of finished jobs are
         # dropped from the cache (see _finish_jobs), hence only measure paths
-        # that are not cached yet
-        to_measure = [path for path in paths if path not in self._input_sizes]
+        # that are not cached yet; with immediate submit, jobs are finished when
+        # submitted, before writing their outputs, hence measure all paths
+        immediate_submit = self.workflow.remote_execution_settings.immediate_submit
+        to_measure = [
+            path for path in paths if immediate_submit or path not in self._input_sizes
+        ]
         if to_measure:
             self._input_sizes.update(
                 await asyncio.gather(*[get_size(path) for path in to_measure])

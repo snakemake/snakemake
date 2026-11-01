@@ -153,6 +153,16 @@ class _CountingIOFile(_IOFile):
         return os.path.getsize(self)
 
 
+def _scheduler(input_sizes, immediate_submit=False):
+    """Minimal stand-in for a JobScheduler, as used by update_input_sizes."""
+    return SimpleNamespace(
+        _input_sizes=input_sizes,
+        workflow=SimpleNamespace(
+            remote_execution_settings=SimpleNamespace(immediate_submit=immediate_submit)
+        ),
+    )
+
+
 def _update_input_sizes(scheduler, tmp_path, *job_inputs):
     """Run update_input_sizes for jobs with the given input files.
 
@@ -168,7 +178,7 @@ def _update_input_sizes(scheduler, tmp_path, *job_inputs):
 
 def test_update_input_sizes_measures_inputs_once(tmp_path):
     _CountingIOFile.calls = Counter()
-    scheduler = SimpleNamespace(_input_sizes={})
+    scheduler = _scheduler({})
     (tmp_path / "a").write_text("abc")
     (tmp_path / "empty").write_text("")
 
@@ -188,9 +198,30 @@ def test_update_input_sizes_measures_inputs_once(tmp_path):
     }
 
 
+def test_update_input_sizes_immediate_submit_measures_every_round(tmp_path):
+    _CountingIOFile.calls = Counter()
+    scheduler = _scheduler({}, immediate_submit=True)
+    (tmp_path / "a").write_text("abc")
+
+    _update_input_sizes(scheduler, tmp_path, ["a", "missing"])
+    # with immediate submit, the producer of an input is finished when
+    # submitted, its output is only written afterwards
+    (tmp_path / "missing").write_text("xy")
+    _update_input_sizes(scheduler, tmp_path, ["a", "missing"])
+
+    assert _CountingIOFile.calls == {
+        str(tmp_path / "a"): 2,
+        str(tmp_path / "missing"): 2,
+    }
+    assert scheduler._input_sizes == {
+        str(tmp_path / "a"): 3,
+        str(tmp_path / "missing"): 2,
+    }
+
+
 def test_update_input_sizes_eviction_keeps_current_inputs(tmp_path):
     _CountingIOFile.calls = Counter()
-    scheduler = SimpleNamespace(_input_sizes={f"old{i}": 1 for i in range(9999)})
+    scheduler = _scheduler({f"old{i}": 1 for i in range(9999)})
     (tmp_path / "a").write_text("abc")
     (tmp_path / "b").write_text("xy")
 
