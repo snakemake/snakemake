@@ -1,5 +1,6 @@
 import asyncio
 import os
+import stat
 from collections import Counter
 from types import SimpleNamespace
 
@@ -9,12 +10,14 @@ from snakemake.profiles import ProfileConfigFileParser
 import textwrap
 import pytest
 
+from .conftest import ON_WINDOWS, skip_on_windows
+
 import snakemake.common.misc as common
 from snakemake.common.misc import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import Wildcards, InputFiles
-from snakemake.dag import DAG
+from snakemake.dag import DAG, _local_mtime_if_exists
 from snakemake.io import IOCache, _IOFile
 from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake_interface_common.exceptions import WorkflowError
@@ -241,26 +244,31 @@ def _stat_calls(monkeypatch, tmp_path):
     for name in ("stat", "lstat"):
 
         def counting(path, *args, _orig=getattr(os, name), **kwargs):
-            path_str = os.fspath(path)
-            if isinstance(path_str, str) and path_str.startswith(str(tmp_path)):
-                calls[os.path.relpath(path_str, tmp_path)] += 1
+            if isinstance(path, (str, os.PathLike)):
+                path_str = os.fspath(path)
+                if isinstance(path_str, str) and path_str.startswith(str(tmp_path)):
+                    calls[os.path.relpath(path_str, tmp_path)] += 1
             return _orig(path, *args, **kwargs)
 
         monkeypatch.setattr(os, name, counting)
     return calls
 
 
-def _check_output_mtime(tmp_path, inputs, outputs):
+def _rule_without_iocache():
     iocache = IOCache(0)
     iocache.deactivate()
-    rule = SimpleNamespace(
+    return SimpleNamespace(
         workflow=SimpleNamespace(iocache=iocache),
         pathvars=SimpleNamespace(apply=lambda path: path),
     )
+
+
+def _check_output_mtime(tmp_path, inputs, outputs, iofile=_IOFile):
+    rule = _rule_without_iocache()
     job = SimpleNamespace(
-        input=[_IOFile(str(tmp_path / f), rule) for f in inputs], rule=None
+        input=[iofile(str(tmp_path / f), rule) for f in inputs], rule=None
     )
-    expanded_output = [_IOFile(str(tmp_path / f), rule) for f in outputs]
+    expanded_output = [iofile(str(tmp_path / f), rule) for f in outputs]
     asyncio.run(DAG.check_output_mtime(None, job, expanded_output))
 
 
@@ -284,4 +292,120 @@ def test_check_output_mtime_detects_older_output(tmp_path, monkeypatch):
 
     with pytest.raises(WorkflowError, match="older modification time"):
         _check_output_mtime(tmp_path, ["in"], ["out"])
-    assert calls == {"in": 2, "out": 2}
+    # a single stat call per regular file
+    assert calls == {"in": 1, "out": 1}
+
+
+def _local_mtime_reference(f):
+    """The existence and mtime checks that _local_mtime_if_exists combines."""
+
+    async def reference():
+        if not await f.exists_local():
+            return None
+        return (await f.mtime_uncached(skip_storage=True)).local()
+
+    return reference()
+
+
+def _outcome(coro):
+    try:
+        return asyncio.run(coro)
+    except Exception as e:
+        return type(e), str(e)
+
+
+@pytest.mark.skipif(
+    ON_WINDOWS or os.geteuid() == 0,
+    reason="needs symlinks, FIFOs and permissions that apply (not root)",
+)
+@pytest.mark.parametrize(
+    "path,stat_calls",
+    [
+        ("file", 1),
+        ("missing", 1),
+        ("dir", 2),
+        ("dir_with_timestamp", 2),
+        ("link_to_file", 3),
+        ("link_to_dir", 4),
+        ("link_to_dir_with_timestamp", 4),
+        # one more call than a missing file: the link itself exists
+        ("broken_link", 2),
+        ("link_loop", 2),
+        ("fifo", 1),
+        ("unsearchable/file", 1),
+        ("file/child", 1),
+        ("null\x00byte", 1),
+        # error paths fall back to mtime_uncached for the error message
+        ("unsearchable_dir_with_timestamp", 4),
+        ("link_to_unsearchable_dir", 7),
+    ],
+)
+def test_local_mtime_if_exists_matches_reference(tmp_path, path, stat_calls):
+    (tmp_path / "file").write_text("file")
+    (tmp_path / "dir").mkdir()
+    (tmp_path / "dir_with_timestamp").mkdir()
+    (tmp_path / "dir_with_timestamp" / ".snakemake_timestamp").write_text("")
+    os.utime(tmp_path / "dir_with_timestamp" / ".snakemake_timestamp", (1, 1))
+    (tmp_path / "link_to_file").symlink_to("file")
+    (tmp_path / "link_to_dir").symlink_to("dir")
+    (tmp_path / "link_to_dir_with_timestamp").symlink_to("dir_with_timestamp")
+    (tmp_path / "broken_link").symlink_to("missing")
+    (tmp_path / "link_loop").symlink_to("link_loop")
+    os.mkfifo(tmp_path / "fifo")
+    (tmp_path / "unsearchable").mkdir()
+    (tmp_path / "unsearchable" / "file").write_text("")
+    (tmp_path / "unsearchable_dir_with_timestamp").mkdir()
+    (tmp_path / "unsearchable_dir_with_timestamp" / ".snakemake_timestamp").write_text(
+        ""
+    )
+    (tmp_path / "link_to_unsearchable_dir").symlink_to(
+        "unsearchable_dir_with_timestamp"
+    )
+    os.chmod(tmp_path / "unsearchable", 0o600)
+    os.chmod(tmp_path / "unsearchable_dir_with_timestamp", 0o600)
+    f = _IOFile(str(tmp_path / path), _rule_without_iocache())
+    try:
+        expected = _outcome(_local_mtime_reference(f))
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            calls = _stat_calls(monkeypatch, tmp_path)
+            assert _outcome(_local_mtime_if_exists(f)) == expected
+        assert sum(calls.values()) == stat_calls
+    finally:
+        os.chmod(tmp_path / "unsearchable", 0o700)
+        os.chmod(tmp_path / "unsearchable_dir_with_timestamp", 0o700)
+
+
+@skip_on_windows
+def test_check_output_mtime_reports_link_target_deleted_during_check(tmp_path):
+    class _TargetDeletedIOFile(_IOFile):
+        async def exists_local(self):
+            exists = await super().exists_local()
+            os.remove(tmp_path / "target")
+            return exists
+
+    (tmp_path / "target").write_text("target")
+    (tmp_path / "in").symlink_to("target")
+    (tmp_path / "out").write_text("out")
+
+    with pytest.raises(WorkflowError, match="although it existed before"):
+        _check_output_mtime(tmp_path, ["in"], ["out"], iofile=_TargetDeletedIOFile)
+
+
+def test_local_mtime_if_exists_does_not_hide_unexpanded_file():
+    f = _IOFile(lambda wildcards: "file", _rule_without_iocache())
+
+    with pytest.raises(ValueError):
+        asyncio.run(_local_mtime_if_exists(f))
+
+
+def test_local_mtime_if_exists_skips_broken_reparse_point(tmp_path, monkeypatch):
+    # on Windows, os.lstat reports a junction as a directory with a reparse tag
+    class _BrokenJunctionIOFile(_IOFile):
+        async def exists_local(self):
+            return False
+
+    junction = SimpleNamespace(st_mode=stat.S_IFDIR, st_mtime=1.0, st_reparse_tag=1)
+    monkeypatch.setattr(os, "stat", lambda path, follow_symlinks=True: junction)
+    f = _BrokenJunctionIOFile(str(tmp_path / "junction"), _rule_without_iocache())
+
+    assert asyncio.run(_local_mtime_if_exists(f)) is None
