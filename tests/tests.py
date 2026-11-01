@@ -11,6 +11,8 @@ import subprocess as sp
 import re
 from pathlib import Path
 import tempfile
+import threading
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -23,7 +25,7 @@ from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
-from snakemake.settings.types import Batch
+from snakemake.settings.types import Batch, MaxJobsPerTimespan
 from snakemake.shell import shell
 from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
@@ -2350,6 +2352,111 @@ def test_github_issue1069():
 @skip_on_windows
 def test_max_jobs_per_timespan():
     run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 2/1s --cores 3")
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_single_timer(monkeypatch):
+    # each scheduling round used to start its own chain of reevaluation timers
+    from snakemake.scheduling import job_scheduler
+
+    lock = threading.Lock()
+    pending = max_pending = 0
+
+    class Timer(threading.Timer):
+        def __init__(self, interval, function, args=None, kwargs=None):
+            def fire(*args, **kwargs):
+                nonlocal pending
+                with lock:
+                    pending -= 1
+                function(*args, **kwargs)
+
+            super().__init__(interval, fire, args, kwargs)
+
+        def start(self):
+            nonlocal pending, max_pending
+            with lock:
+                pending += 1
+                max_pending = max(max_pending, pending)
+            super().start()
+
+    monkeypatch.setattr(job_scheduler.threading, "Timer", Timer)
+    run(
+        dpath("test_max_jobs_per_timespan_single_timer"),
+        cores=2,
+        max_jobs_per_timespan=MaxJobsPerTimespan(3, "1s"),
+    )
+    # the limit was reached, and a single wake-up was pending at a time
+    assert max_pending == 1
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_sliding_window(monkeypatch):
+    # use the limiter's recorded times, as job starts are slightly later
+    from snakemake.scheduling.job_scheduler import JobRateLimiter
+
+    registered = []
+    limit = MaxJobsPerTimespan(3, "1s")
+    register_jobs = JobRateLimiter.register_jobs
+
+    def record_register_jobs(self, n_jobs):
+        register_jobs(self, n_jobs)
+        if n_jobs:
+            registered.extend(list(self._jobs)[-n_jobs:])
+
+    monkeypatch.setattr(JobRateLimiter, "register_jobs", record_register_jobs)
+    run(
+        dpath("test_max_jobs_per_timespan_single_timer"),
+        cores=2,
+        max_jobs_per_timespan=limit,
+    )
+    # all twelve work jobs and the final rule are counted by the limiter
+    assert len(registered) == 13
+    # the limiter expires timestamps at the left boundary of (t - timespan, t]
+    for first, last in zip(registered, registered[limit.max_jobs :]):
+        assert first <= last - limit.timespan, (
+            f"More than {limit.max_jobs} jobs registered within {limit.timespan}s: "
+            f"{registered}"
+        )
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_wakeup(monkeypatch):
+    # jobs held back by the limit start once the timespan is over, without
+    # waiting for a running job to finish (#3019)
+    from snakemake.scheduling.job_scheduler import JobScheduler
+
+    submitted, finished = [], []
+    orig_run, orig_proceed = JobScheduler.run, JobScheduler._proceed
+
+    def record_run(self, jobs, executor=None):
+        submitted.extend(time.time() for job in jobs if job.rule.name == "work")
+        return orig_run(self, jobs, executor=executor)
+
+    def record_proceed(self, job):
+        if job.rule.name == "work":
+            finished.append(time.time())
+        return orig_proceed(self, job)
+
+    monkeypatch.setattr(JobScheduler, "run", record_run)
+    monkeypatch.setattr(JobScheduler, "_proceed", record_proceed)
+    run(
+        dpath("test_max_jobs_per_timespan_wakeup"),
+        cores=8,
+        max_jobs_per_timespan=MaxJobsPerTimespan(2, "1s"),
+    )
+    assert len(submitted) == 4
+    assert max(submitted) < min(finished)
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_exit():
+    # a pending reevaluation timer does not keep the process alive
+    start = time.time()
+    run(
+        dpath("test_max_jobs_per_timespan_exit"),
+        shellcmd="snakemake --max-jobs-per-timespan 2/1m --cores 1",
+    )
+    assert time.time() - start < 30
 
 
 def test_touch_pipeline_with_temp_dir():
