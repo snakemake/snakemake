@@ -20,6 +20,7 @@ from snakemake.io import _IOFile
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
+from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
@@ -2964,6 +2965,47 @@ def test_access_patterns():
 @skip_on_windows  # OS agnostic
 def test_update_flag():
     run(dpath("test_update_flag"))
+
+
+def _record_db_sizes(monkeypatch):
+    """Record the size of db.txt handed to the job selector, per rule."""
+    seen = set()
+    job_selector = JobScheduler.job_selector
+
+    def recording_job_selector(self, jobs):
+        """Select jobs and record the db.txt sizes handed to the selector."""
+        selected = job_selector(self, jobs)
+        seen.update(
+            (job.rule.name, self._input_sizes[f])
+            for job in jobs
+            if not job.is_group()
+            for f in job.input
+            if os.path.basename(f) == "db.txt"
+        )
+        return selected
+
+    monkeypatch.setattr(JobScheduler, "job_selector", recording_job_selector)
+    return seen
+
+
+@skip_on_windows  # OS agnostic
+def test_input_sizes_update_flag(monkeypatch):
+    """Input sizes cached for job prioritization are measured again
+    once a job has updated the file
+    """
+    seen = _record_db_sizes(monkeypatch)
+    run(dpath("test_input_sizes_update_flag"))
+    assert seen == {("before", 3), ("after", 6)}
+
+
+@skip_on_windows
+def test_input_sizes_update_flag_group(monkeypatch):
+    """Same as test_input_sizes_update_flag, with the file updated and consumed
+    within a group job, hence not part of the group's outputs
+    """
+    seen = _record_db_sizes(monkeypatch)
+    run(dpath("test_input_sizes_update_flag_group"), cluster="./qsub")
+    assert seen == {("before", 3), ("after", 6)}
 
 
 @skip_on_windows  # OS agnostic
