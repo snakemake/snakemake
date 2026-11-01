@@ -1,5 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
+from fractions import Fraction
 from functools import cached_property
 from pathlib import Path
 import re
@@ -58,7 +59,7 @@ class NotebookEditMode:
 
 
 class MaxJobsPerTimespan:
-    arg_re = re.compile(r"(?P<count>\d+)/(?P<timespan>\d+(h|m|s|ms|w|d))")
+    arg_re = re.compile(r"(?P<count>\d+(\.\d+)?)/(?P<timespan>\d+(ms|s|m|h|d|w))")
 
     def __init__(self, max_jobs: int, timespan: Optional[str] = None):
         import humanfriendly
@@ -71,17 +72,19 @@ class MaxJobsPerTimespan:
 
     @classmethod
     def parse_choice(cls, arg: str):
-        m = cls.arg_re.match(arg)
+        m = cls.arg_re.fullmatch(arg)
         if m is None:
             raise WorkflowError(
                 "Invalid max jobs per timespan definition. "
-                "Must be of the form <max_jobs>/<timespan> with <max_jobs> being an "
-                "integer, and <timespan> being an integer with "
-                f"unit h, m, s ms, w, d. Given instead: {arg}"
+                "Must be of the form <max_jobs>/<timespan> with <max_jobs> being a "
+                "number (e.g. 2 or 0.5), and <timespan> being an integer with "
+                f"unit ms, s, m, h, d, w. Given instead: {arg}"
             )
-        max_jobs, timespan = m.group("count"), m.group("timespan")
-        max_jobs = int(max_jobs)
-        return cls(max_jobs, timespan=timespan)
+        max_jobs = Fraction(m.group("count"))
+        limit = cls(max_jobs.numerator, timespan=m.group("timespan"))
+        # The rate limiter counts whole jobs, so 0.5/1s becomes 1 job per 2s
+        limit.timespan *= max_jobs.denominator
+        return limit
 
 
 @dataclass
