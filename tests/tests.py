@@ -2429,11 +2429,12 @@ def test_max_jobs_per_timespan_wakeup(monkeypatch):
     orig_run, orig_proceed = JobScheduler.run, JobScheduler._proceed
 
     def record_run(self, jobs, executor=None):
+        result = orig_run(self, jobs, executor=executor)
         submitted.extend(time.time() for job in jobs if job.rule.name == "work")
         if len(submitted) == 4:
             # let the jobs finish (they wait for this file in the workdir)
             Path("released").touch()
-        return orig_run(self, jobs, executor=executor)
+        return result
 
     def record_proceed(self, job):
         if job.rule.name == "work":
