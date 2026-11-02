@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, conda, connected
+from .common import run, dpath, apptainer, conda, connected, conda_plugin
 from .conftest import (
     skip_on_macos_arm,
     skip_on_windows,
@@ -32,7 +32,7 @@ xfail_permissionerror_on_win = (
 
 @skip_on_windows
 @skip_on_macos_arm
-@conda
+@conda_plugin
 def test_script():
     run(
         dpath("test_script"),
@@ -42,7 +42,7 @@ def test_script():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_script_rs():
     run(
         dpath("test_script_rs"),
@@ -51,12 +51,12 @@ def test_script_rs():
     )
 
 
-@conda
+@conda_plugin
 def test_conda():
     run(dpath("test_conda"), deployment_method={"conda"})
 
 
-@conda
+@conda_plugin
 def test_list_software_envs():
     run(dpath("test_conda"), list_software_envs=True, check_results=False)
 
@@ -66,7 +66,7 @@ def test_list_software_envs():
 # it is being used by another process:
 # 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\snakemake-2q4osog0\\test-env.yaml'
 @skip_on_windows
-@conda
+@conda_plugin
 def test_cache_or_deploy_software_envs():
     tmpdir = run(
         dpath("test_conda"),
@@ -91,7 +91,7 @@ def test_cache_or_deploy_software_envs():
     shutil.rmtree(tmpdir)
 
 
-@conda
+@conda_plugin
 def test_upstream_conda():
     run(
         dpath("test_conda"),
@@ -100,13 +100,13 @@ def test_upstream_conda():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_deploy_script():
     run(dpath("test_deploy_script"), deployment_method={"conda"})
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_deploy_hashing():
     tmpdir = run(
         dpath("test_deploy_hashing"),
@@ -124,7 +124,7 @@ def test_deploy_hashing():
     assert len(deployed_envs) == 1
 
 
-@conda
+@conda_plugin
 def test_custom_software_deployment_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -135,7 +135,7 @@ def test_custom_software_deployment_prefix():
 
 
 @only_on_windows
-@conda
+@conda_plugin
 def test_conda_cmd_exe():
     # Tests the conda environment activation when cmd.exe
     # is used as the shell
@@ -143,7 +143,7 @@ def test_conda_cmd_exe():
 
 
 @skip_on_windows  # wrappers are for linux and macos only
-@conda
+@conda_plugin
 def test_wrapper():
     run(
         dpath("test_wrapper"),
@@ -153,7 +153,7 @@ def test_wrapper():
 
 
 @skip_on_windows  # wrappers are for linux and macos only
-@conda
+@conda_plugin
 def test_wrapper_qsub():
     run(
         dpath("test_wrapper"),
@@ -164,7 +164,7 @@ def test_wrapper_qsub():
 
 
 @skip_on_windows  # wrappers are for linux and macos only
-@conda
+@conda_plugin
 def test_wrapper_local_git_prefix():
     import git
 
@@ -185,7 +185,7 @@ def test_wrapper_local_git_prefix():
 
 @skip_on_windows
 @connected
-@conda
+@conda_plugin
 def test_singularity_conda():
     run(
         dpath("test_singularity_conda"),
@@ -193,14 +193,14 @@ def test_singularity_conda():
     )
 
 
-@conda
+@conda_plugin
 @pytest.mark.needs_envmodules
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_issue635():
     run(
         dpath("test_issue635"),
@@ -209,23 +209,23 @@ def test_issue635():
     )
 
 
-@conda
+@conda_plugin
 def test_issue1046():
     run(dpath("test_issue1046"))
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_issue1093():
     run(dpath("test_issue1093"), deployment_method={"conda"})
 
 
-@conda
+@conda_plugin
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), deployment_method={"conda"})
 
 
-@conda
+@conda_plugin
 def test_jupyter_notebook_draft():
     from snakemake.settings.types import NotebookEditMode
 
@@ -242,7 +242,7 @@ def test_jupyter_notebook_draft():
 # The conda env hash has been improved but changed due to that.
 # We have to update the containerization test container with the new hashes!
 # @skip_on_windows
-# @conda
+# @conda_plugin
 # def test_containerized():
 #     run(
 #         dpath("test_containerized"),
@@ -251,13 +251,13 @@ def test_jupyter_notebook_draft():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_containerize():
     run(dpath("test_conda"), containerize=True, check_results=False)
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_containerize_wrapper_apptainer():
     tmpdir = None
     try:
@@ -286,7 +286,6 @@ def test_containerize_wrapper_apptainer():
             shutil.rmtree(tmpdir)
 
 
-@conda
 def test_converting_path_for_r_script():
     run(
         dpath("test_converting_path_for_r_script"),
@@ -303,7 +302,7 @@ def test_conda_named():
 
 # TODO add this again as soon as possible!
 # @skip_on_windows
-# @conda
+# @conda_plugin
 # def test_conda_function():
 #     run(
 #         dpath("test_conda_function"),
@@ -313,18 +312,17 @@ def test_conda_named():
 
 
 @pytest.mark.skipif(not ON_LINUX, reason="This testcase only has a linux-64 pin file")
-@conda
 def test_conda_pin_file():
     run(dpath("test_conda_pin_file"), deployment_method={"conda"})
 
 
-@conda
+@conda_plugin
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), deployment_method={"conda"})
 
 
 @skip_on_macos_arm
-@conda
+@conda_plugin
 def test_conda_python_3_7_script():
     run(
         dpath("test_conda_python_3_7_script"),
@@ -332,7 +330,7 @@ def test_conda_python_3_7_script():
     )
 
 
-@conda
+@conda_plugin
 def test_prebuilt_conda_script():
     sp.run(
         f"conda env create -f {dpath('test_prebuilt_conda_script/env.yaml')}",
@@ -342,7 +340,7 @@ def test_prebuilt_conda_script():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_conda_global():
     run(
         dpath("test_conda_global"),
@@ -352,12 +350,12 @@ def test_conda_global():
 
 
 @skip_on_macos_arm
-@conda
+@conda_plugin
 def test_script_pre_py39():
     run(dpath("test_script_pre_py39"), deployment_method={"conda"})
 
 
-@conda
+@conda_plugin
 def test_resource_string_in_cli_or_profile():
     test_path = dpath("test_resource_string_in_cli_or_profile")
     profile = os.path.join(test_path, "profiles")
@@ -370,7 +368,7 @@ def test_resource_string_in_cli_or_profile():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_script_xsh():
     run(
         dpath("test_script_xsh"),
@@ -378,12 +376,12 @@ def test_script_xsh():
     )
 
 
-@conda
+@conda_plugin
 def test_conda_run():
     run(dpath("test_conda_run"), deployment_method={"conda"})
 
 
-@conda
+@conda_plugin
 def test_issue_3192():
     with tempfile.TemporaryDirectory() as tmpdir:
         assert (
@@ -403,7 +401,7 @@ def test_issue_3192():
 # Test that container and conda can be run independently using sdm
 @skip_on_windows
 @connected
-@conda
+@conda_plugin
 def test_issue_3202():
     run(dpath("test_issue_3202"), deployment_method={"container"})
     run(dpath("test_issue_3202"), deployment_method={"conda"})
@@ -435,7 +433,7 @@ def test_get_log_complex():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_containerize_checkpoint():
     """Test that containerize considers rules not in the initial DAG (e.g. after checkpoints)."""
     tmpdir = None
@@ -475,7 +473,7 @@ def test_containerize_checkpoint():
             shutil.rmtree(tmpdir)
 
 
-@conda
+@conda_plugin
 def test_issue_1266():
     run(
         dpath("test_github_issue1266"),
@@ -484,7 +482,7 @@ def test_issue_1266():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_github_issue2213():
     run(
         dpath("test_github_issue2213"),

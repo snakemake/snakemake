@@ -245,7 +245,6 @@ snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
 
 [tool.pixi.feature.test.dependencies]
-conda = ">=26.9.4,<27"
 graphviz = ">=12.2.1,<13"
 glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
