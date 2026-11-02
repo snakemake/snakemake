@@ -118,9 +118,11 @@ def has_apptainer() -> bool:
 def has_conda() -> bool:
     return shutil.which("conda") is not None
 
+
 def has_conda_plugin() -> bool:
     try:
         import snakemake_software_deployment_plugin_conda  # noqa: F401
+
         return True
     except ImportError:
         return False
