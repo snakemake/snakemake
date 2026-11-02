@@ -63,7 +63,7 @@ dependencies = [
   "dpath>=2.1.6,<3.0.0",
   "sqlmodel>=0.0.37,<0.0.43",
   "flufl-lock>=9.1.0,<10",
-  "uv>=0.11.8,<0.12",
+  "uv>=0.13.6,<0.14",
 ]
 
 [project.urls]
@@ -239,13 +239,13 @@ snakemake-executor-plugin-cluster-generic = "*"
 snakemake-storage-plugin-http = "*"
 snakemake-storage-plugin-s3 = "*"
 snakemake-storage-plugin-fs = "*"
-snakemake-software-deployment-plugin-conda = ">=0.8.5,<1.0.0"
+snakemake-software-deployment-plugin-conda = ">=0.8.6,<1.0.0"
 snakemake-software-deployment-plugin-container = ">=0.7.5,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
 
 [tool.pixi.feature.test.dependencies]
-conda = ">=26.5.3,<27"
+conda = ">=26.9.4,<27"
 graphviz = ">=12.2.1,<13"
 glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
