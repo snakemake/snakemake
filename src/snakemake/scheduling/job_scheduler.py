@@ -616,6 +616,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._open_jobs.release()
 
     def job_selector(self, jobs):
+        """Select the jobs to run, within the free resources and the rate limit."""
         for job in jobs:
             self.validate_job(job)
 

@@ -2391,6 +2391,7 @@ def test_max_jobs_per_timespan_single_timer(monkeypatch):
 
 @skip_on_windows
 def test_max_jobs_per_timespan_sliding_window(monkeypatch):
+    """No more than max_jobs jobs are registered within any timespan."""
     # use the limiter's recorded times, as job starts are slightly later
     from snakemake.scheduling.job_scheduler import JobRateLimiter
 
@@ -2399,6 +2400,7 @@ def test_max_jobs_per_timespan_sliding_window(monkeypatch):
     register_jobs = JobRateLimiter.register_jobs
 
     def record_register_jobs(self, n_jobs):
+        """Register the jobs, then record the times the limiter stored for them."""
         register_jobs(self, n_jobs)
         if n_jobs:
             registered.extend(list(self._jobs)[-n_jobs:])
@@ -2421,14 +2423,17 @@ def test_max_jobs_per_timespan_sliding_window(monkeypatch):
 
 @skip_on_windows
 def test_max_jobs_per_timespan_wakeup(monkeypatch):
-    # jobs held back by the limit start once the timespan is over, without
-    # waiting for a running job to finish (#3019)
+    """Jobs held back by the limit start once the timespan is over.
+
+    They do not wait for a running job to finish (#3019).
+    """
     from snakemake.scheduling.job_scheduler import JobScheduler
 
     submitted, finished = [], []
     orig_run, orig_proceed = JobScheduler.run, JobScheduler._proceed
 
     def record_run(self, jobs, executor=None):
+        """Submit the jobs, record when, and release them after the fourth."""
         result = orig_run(self, jobs, executor=executor)
         submitted.extend(time.time() for job in jobs if job.rule.name == "work")
         if len(submitted) == 4:
@@ -2437,6 +2442,7 @@ def test_max_jobs_per_timespan_wakeup(monkeypatch):
         return result
 
     def record_proceed(self, job):
+        """Record when a work job finished, then proceed."""
         if job.rule.name == "work":
             finished.append(time.time())
         return orig_proceed(self, job)
