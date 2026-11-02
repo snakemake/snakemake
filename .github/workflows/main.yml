@@ -87,6 +87,7 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
+      # still needed for the test_conda_named testcase
       - name: Setup global conda
         run: |
           pixi global install conda
