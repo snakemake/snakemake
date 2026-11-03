@@ -176,7 +176,14 @@ class RuntimeDependencyManager:
                 # thereby ensuring that the resulting set of packages in consistent
                 # and compatible versions are installed.
                 res = sp.run(
-                    [self.uv_exec, "pip", "install", "--target", str(prefix), "--dry-run"]
+                    [
+                        self.uv_exec,
+                        "pip",
+                        "install",
+                        "--target",
+                        str(prefix),
+                        "--dry-run",
+                    ]
                     + [str(pkg) for pkg in prior_packages.values()],
                     check=True,
                     capture_output=True,
@@ -193,7 +200,14 @@ class RuntimeDependencyManager:
                     # explicitly install the determined versions of the requested
                     # packages under the prefix
                     sp.run(
-                        [self.uv_exec, "pip", "install", "--no-deps", "--target", str(prefix)]
+                        [
+                            self.uv_exec,
+                            "pip",
+                            "install",
+                            "--no-deps",
+                            "--target",
+                            str(prefix),
+                        ]
                         + [str(pkg) for pkg in posterior_packages],
                         check=True,
                         capture_output=True,
@@ -231,7 +245,15 @@ class RuntimeDependencyManager:
             entry_to_req,
             json.loads(
                 sp.run(
-                    [self.uv_exec, "pip", "list", "--prefix", prefix, "--format", "json"],
+                    [
+                        self.uv_exec,
+                        "pip",
+                        "list",
+                        "--prefix",
+                        prefix,
+                        "--format",
+                        "json",
+                    ],
                     check=True,
                     capture_output=True,
                 ).stdout
