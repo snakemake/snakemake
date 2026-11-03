@@ -265,6 +265,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         not_block_search_path_envvars: bool = False,
         with_pkgs: AnySet[str] = frozenset(),
         workflow_with_pkgs: AnySet[str] = frozenset(),
+        cleanup_cache_after_run: bool = False,
     ) -> None:
         super().__init__()
         self.deployment_methods: AnySet[str] = deployment_methods
@@ -276,6 +277,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         self.not_block_search_path_envvars: bool = not_block_search_path_envvars
         self.with_pkgs: AnySet[str] = with_pkgs
         self.workflow_with_pkgs: AnySet[str] = workflow_with_pkgs
+        self.cleanup_cache_after_run: bool = cleanup_cache_after_run
 
     def deployment_method(self) -> AnySet[str]:
         return self.deployment_methods

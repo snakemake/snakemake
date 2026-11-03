@@ -164,6 +164,12 @@ class SoftwareDeploymentManager:
                 await env.cleanup_cache()
                 env.managed_remove()
 
+    async def cleanup_cache(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
+        for job in jobs:
+            env = job.software_env
+            if env is not None:
+                await env.cleanup_cache()
+
     def get_env_from_job(self, job: "snakemake.jobs.Job") -> Optional[EnvBase]:
         assert job.software_env_spec is not None
         return self.get_env(
