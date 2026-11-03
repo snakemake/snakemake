@@ -223,7 +223,7 @@ class RuntimeDependencyManager:
                         capture_output=True,
                         text=True,
                     )
-                    sys.path.insert(0, str(prefix))
+                sys.path.insert(0, str(prefix))
             finally:
                 stop_refresher.set()
 
