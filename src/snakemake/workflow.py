@@ -1496,7 +1496,11 @@ class Workflow(WorkflowExecutorInterface):
                 else:
                     if self.deployment_settings.cleanup_cache_after_run:
                         logger.info("Cleaning up software asset cache after run...")
-                        self.async_run(self.software_deployment_manager.cleanup_cache(self.dag.jobs))
+                        self.async_run(
+                            self.software_deployment_manager.cleanup_cache(
+                                self.dag.jobs
+                            )
+                        )
                     if not self.execution_settings.no_hooks:
                         self._onsuccess(self.logger_manager.get_logfile())
                     self.logger_manager.logfile_hint()
