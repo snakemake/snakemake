@@ -52,7 +52,9 @@ class RuntimeDependencyManager:
                 appname="snakemake", version=version_path, ensure_exists=True
             )
             / "global_dependencies",
-            PackageType.WORKFLOW: deployment_prefix / "workflow_dependencies" / version_path,
+            PackageType.WORKFLOW: deployment_prefix
+            / "workflow_dependencies"
+            / version_path,
         }
         self._packages: Dict[PackageType, Dict[str, Requirement]] = {
             PackageType.WORKFLOW: dict(),
