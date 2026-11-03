@@ -25,6 +25,7 @@ from flufl.lock import Lock
 from packaging.requirements import Requirement
 
 from snakemake import __version__
+from snakemake.logging import logger
 
 
 class PackageType(Enum):
@@ -198,6 +199,9 @@ class RuntimeDependencyManager:
                     if package.name in requested_pkg_names
                 )
                 if posterior_packages:
+                    logger.info(
+                        f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}"
+                    )
                     # explicitly install the determined versions of the requested
                     # packages under the prefix
                     sp.run(
