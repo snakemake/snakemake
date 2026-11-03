@@ -520,3 +520,10 @@ def is_conda_env(env: "EnvBase") -> bool:
     except ModuleNotFoundError:
         return False
     return isinstance(env, CondaEnv)
+
+
+def get_minor_version() -> str:
+    """Return the minor version of Snakemake (e.g., '7.12' for version '7.12.3')."""
+    from snakemake import __version__
+
+    return ".".join(__version__.split(".")[:2])

@@ -402,7 +402,7 @@ def get_profile_dir(profile: str) -> Optional[Tuple[Path, Path]]:
 
 class ArgparserMode:
     FULL = 0
-    RUNTIME_DEPS = 1
+    PRE = 1
 
 
 def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL):
@@ -444,9 +444,9 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
         config_file_parser_class=ProfileConfigFileParser,
     )
 
-    if mode == ArgparserMode.FULL:
-        group_exec = parser.add_argument_group("EXECUTION")
+    group_exec = parser.add_argument_group("EXECUTION")
 
+    if mode == ArgparserMode.FULL:
         group_exec.add_argument(
             "targets",
             nargs="*",
@@ -465,74 +465,89 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
             "print a summary of the DAG of jobs.",
         )
 
-        group_exec.add_argument(
-            "--profile",
-            help="Profile to use for configuring the Snakemake run with settings "
-            "regarding the compute environment. Every key in this YAML file gets "
-            "parsed into the respective command line argument: `executor: slurm` "
-            "gets parsed to `--executor slurm`, `default-resources: mem_mb: 16000` "
-            "is interpreted as `--default-resources mem_mb=16000`, etc. You can "
-            "specify a Snakemake profile as (i) a profile name, (ii) a relative "
-            "path to a folder or (iii) the relative path to the profile YAML file "
-            "itself. Snakemake will look for a folder with the profile name or "
-            f"the existence of the relative path in `{dirs.site_config_dir}`, "
-            f"`{dirs.user_config_dir}` and the current working directory. "
-            "Alternatively, you can also specify absolute paths. If a profile "
-            "name or folder is given, it has to contain a file `profile.yaml` "
-            "(or a `config.yaml` file, for backwards compatibility). This file "
-            "can have an optional infix specifying a minimal snakemake version "
-            "(for example `profile.v9+.yaml`). The profile can also be set via "
-            "the environment variable `$SNAKEMAKE_PROFILE`. However, once you "
-            "provide a profile via the command line argument `--profile`, this "
-            "environment variable is ignored. And to override this variable "
-            "without setting another one, provide the value `none` to this "
-            "argument. Finally, you can specify this argument multiple times. In "
-            "this case, the profiles get merged with the later `--profile` "
-            "instances overriding top-level entries in profiles specified "
-            "earlier. For example, if the last `--profile` specifies the top "
-            "level `default-resources:` keyword, all entries under that keyword "
-            "from previous `--profile`s will be ignored. Similarly, also "
-            "specifying any of the top-level keys from your profile as a command "
-            "line argument will overwrite this whole top-level key. Example "
-            "profiles for certain compute infrastructure can be obtained at "
-            "https://github.com/snakemake/snakemake-cluster-profiles.",
-            env_var="SNAKEMAKE_PROFILE",
-            action="append",
-        )
+    group_exec.add_argument(
+        "--profile",
+        help="Profile to use for configuring the Snakemake run with settings "
+        "regarding the compute environment. Every key in this YAML file gets "
+        "parsed into the respective command line argument: `executor: slurm` "
+        "gets parsed to `--executor slurm`, `default-resources: mem_mb: 16000` "
+        "is interpreted as `--default-resources mem_mb=16000`, etc. You can "
+        "specify a Snakemake profile as (i) a profile name, (ii) a relative "
+        "path to a folder or (iii) the relative path to the profile YAML file "
+        "itself. Snakemake will look for a folder with the profile name or "
+        f"the existence of the relative path in `{dirs.site_config_dir}`, "
+        f"`{dirs.user_config_dir}` and the current working directory. "
+        "Alternatively, you can also specify absolute paths. If a profile "
+        "name or folder is given, it has to contain a file `profile.yaml` "
+        "(or a `config.yaml` file, for backwards compatibility). This file "
+        "can have an optional infix specifying a minimal snakemake version "
+        "(for example `profile.v9+.yaml`). The profile can also be set via "
+        "the environment variable `$SNAKEMAKE_PROFILE`. However, once you "
+        "provide a profile via the command line argument `--profile`, this "
+        "environment variable is ignored. And to override this variable "
+        "without setting another one, provide the value `none` to this "
+        "argument. Finally, you can specify this argument multiple times. In "
+        "this case, the profiles get merged with the later `--profile` "
+        "instances overriding top-level entries in profiles specified "
+        "earlier. For example, if the last `--profile` specifies the top "
+        "level `default-resources:` keyword, all entries under that keyword "
+        "from previous `--profile`s will be ignored. Similarly, also "
+        "specifying any of the top-level keys from your profile as a command "
+        "line argument will overwrite this whole top-level key. Example "
+        "profiles for certain compute infrastructure can be obtained at "
+        "https://github.com/snakemake/snakemake-cluster-profiles.",
+        env_var="SNAKEMAKE_PROFILE",
+        action="append",
+    )
 
-        group_exec.add_argument(
-            "--workflow-profile",
-            help="Profile to use for configuring this Snakemake run with "
-            "parameters specific for this workflow (like resources). For settings "
-            "specific to the compute environment (for example a specific compute "
-            "cluster), use global `--profile`s. Generally, an entry like "
-            "`set-resources: a: mem_mb=8` in the YAML file, will become "
-            "`--set-resources a:mem_mb=8` for the `snakemake` run. The profile "
-            "can be specified as a file name with a full relative path from the "
-            "current working directory. In this case, the YAML profile file can "
-            "be named arbitrarily. In all other cases the respective folder(s) "
-            "will be searched for a `profile.yaml` file (or a `config.yaml` file, "
-            "for backwards compatibility). This file can have an optional infix "
-            "specifying a minimal snakemake version (for example "
-            "`profile.v9+.yaml`). And any of the following options will always "
-            "search relative to both the current working directory and the "
-            "location of the Snakefile: (i) If this option is not provided, the "
-            "directory `profiles/default/` will be searched (and used, if a "
-            "profile is present; override this implicit usage with "
-            "`--workflow-profile none`). (ii) If a profile name is given, the "
-            "subdirectory of that name under `profiles/` will be searched. "
-            "(iii) If a full relative path is given, this directory will be "
-            "searched. Settings made in the workflow profile will override "
-            "settings made in the general profile (see `--profile`) on a per-key "
-            "basis. For example, if you specify `default-resources:` in the "
-            "workflow profile, all `default-resources:` entries from other "
-            "profiles will be ignored; but if you don't specify "
-            "`default-resources` in your workflow profile, `default-resources` "
-            "from other profiles will get passed through. Similarly, also "
-            "specifying any of the top-level keys from your workflow specific "
-            "profile via command line arguments will completely overwrite their entries.",
-        )
+    group_exec.add_argument(
+        "--workflow-profile",
+        help="Profile to use for configuring this Snakemake run with "
+        "parameters specific for this workflow (like resources). For settings "
+        "specific to the compute environment (for example a specific compute "
+        "cluster), use global `--profile`s. Generally, an entry like "
+        "`set-resources: a: mem_mb=8` in the YAML file, will become "
+        "`--set-resources a:mem_mb=8` for the `snakemake` run. The profile "
+        "can be specified as a file name with a full relative path from the "
+        "current working directory. In this case, the YAML profile file can "
+        "be named arbitrarily. In all other cases the respective folder(s) "
+        "will be searched for a `profile.yaml` file (or a `config.yaml` file, "
+        "for backwards compatibility). This file can have an optional infix "
+        "specifying a minimal snakemake version (for example "
+        "`profile.v9+.yaml`). And any of the following options will always "
+        "search relative to both the current working directory and the "
+        "location of the Snakefile: (i) If this option is not provided, the "
+        "directory `profiles/default/` will be searched (and used, if a "
+        "profile is present; override this implicit usage with "
+        "`--workflow-profile none`). (ii) If a profile name is given, the "
+        "subdirectory of that name under `profiles/` will be searched. "
+        "(iii) If a full relative path is given, this directory will be "
+        "searched. Settings made in the workflow profile will override "
+        "settings made in the general profile (see `--profile`) on a per-key "
+        "basis. For example, if you specify `default-resources:` in the "
+        "workflow profile, all `default-resources:` entries from other "
+        "profiles will be ignored; but if you don't specify "
+        "`default-resources` in your workflow profile, `default-resources` "
+        "from other profiles will get passed through. Similarly, also "
+        "specifying any of the top-level keys from your workflow specific "
+        "profile via command line arguments will completely overwrite their entries.",
+    )
+    group_exec.add_argument(
+        "--snakefile",
+        "-s",
+        metavar="FILE",
+        help=(
+            "The workflow definition in form of a snakefile. "
+            "Usually, you should not need to specify this. "
+            "By default, Snakemake will search for {} "
+            "beneath the current working "
+            "directory, in this order. "
+            "Only if you definitely want a different layout, "
+            "you need to use this parameter."
+        ).format(", ".join(map("`{}`".format, SNAKEFILE_CHOICES))),
+    )
 
+    if mode == ArgparserMode.FULL:
         group_exec.add_argument(
             "--cache",
             nargs="*",
@@ -544,21 +559,6 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
             "steps, parameters and software stack (conda envs or containers) needed to create them. "
             "If no rules are given, all rules that are eligible for caching (have a cache "
             "directive, see docs) are cached.",
-        )
-
-        group_exec.add_argument(
-            "--snakefile",
-            "-s",
-            metavar="FILE",
-            help=(
-                "The workflow definition in form of a snakefile. "
-                "Usually, you should not need to specify this. "
-                "By default, Snakemake will search for {} "
-                "beneath the current working "
-                "directory, in this order. "
-                "Only if you definitely want a different layout, "
-                "you need to use this parameter."
-            ).format(", ".join(map("`{}`".format, SNAKEFILE_CHOICES))),
         )
         group_exec.add_argument(
             "--cores",
@@ -1717,7 +1717,7 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
         "--with-pkgs",
         nargs="+",
         default=set(),
-        type=set,
+        parse_func=set,
         help="Specify global auxiliary python packages to be deployed (e.g. snakemake plugins). "
         "They will be auto-deployed by Snakemake in an auxiliary environment in the user "
         "cache directory of the system. Expects pip-compatible version specifications.",
@@ -1726,7 +1726,7 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
         "--workflow-with-pkgs",
         nargs="+",
         default=set(),
-        type=set,
+        parse_func=set,
         help="Specify workflow-specific auxiliary python packages to be deployed "
         "(e.g. snakemake plugins or libraries like pandas). They will be auto-deployed "
         "by Snakemake in the --software-deployment-prefix directory. Note that this "
@@ -1772,6 +1772,11 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
         "e.g. on a cluster and you have node specific values for this, you should "
         "disable assuming shared fs for software-deployment (see `--shared-fs-usage`).",
     )
+
+    def help_internal(text):
+        return f"Internal use only: {text}"
+
+    group_internal = parser.add_argument_group("INTERNAL")
 
     if mode == ArgparserMode.FULL:
         group_deployment.add_argument(
@@ -1822,10 +1827,6 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
             "then exits.",
         )
 
-        def help_internal(text):
-            return f"Internal use only: {text}"
-
-        group_internal = parser.add_argument_group("INTERNAL")
         group_internal.add_argument(
             "--deploy-sources",
             nargs=2,
@@ -1843,13 +1844,6 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
             help=help_internal(
                 "Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
             ),
-        )
-        group_internal.add_argument(
-            "--mode",
-            choices=ExecMode.all(),
-            default=ExecMode.DEFAULT,
-            type=ExecMode.parse_choice,
-            help=help_internal("Set execution mode of Snakemake."),
         )
         group_internal.add_argument(
             "--scheduler-solver-path",
@@ -1873,6 +1867,14 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
         LoggerPluginRegistry().register_cli_args(parser)
         SchedulerPluginRegistry().register_cli_args(parser)
         SoftwareDeploymentPluginRegistry().register_cli_args(parser)
+
+    group_internal.add_argument(
+        "--mode",
+        choices=ExecMode.all(),
+        default=ExecMode.DEFAULT,
+        type=ExecMode.parse_choice,
+        help=help_internal("Set execution mode of Snakemake."),
+    )
     return parser
 
 
@@ -1890,25 +1892,13 @@ def generate_parser_metadata(parser, args):
 
 def parse_args(argv):
     # first try, parse only known args and deploy eventually requested global dependencies
-    known_args, _ = get_argument_parser(
-        mode=ArgparserMode.RUNTIME_DEPS
-    ).parse_known_args(argv)
-    runtime_dep_manager = RuntimeDependencyManager(
-        known_args.software_deployment_prefix
-    )
-    runtime_dep_manager.add_global_packages(*known_args.with_pkgs)
-    runtime_dep_manager.add_workflow_packages(*known_args.workflow_with_pkgs)
-    runtime_dep_manager.deploy_packages()
+    pre_args, _ = get_argument_parser(mode=ArgparserMode.PRE).parse_known_args(argv)
 
-    # now all plugins are available for parsing their args
-    parser = get_argument_parser(mode=ArgparserMode.FULL)
-    args = parser.parse_args(argv)
-
-    snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
+    snakefile = resolve_snakefile(pre_args.snakefile, allow_missing=True)
     workflow_profile = None
-    if args.workflow_profile != "none":
-        if args.workflow_profile:
-            workflow_profile = Path(args.workflow_profile)
+    if pre_args.workflow_profile != "none":
+        if pre_args.workflow_profile:
+            workflow_profile = Path(pre_args.workflow_profile)
         if snakefile is not None and (
             workflow_profile is None or not workflow_profile.is_file()
         ):
@@ -1932,21 +1922,21 @@ def parse_args(argv):
                     workflow_profile = profile
                     break
 
-    if args.profile is not None:
-        if args.profile == ["none"]:
-            args.profile = None
-        elif "none" in args.profile:
+    if pre_args.profile is not None:
+        if pre_args.profile == ["none"]:
+            pre_args.profile = None
+        elif "none" in pre_args.profile:
             raise CliException(
                 "The special value 'none' cannot be combined with other --profile entries. \n"
-                f"You provided: '{args.profile}'.\n"
+                f"You provided: '{pre_args.profile}'.\n"
             )
 
-    if (args.profile or workflow_profile) and args.mode == ExecMode.DEFAULT:
+    profiles = []
+    if pre_args.profile or workflow_profile:
         # Reparse args while inferring config file from profile.
         # But only do this if the user has invoked Snakemake (ExecMode.DEFAULT)
-        profiles = []
-        if args.profile:
-            profiles.extend(args.profile)
+        if pre_args.profile:
+            profiles.extend(pre_args.profile)
         if workflow_profile:
             workflow_profile_stmt = f" {'and ' if profiles else ''}workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
@@ -1966,19 +1956,36 @@ def parse_args(argv):
                 file=sys.stderr,
             )
 
-        parser = get_argument_parser(profiles=profiles)
+    # handle runtime dependencies (reparse args to include profiles)
+    if profiles:
+        pre_args, _ = get_argument_parser(
+            profiles=profiles, mode=ArgparserMode.PRE
+        ).parse_known_args(argv)
+    if pre_args.mode != ExecMode.SUBPROCESS:
+        runtime_dep_manager = RuntimeDependencyManager(
+            pre_args.software_deployment_prefix
+        )
+        runtime_dep_manager.add_global_packages(*pre_args.with_pkgs)
+        runtime_dep_manager.add_workflow_packages(*pre_args.workflow_with_pkgs)
+        runtime_dep_manager.deploy_packages()
 
-        # configargparse appends the profile args to the end of argv
-        # anything after '--' gets interpreted as a positional arg
-        # fix by splitting args at '--' and placing explicit targets at the end
-        effective_argv = argv if argv is not None else sys.argv[1:]
-        if "--" in effective_argv:
-            sep_idx = effective_argv.index("--")
-            explicit_targets = effective_argv[sep_idx + 1 :]
-            args = parser.parse_args(effective_argv[:sep_idx])
-            args.targets = list(args.targets) + explicit_targets
-        else:
-            args = parser.parse_args(argv)
+    # parse full args
+    parser = get_argument_parser(
+        profiles=profiles if pre_args.mode == ExecMode.DEFAULT else None,
+        mode=ArgparserMode.FULL,
+    )
+
+    # configargparse appends the profile args to the end of argv
+    # anything after '--' gets interpreted as a positional arg
+    # fix by splitting args at '--' and placing explicit targets at the end
+    effective_argv = argv if argv is not None else sys.argv[1:]
+    if profiles and "--" in effective_argv:
+        sep_idx = effective_argv.index("--")
+        explicit_targets = effective_argv[sep_idx + 1 :]
+        args = parser.parse_args(effective_argv[:sep_idx])
+        args.targets = list(args.targets) + explicit_targets
+    else:
+        args = parser.parse_args(argv)
 
     return parser, args
 

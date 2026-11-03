@@ -2,6 +2,8 @@ from itertools import chain
 import threading
 import sys
 from typing import Dict
+
+from importlib.metadata import Distribution
 from immutables import Map
 from snakemake.common.constants import ON_WINDOWS
 from snakemake_interface_common.exceptions import WorkflowError
@@ -11,12 +13,10 @@ from enum import Enum
 import platformdirs
 from functools import partial
 from typing import Iterable
-from typing import Self
 from threading import Thread
 from datetime import timedelta
 from pathlib import Path
 from typing import Set
-from dataclasses import dataclass
 from typing import Optional
 import subprocess as sp
 import time
@@ -26,6 +26,7 @@ from packaging.requirements import Requirement
 
 from snakemake import __version__
 from snakemake.logging import logger
+from snakemake.common.misc import get_minor_version
 
 
 class PackageType(Enum):
@@ -43,9 +44,12 @@ class RuntimeDependencyManager:
     _lock_lifetime = timedelta(seconds=30)
 
     def __init__(self, deployment_prefix: Path):
+        version_path = get_minor_version()
+        if is_editable():
+            version_path += "+edits"
         self._prefixes: Map[PackageType, Path] = {
             PackageType.GLOBAL: platformdirs.user_cache_path(
-                appname="snakemake", version=__version__, ensure_exists=True
+                appname="snakemake", version=version_path, ensure_exists=True
             )
             / "global_dependencies",
             PackageType.WORKFLOW: deployment_prefix / "workflow_dependencies",
@@ -197,9 +201,10 @@ class RuntimeDependencyManager:
                     package
                     for package in parse_uv_pip_dry_run_output(res.stderr)
                     if package.name in requested_pkg_names
+                    or package.name not in prior_packages
                 )
                 if posterior_packages:
-                    logger.info(
+                    print(
                         f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}"
                     )
                     # explicitly install the determined versions of the requested
@@ -244,6 +249,10 @@ class RuntimeDependencyManager:
             extras = "'".join(entry.get("extras", []))
             if extras:
                 extras = f"[{extras}]"
+            if editable_location := entry.get("editable_project_location"):
+                return Requirement(
+                    f"{entry['name']}{extras} @ {Path(editable_location).as_uri()}"
+                )
             return Requirement(f"{entry['name']}{extras}=={entry['version']}")
 
         return map(
@@ -282,3 +291,9 @@ def parse_uv_pip_dry_run_output(output: str) -> Iterable[Requirement]:
         if line.startswith(install_prefix):
             pkg_str = line.removeprefix(install_prefix)
             yield Requirement(pkg_str)
+
+
+def is_editable() -> Path | None:
+    direct_url = Distribution.from_name("snakemake").read_text("direct_url.json")
+    dir_info = json.loads(direct_url).get("dir_info", {})
+    return dir_info.get("editable", False)
