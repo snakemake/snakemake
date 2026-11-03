@@ -22,7 +22,12 @@ from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
 from snakemake.shell import shell
-from snakemake.exceptions import AmbiguousRuleException, WorkflowError
+from snakemake.exceptions import (
+    AmbiguousRuleException,
+    ProtectedOutputException,
+    WorkflowError,
+    format_exception_to_string,
+)
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -690,7 +695,11 @@ def test_protected_symlink_output():
 @skip_on_windows
 @pytest.mark.parametrize(
     "executor, shouldfail",
-    [("dryrun", False), ("local", True)],
+    [
+        ("dryrun", WorkflowError),
+        ("local", ProtectedOutputException),
+        ("touch", ProtectedOutputException),
+    ],
 )
 def test_protected_output_dryrun(executor, shouldfail):
     run(
@@ -700,6 +709,61 @@ def test_protected_output_dryrun(executor, shouldfail):
         forceall=True,
         check_results=False,
     )
+
+
+@skip_on_windows
+@pytest.mark.parametrize("executor", ["dryrun", "local", "touch"])
+def test_protected_output_uptodate(executor):
+    run(
+        dpath("test_protected_output_dryrun"),
+        executor=executor,
+        check_results=False,
+    )
+
+
+@skip_on_windows
+@pytest.mark.parametrize("executor", ["dryrun", "local", "touch"])
+@pytest.mark.parametrize("targets, conflicts", [([], 3), (["out.txt"], 1)])
+def test_protected_output_diagnostics(executor, targets, conflicts, tmp_path):
+    with prepare_tmpdir(dpath("test_protected_output_dryrun"), dest_path=tmp_path):
+        outputs = [tmp_path / name for name in ("out.txt", "out.a.txt", "out.b.txt")]
+        for output in outputs:
+            output.write_text("original\n")
+            output.chmod(0o444)
+        before = [output.stat() for output in outputs]
+
+        expected = WorkflowError if executor == "dryrun" else ProtectedOutputException
+        with pytest.raises(expected) as exc_info:
+            run(
+                tmp_path,
+                no_tmpdir=True,
+                executor=executor,
+                forcerun=["build"],
+                targets=targets,
+                check_results=False,
+            )
+
+        message = format_exception_to_string(exc_info.value)
+        if executor == "dryrun":
+            assert message.count("Write-protected output files for rule") == conflicts
+            assert "rule build:" in message
+            assert "reason: Forced execution" in message
+            assert message.count("rule downstream:") == conflicts - 1
+            if conflicts > 1:
+                assert "wildcards: sample=a" in message
+                assert "wildcards: sample=b" in message
+                assert (
+                    message.count("reason: Input files updated by another job: out.txt")
+                    == 2
+                )
+        else:
+            assert message.count("Write-protected output files for rule") == 1
+            assert "reason:" in message
+
+        for output, stat in zip(outputs, before):
+            assert output.read_text() == "original\n"
+            assert output.stat().st_mtime_ns == stat.st_mtime_ns
+            assert output.stat().st_mode == stat.st_mode
 
 
 def test_spaces_in_fnames():

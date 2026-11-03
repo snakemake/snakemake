@@ -58,6 +58,7 @@ from snakemake.exceptions import (
     MissingOutputException,
     MissingRuleException,
     PeriodicWildcardError,
+    ProtectedOutputException,
     RemoteFileException,
     WildcardError,
     WorkflowError,
@@ -1937,13 +1938,22 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     async def check_jobs(self):
         # first we check all **needrun** jobs whether its output can be made
-        # Skip this check during dry-runs, where no output will be modified.
-        if not self.workflow.dryrun:
-            for job in filterfalse(
-                self._checked_needrun_jobs.__contains__, self.needrun_jobs()
-            ):
+        # During dry-runs, report all protected-output conflicts together.
+        protected_output_errors = []
+        for job in filterfalse(
+            self._checked_needrun_jobs.__contains__, self.needrun_jobs()
+        ):
+            try:
                 await job.check_protected_output()
+            except ProtectedOutputException as e:
+                if not self.workflow.dryrun:
+                    raise
+                protected_output_errors.append(e)
+            else:
                 self._checked_needrun_jobs.add(job)
+
+        if protected_output_errors:
+            raise WorkflowError(*protected_output_errors)
 
         # now we check **all* jobs for validity
         for job in filterfalse(self._checked_jobs.__contains__, self.jobs):

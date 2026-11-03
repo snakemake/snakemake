@@ -1,14 +1,22 @@
 import os
 from pathlib import Path
 
-Path("out.txt").touch()
-os.chmod("out.txt", 0o444)
+for name in ("out.txt", "out.a.txt", "out.b.txt"):
+    if not Path(name).exists():
+        Path(name).touch()
+    os.chmod(name, 0o444)
 
 
 rule all:
-    input: "out.txt"
+    input: "out.txt", "out.a.txt", "out.b.txt"
 
 
 rule build:
     output: protected("out.txt")
     shell: "echo rebuilt > {output}"
+
+
+rule downstream:
+    input: "out.txt"
+    output: protected("out.{sample}.txt")
+    shell: "cp {input} {output}"
