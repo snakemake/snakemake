@@ -26,7 +26,6 @@ import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, Any
 
-from snakemake.runtime_dependencies import RuntimeDependencyManager
 from snakemake.deployment import EnvSpecs
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
