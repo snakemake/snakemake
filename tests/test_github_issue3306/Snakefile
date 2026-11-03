@@ -1,0 +1,7 @@
+rule testrule:
+    input:
+        "{name}.txt"
+    output:
+        "{name}.out"
+    shell:
+        "touch {output}"
