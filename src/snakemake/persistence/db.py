@@ -15,7 +15,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine.url import make_url, URL
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlmodel import SQLModel, Field
 import sqlite3
@@ -98,15 +98,31 @@ class DbPersistence(PersistenceBase):
         Upgrades tables written by older Snakemake versions, since create_all()
         never alters existing tables. Add one idempotent step per schema change.
         """
-        columns = {
-            col["name"]
-            for col in inspect(self.engine).get_columns("snakemake_metadata")
-        }
+
+        def get_columns():
+            return {
+                col["name"]
+                for col in inspect(self.engine).get_columns("snakemake_metadata")
+            }
+
+        columns = get_columns()
         with self.engine.begin() as conn:
-            if "software" not in columns:  # added in #3339
-                conn.execute(
-                    text("ALTER TABLE snakemake_metadata ADD COLUMN software JSON")
-                )
+
+            def ensure_column(name, dtype):
+                if name not in columns:
+                    try:
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE snakemake_metadata ADD COLUMN {name} {dtype}"
+                            )
+                        )
+                    except OperationalError as e:
+                        if name not in get_columns():
+                            # Column still does not exist after attempted addition, raise error.
+                            # Otherwise, the OperationalError was due to a concurrent column addition, so we can ignore it.
+                            raise
+
+            ensure_column("software", "JSON")  # added in #3339
 
     def _check_network_fs(self, parsed_url: URL) -> bool:
         """
