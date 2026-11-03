@@ -1901,7 +1901,7 @@ def parse_args(argv):
     runtime_dep_manager.deploy_packages()
 
     # now all plugins are available for parsing their args
-    parser = get_argument_parser(mode=ArgparserMode.DEFAULT)
+    parser = get_argument_parser(mode=ArgparserMode.FULL)
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
