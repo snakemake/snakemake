@@ -52,6 +52,22 @@ class RuntimeDependencyManager:
             PackageType.WORKFLOW: dict(),
             PackageType.GLOBAL: dict(),
         }
+        self._uv_exec: Optional[str] = None
+
+    @property
+    def uv_exec(self) -> str:
+        if self._uv_exec is not None:
+            return self._uv_exec
+
+        in_env_uv = Path(sys.executable).parent / "uv"
+        if in_env_uv.exists():
+            self._uv_exec = str(in_env_uv)
+        elif shutil.which("uv"):
+            self._uv_exec = "uv"
+        else:
+            raise WorkflowError("Unable to find 'uv' executable in the environment.")
+
+        return self._uv_exec
 
     def update_workflow_prefix(self) -> None:
         self._prefixes[PackageType.WORKFLOW] = (
@@ -160,7 +176,7 @@ class RuntimeDependencyManager:
                 # thereby ensuring that the resulting set of packages in consistent
                 # and compatible versions are installed.
                 res = sp.run(
-                    ["uv", "pip", "install", "--target", str(prefix), "--dry-run"]
+                    [self.uv_exec, "pip", "install", "--target", str(prefix), "--dry-run"]
                     + [str(pkg) for pkg in prior_packages.values()],
                     check=True,
                     capture_output=True,
@@ -177,7 +193,7 @@ class RuntimeDependencyManager:
                     # explicitly install the determined versions of the requested
                     # packages under the prefix
                     sp.run(
-                        ["uv", "pip", "install", "--no-deps", "--target", str(prefix)]
+                        [self.uv_exec, "pip", "install", "--no-deps", "--target", str(prefix)]
                         + [str(pkg) for pkg in posterior_packages],
                         check=True,
                         capture_output=True,
@@ -200,6 +216,28 @@ class RuntimeDependencyManager:
             lock.refresh()
             time.sleep(cls._lock_lifetime.total_seconds() / 2)
 
+    def get_packages_in_prefix(prefix: Path) -> Iterable[Requirement]:
+        """Retrieves the packages installed under the given prefix using
+        `uv pip list --prefix <prefix>`.
+        """
+
+        def entry_to_req(entry: Dict[str, str]) -> Requirement:
+            extras = "'".join(entry.get("extras", []))
+            if extras:
+                extras = f"[{extras}]"
+            return Requirement(f"{entry['name']}{extras}=={entry['version']}")
+
+        return map(
+            entry_to_req,
+            json.loads(
+                sp.run(
+                    [self.uv_exec, "pip", "list", "--prefix", prefix, "--format", "json"],
+                    check=True,
+                    capture_output=True,
+                ).stdout
+            ),
+        )
+
 
 def parse_uv_pip_dry_run_output(output: str) -> Iterable[Requirement]:
     """Parses the output of `uv pip install --dry-run` to extract the packages that would be installed."""
@@ -211,29 +249,6 @@ def parse_uv_pip_dry_run_output(output: str) -> Iterable[Requirement]:
             yield Requirement(pkg_str)
 
 
-def get_packages_in_prefix(prefix: Path) -> Iterable[Requirement]:
-    """Retrieves the packages installed under the given prefix using
-    `uv pip list --prefix <prefix>`.
-    """
-
-    def entry_to_req(entry: Dict[str, str]) -> Requirement:
-        extras = "'".join(entry.get("extras", []))
-        if extras:
-            extras = f"[{extras}]"
-        return Requirement(f"{entry['name']}{extras}=={entry['version']}")
-
-    return map(
-        entry_to_req,
-        json.loads(
-            sp.run(
-                ["uv", "pip", "list", "--prefix", prefix, "--format", "json"],
-                check=True,
-                capture_output=True,
-            ).stdout
-        ),
-    )
-
-
 def get_packages_in_current_env() -> Iterable[Requirement]:
     """Retrieves the packages installed in the current environment
     using `uv pip list`.
@@ -241,3 +256,9 @@ def get_packages_in_current_env() -> Iterable[Requirement]:
     python_exec = Path(sys.executable)
     prefix = python_exec.parent.parent
     return get_packages_in_prefix(prefix)
+
+
+def get_process_bin_path() -> Path:
+    """Retrieves the parent path of the current Python executable."""
+    python_exec = Path(sys.executable)
+    return python_exec.parent
