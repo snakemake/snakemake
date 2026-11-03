@@ -1799,6 +1799,12 @@ def get_argument_parser(profiles=None, with_plugins: bool = True):
         help="Cleanup unused software environments.",
     )
     group_deployment.add_argument(
+        "--cleanup-software-asset-cache-after-run",
+        "--sdm-cleanup-asset-cache-after-run",
+        action="store_true",
+        help="Cleanup cached assets of software environments after successful (non-dryrun) execution.",
+    )
+    group_deployment.add_argument(
         "--deploy-software-envs",
         "--sdm-deploy",
         action="store_true",
@@ -2175,6 +2181,7 @@ def args_to_api(args, parser):
                         not_block_search_path_envvars=args.not_block_search_path_envvars,
                         with_pkgs=args.with_pkgs,
                         workflow_with_pkgs=args.workflow_with_pkgs,
+                        cleanup_cache_after_run=args.cleanup_software_asset_cache_after_run,
                     ),
                     software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=args.snakefile,
