@@ -1,3 +1,5 @@
+import re
+
 from snakemake.common.constants import UUID_NAMESPACE
 from snakemake.common.constants import ON_WINDOWS
 
@@ -523,7 +525,11 @@ def is_conda_env(env: "EnvBase") -> bool:
 
 
 def get_minor_version() -> str:
-    """Return the minor version of Snakemake (e.g., '7.12' for version '7.12.3')."""
+    """Return the minor version of Snakemake, including eventual non-numeric suffix (e.g., '10.0.0a' -> '10.0a')."""
     from snakemake import __version__
 
-    return ".".join(__version__.split(".")[:2])
+    non_numeric_suffix = re.match(r"\d+\.\d+\.\d+([^\d]+.*)?", __version__)
+
+    return ".".join(__version__.split(".")[:2]) + (
+        non_numeric_suffix.group(1) if non_numeric_suffix else ""
+    )
