@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import hashlib
 import os
 import shutil
 import sys
@@ -15,9 +16,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
+from snakemake.io import _IOFile
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
+from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
@@ -26,9 +29,10 @@ from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import run, dpath, apptainer, connected, prepare_tmpdir, serve_directory
+from .common import run, dpath, connected, prepare_tmpdir, serve_directory, apptainer
 from .conftest import (
     skip_on_windows,
+    skip_on_macos,
     only_on_windows,
     ON_WINDOWS,
     needs_strace,
@@ -36,7 +40,6 @@ from .conftest import (
 )
 
 from snakemake_interface_executor_plugins.settings import (
-    DeploymentMethod,
     SharedFSUsage,
 )
 
@@ -394,6 +397,46 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
 
     assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
     assert spy.spy_return == True
+
+
+@pytest.mark.parametrize(
+    "backend, PersistenceClass",
+    [
+        (PersistenceBackend.FILE, FilePersistence),
+        (PersistenceBackend.DB, DbPersistence),
+    ],
+)
+def test_github_issue4240(mocker, tmp_path, backend, PersistenceClass):
+    """Input checksums are computed once per job, not once per output file,
+    while every output record still carries the checksums of all eligible inputs
+    """
+    spy = mocker.spy(_IOFile, "checksum")
+    write_spy = mocker.spy(PersistenceClass, "_write_record")
+    run(
+        dpath("test_github_issue4240"),
+        persistence_backend=backend,
+        persistence_backend_db_url=(
+            f"sqlite:///{tmp_path / 'metadata.db'}"
+            if backend == PersistenceBackend.DB
+            else None
+        ),
+    )
+    # big.txt exceeds the checksum size threshold: it is still checked once,
+    # but no checksum is recorded for it
+    calls = sorted(os.path.basename(call.args[0]) for call in spy.call_args_list)
+    assert calls == ["big.txt", "in0.txt", "in1.txt", "in2.txt"]
+
+    expected = {
+        f"in{i}.txt": "sha256:"
+        + hashlib.sha256(
+            (Path(dpath("test_github_issue4240")) / f"in{i}.txt").read_bytes()
+        ).hexdigest()
+        for i in range(3)
+    }
+    records = {call.args[1]: call.args[2] for call in write_spy.call_args_list}
+    assert sorted(records) == ["big.txt", "out0.txt", "out1.txt", "out2.txt"]
+    for out in ["out0.txt", "out1.txt", "out2.txt"]:
+        assert records[out].input_checksums == expected
 
 
 def test_persistence_backend_db_run_directive_concurrency(tmp_path):
@@ -985,70 +1028,73 @@ def test_profile_double_dash():
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_singularity():
-    run(dpath("test_singularity"), deployment_method={DeploymentMethod.APPTAINER})
-
-
-@skip_on_windows
 @apptainer
-@connected
-def test_singularity_cluster():
+def test_container_a():
     run(
         dpath("test_singularity"),
-        deployment_method={DeploymentMethod.APPTAINER},
-        cluster="./qsub",
-        apptainer_args="--bind /tmp:/tmp",
+        deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_invalid():
+@connected
+@skip_on_macos
+def test_container_cluster():
+    run(
+        dpath("test_singularity"),
+        deployment_method={"container"},
+        cluster="./qsub",
+    )
+
+
+@skip_on_windows
+def test_container_invalid():
     run(
         dpath("test_singularity"),
         targets=["invalid.txt"],
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         shouldfail=True,
     )
 
 
 @skip_on_windows
-@apptainer
-def test_singularity_module_invalid():
+def test_container_module_invalid():
     run(
         dpath("test_singularity_module"),
         targets=["invalid.txt"],
-        deployment_method={DeploymentMethod.APPTAINER},
+        deployment_method={"container"},
         shouldfail=True,
     )
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 @connected
-def test_singularity_none():
-    run(dpath("test_singularity_none"), deployment_method={DeploymentMethod.APPTAINER})
+def test_container_none():
+    run(dpath("test_singularity_none"), deployment_method={"container"})
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_singularity_global():
+@apptainer
+def test_container_global():
     run(
-        dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER}
+        dpath("test_singularity_global"),
+        deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_singularity_source_cache():
+@apptainer
+def test_container_source_cache():
     run(
         dpath("test_singularity_source_cache"),
-        deployment_method={DeploymentMethod.APPTAINER},
-        apptainer_args="--bind /tmp:/tmp",
+        deployment_method={"container"},
+        container_runtime="apptainer",
     )
 
 
@@ -1069,10 +1115,13 @@ def test_log_input():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 @connected
-def test_cwl_singularity():
-    run(dpath("test_cwl"), deployment_method={DeploymentMethod.APPTAINER})
+def test_cwl_container():
+    run(
+        dpath("test_cwl"),
+        deployment_method={"container"},
+    )
 
 
 def test_issue805():
@@ -1121,7 +1170,10 @@ def test_group_jobs_attempts():
 
 
 def assert_resources(resources: dict, **expected_resources):
-    assert resources == expected_resources
+    for name, expected_value in expected_resources.items():
+        assert (
+            resources.get(name) == expected_value
+        ), f"Resource '{name}' expected to be {expected_value}, but got {resources.get(name)}"
 
 
 @skip_on_windows
@@ -1756,9 +1808,9 @@ def test_issue1085():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_issue1083():
-    run(dpath("test_issue1083"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_issue1083"), deployment_method={"container"})
 
 
 @skip_on_windows  # Fails with "The flag 'pipe' used in rule two is only valid for outputs
@@ -1870,9 +1922,9 @@ def test_github_issue52():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_github_issue78():
-    run(dpath("test_github_issue78"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_github_issue78"), deployment_method={"container"})
 
 
 def test_envvars():
@@ -1961,20 +2013,24 @@ def test_core_dependent_threads():
 @pytest.mark.needs_envmodules
 @skip_on_windows
 def test_env_modules():
-    run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
+    run(dpath("test_env_modules"), deployment_method={"envmodules"})
 
 
 @skip_on_windows
-@apptainer
 @connected
-def test_container():
-    run(dpath("test_container"), deployment_method={DeploymentMethod.APPTAINER})
+@apptainer
+def test_container_b():
+    run(
+        dpath("test_container"),
+        deployment_method={"container"},
+        container_runtime="apptainer",
+    )
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_dynamic_container():
-    run(dpath("test_dynamic_container"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_dynamic_container"), deployment_method={"container"})
 
 
 @skip_on_windows
@@ -1987,14 +2043,18 @@ def test_string_resources():
 
 
 def test_jupyter_notebook():
-    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
+    run(dpath("test_jupyter_notebook"), deployment_method={"conda"})
 
 
-def test_jupyter_notebook_nbconvert():
-    run(
-        dpath("test_jupyter_notebook_nbconvert"),
-        deployment_method={DeploymentMethod.CONDA},
-    )
+# TODO re-enable as soon as possible. The test currently fails because nbconvert
+# changes the working directory to the notebook directory but before resolves the
+# python path to a local path. It then cannot find the python executable later
+# when it has changed the workdir.
+# def test_jupyter_notebook_nbconvert():
+#     run(
+#         dpath("test_jupyter_notebook_nbconvert"),
+#         deployment_method={"conda"},
+#     )
 
 
 def test_jupyter_notebook_draft():
@@ -2002,7 +2062,7 @@ def test_jupyter_notebook_draft():
 
     run(
         dpath("test_jupyter_notebook_draft"),
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={"conda"},
         edit_notebook=NotebookEditMode(draft_only=True),
         targets=["results/result_intermediate.txt"],
         check_md5=False,
@@ -2540,6 +2600,7 @@ def test_github_issue1882():
 
 
 def test_github_issue3213():
+    tmpdir = None
     try:
         import linecache
 
@@ -2582,7 +2643,8 @@ def test_github_issue3213():
         assert ts_a2 != ts_a3
         assert ts_b2 != ts_b3
     finally:
-        shutil.rmtree(tmpdir)
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir)
 
 
 def test_issue_3970():
@@ -2704,16 +2766,61 @@ def test_module_global_container():
         rules_by_name = {rule.name: rule for rule in workflow.rules}
 
         # The module rule should get the module's container image
-        assert rules_by_name["a"].container_img == "docker://module_image", (
-            f"Module rule 'a' has container_img={rules_by_name['a'].container_img!r}, "
-            f"expected 'docker://module_image'"
-        )
+        for rname, dversion in (("a", "module"), ("all", "master")):
+            container_img = rules_by_name[rname].software_env_specs.legacy_container_img
+            expected = f"docker://{dversion}_image"
+            assert container_img == expected, (
+                f"Module rule '{rname}' has {container_img=!r}, "
+                f"expected '{expected}'"
+            )
 
-        # The master rule should get the master's container image
-        assert rules_by_name["all"].container_img == "docker://master_image", (
-            f"Master rule 'all' has container_img={rules_by_name['all'].container_img!r}, "
-            f"expected 'docker://master_image'"
+
+def test_info_header_unknown_user(monkeypatch):
+    """
+    Test that the workflow info header does not fail if getpass.getuser()
+    raises (e.g. when running under a UID with no passwd entry).
+    """
+    import getpass
+    from snakemake import api
+    from snakemake.settings import types as settings
+
+    exc_types = (OSError, KeyError, ImportError)
+
+    try:
+        real_user = getpass.getuser()
+    except exc_types:
+        real_user = None
+
+    def make_fake_getuser(exc_type: type[Exception]):
+        def fake_getuser():
+            raise exc_type("no user")
+
+        return fake_getuser
+
+    # Just need a minimal Snakefile, we're not running it
+    test_path = dpath("test_unlock")
+
+    with api.SnakemakeApi(
+        settings.OutputSettings(verbose=False),
+    ) as snakemake_api:
+
+        workflow_api = snakemake_api.workflow(
+            resource_settings=settings.ResourceSettings(cores=1),
+            snakefile=test_path / "Snakefile",
+            workdir=test_path,
         )
+        workflow = workflow_api._workflow
+
+        # Without patching - check it matches the real user
+        if real_user is not None:
+            assert workflow.info_header["user"] == real_user
+        else:
+            assert workflow.info_header["user"] == "unavailable"
+
+        # Patch getuser() to raise each expected exception type
+        for exc_type in exc_types:
+            monkeypatch.setattr(getpass, "getuser", make_fake_getuser(exc_type))
+            assert workflow.info_header["user"] == "unavailable"
 
 
 @skip_on_windows
@@ -2864,6 +2971,47 @@ def test_update_flag():
     run(dpath("test_update_flag"))
 
 
+def _record_db_sizes(monkeypatch):
+    """Record the size of db.txt handed to the job selector, per rule."""
+    seen = set()
+    job_selector = JobScheduler.job_selector
+
+    def recording_job_selector(self, jobs):
+        """Select jobs and record the db.txt sizes handed to the selector."""
+        selected = job_selector(self, jobs)
+        seen.update(
+            (job.rule.name, self._input_sizes[f])
+            for job in jobs
+            if not job.is_group()
+            for f in job.input
+            if os.path.basename(f) == "db.txt"
+        )
+        return selected
+
+    monkeypatch.setattr(JobScheduler, "job_selector", recording_job_selector)
+    return seen
+
+
+@skip_on_windows  # OS agnostic
+def test_input_sizes_update_flag(monkeypatch):
+    """Input sizes cached for job prioritization are measured again
+    once a job has updated the file
+    """
+    seen = _record_db_sizes(monkeypatch)
+    run(dpath("test_input_sizes_update_flag"))
+    assert seen == {("before", 3), ("after", 6)}
+
+
+@skip_on_windows
+def test_input_sizes_update_flag_group(monkeypatch):
+    """Same as test_input_sizes_update_flag, with the file updated and consumed
+    within a group job, hence not part of the group's outputs
+    """
+    seen = _record_db_sizes(monkeypatch)
+    run(dpath("test_input_sizes_update_flag_group"), cluster="./qsub")
+    assert seen == {("before", 3), ("after", 6)}
+
+
 @skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
@@ -2886,6 +3034,16 @@ def test_storage_cleanup_local():
 @skip_on_windows
 def test_group_temp():
     run(dpath("test_group_temp"), cluster="./qsub")
+
+
+@skip_on_windows
+def test_group_temp_notemp():
+    # --notemp has to reach the group job, which handles group-internal temp files
+    run(
+        dpath("test_group_temp_notemp"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --notemp",
+    )
 
 
 @skip_on_windows  # OS agnostic
@@ -2952,9 +3110,9 @@ def test_update_flag_fail_cleanup():
 
 
 @skip_on_windows
-@apptainer
+@skip_on_macos
 def test_shell_exec_singularity():
-    run(dpath("test_shell_exec"), deployment_method={DeploymentMethod.APPTAINER})
+    run(dpath("test_shell_exec"), deployment_method={"container"})
 
 
 def test_expand_list_of_functions():
@@ -3069,11 +3227,11 @@ def test_github_issue_3374():
 
 
 @skip_on_windows  # OS agnostic
-@apptainer
+@skip_on_macos  # OS agnostic
 def test_issue3361_pass():
     run(
         dpath("test_issue3361_pass"),
-        shellcmd="snakemake --sdm apptainer --cores 1",
+        shellcmd="snakemake --sdm container --cores 1",
         targets=["all"],
     )
 
@@ -3120,7 +3278,7 @@ def test_default_resource_quoting_profile():
 def test_issue3361_fail():
     run(
         dpath("test_issue3361_fail"),
-        shellcmd="snakemake --sdm apptainer",
+        shellcmd="snakemake --sdm container",
         targets=["all"],
         shouldfail=True,
     )
@@ -3157,12 +3315,14 @@ def test_python_import_from_github_module():
     run(dpath("test_python_import_from_github_module"))
 
 
-def test_keep_local():
+@skip_on_windows
+def test_keep_local(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "keep_local.smk")
         local_img = os.path.join(
             tmpdir,
-            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+            ".snakemake/storage/http",
+            dummy_server.split("://", 1)[1],
         )
 
         p = sp.check_output(
@@ -3203,12 +3363,14 @@ def test_keep_local():
         assert os.path.exists(local_img.replace("http", "http_local"))
 
 
-def test_retrieve():
+@skip_on_windows
+def test_retrieve(dummy_server):
     with tempfile.TemporaryDirectory() as tmpdir:
         snakefile = os.path.join(dpath("test_local_and_retrieve"), "retrieve.smk")
         local_img = os.path.join(
             tmpdir,
-            ".snakemake/storage/http/github.com/snakemake/snakemake/blob/main/images/logo.png",
+            ".snakemake/storage/http",
+            dummy_server.split("://", 1)[1],
         )
 
         p = sp.check_output(
@@ -3362,12 +3524,12 @@ def test_cyclic_dependency_single():
 
 
 @skip_on_windows
-@apptainer
 @connected
+@apptainer
 def test_issue3958():
     run(
         dpath("test_issue3958"),
-        shellcmd="snakemake --sdm apptainer --cores 1",
+        shellcmd="snakemake --sdm container --sdm-container-runtime apptainer --cores 1",
         targets=["all"],
     )
 

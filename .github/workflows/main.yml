@@ -87,6 +87,11 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
+      # still needed for the test_conda_named testcase
+      - name: Setup global conda
+        run: |
+          pixi global install conda
+
       # See https://github.com/apptainer/apptainer/pull/2262
       - name: Disable apparmor namespace restrictions for apptainer (os='Linux')
         if: runner.os == 'Linux'
@@ -97,7 +102,7 @@ jobs:
 
       - name: Setup MinIO for AWS S3 testing (os='Linux', for AWS S3 testing)
         if: runner.os == 'Linux'
-        uses: comfuture/minio-action@v1
+        uses: comfuture/silo-action@v2
         with:
           access_key: minio
           secret_key: minio123
@@ -123,7 +128,7 @@ jobs:
 
           cd tests/test_report
           pixi run -e ${{ matrix.env }} snakemake \
-            --use-conda \
+            --sdm conda \
             --cores 1 \
             --report report.zip
 

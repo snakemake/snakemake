@@ -719,6 +719,21 @@ On unix, you can make use of the commonly pre-installed `mail` command:
 
 In case your administrator does not provide you with a proper configuration of the sendmail framework, you can configure `mail` to work e.g. via Gmail (see `here <https://www.cyberciti.biz/tips/linux-use-gmail-as-a-smarthost.html>`__).
 
+In which order are resource definitions prioritized?
+----------------------------------------------------
+
+All snakemake command-line arguments, such as ``resources`` and ``threads``, can be defined in different places.
+For resources and threads, this can be in the rule definition (see :ref:`snakefiles-threads` and :ref:`snakefiles-resources`), in a profile (see :ref:`profiles`), or via the command line (see :ref:`all_options`).
+Resources are gathered in the following order, where later definitions overwrite previous ones:
+
+1. Rule definition (for details refer to :ref:`snakefiles-threads` and :ref:`snakefiles-resources`)
+2. Global profile (for details refer to :ref:`global-profiles` and :ref:`using-multiple-global-profiles`).
+3. Workflow specific profile (for details refer to :ref:`workflow-specific-profile`)
+4. Command line e.g. via ``--set-threads myrule=2`` or ``--set-resources myrule:partition="foo"`` (for details refer to :ref:`all_options`)
+
+Overwriting happens on the top-level keys, so one command-line argument at a time.
+For a detailed example, see the explanation of :ref:`using-multiple-global-profiles`.
+
 CLI
 ---
 

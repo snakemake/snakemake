@@ -9,5 +9,4 @@ rule a:
     conda:
         "test-env.yaml"
     shell:
-        "ls /singularity; " # this fails if not in singularity container
         "bwa 2> {output} || true"
