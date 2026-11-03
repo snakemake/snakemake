@@ -191,6 +191,8 @@ class RuntimeDependencyManager:
                         "--target",
                         str(prefix),
                         "--dry-run",
+                        "--python",
+                        sys.executable,
                     ]
                     + [str(pkg) for pkg in prior_packages.values()],
                     check=True,
@@ -220,6 +222,8 @@ class RuntimeDependencyManager:
                             "--no-deps",
                             "--target",
                             str(prefix),
+                            "--python",
+                            sys.executable,
                         ]
                         + [str(pkg) for pkg in posterior_packages],
                         check=True,
