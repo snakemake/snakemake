@@ -1,0 +1,19 @@
+rule all:
+    input:
+        "b.out",
+
+
+rule a:
+    output:
+        "a.out",
+    shell:
+        "[[ '{resources.mem_mb}' == '1000' ]] && touch {output}"
+
+
+rule b:
+    input:
+        "a.out",
+    output:
+        "b.out",
+    shell:
+        "[[ '{resources.mem_mb}' == '2000' ]] && touch {output}"
