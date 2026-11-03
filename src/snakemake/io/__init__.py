@@ -588,48 +588,9 @@ class _IOFile(AnnotatedStringFormatMixin, str):
         # We first do a normal stat.
         file = str(self.file)
         try:
-            _stat = os.stat(file, follow_symlinks=False)
-
-            is_symlink = stat.S_ISLNK(_stat.st_mode)
-            is_dir = stat.S_ISDIR(_stat.st_mode)
-            mtime = _stat.st_mtime
-
-            def get_dir_mtime():
-                # Try whether we have a timestamp file for it.
-                return os.stat(
-                    os.path.join(file, ".snakemake_timestamp"),
-                    follow_symlinks=True,
-                ).st_mtime
-
-            if not is_symlink:
-                if is_dir:
-                    try:
-                        mtime = get_dir_mtime()
-                    except FileNotFoundError:
-                        # No timestamp, hence go on as if it is a file.
-                        pass
-
-                # In the usual case, not a dir, not a symlink.
-                # We need just a single stat call.
-                return Mtime(local=mtime, storage=mtime_in_storage)
-
-            else:
-                # In case of a symlink, we need the stats for the target file/dir.
-                target_stat = os.stat(file, follow_symlinks=True)
-                # Further, we need to check again if this is a directory.
-                is_dir = stat.S_ISDIR(target_stat.st_mode)
-                mtime_target = target_stat.st_mtime
-
-                if is_dir:
-                    try:
-                        mtime_target = get_dir_mtime()
-                    except FileNotFoundError:
-                        # No timestamp, hence go on as if it is a file.
-                        pass
-
-                return Mtime(
-                    local=mtime, local_target=mtime_target, storage=mtime_in_storage
-                )
+            return self._mtime_from_lstat(
+                os.stat(file, follow_symlinks=False), mtime_in_storage
+            )
 
         except FileNotFoundError:
             if self.is_storage:
@@ -643,6 +604,56 @@ class _IOFile(AnnotatedStringFormatMixin, str):
             raise WorkflowError(
                 f"Unable to obtain modification time of file {file} because of missing "
                 "read permissions."
+            )
+
+    def _mtime_from_lstat(
+        self, lstat_result: os.stat_result, mtime_in_storage: Optional[float] = None
+    ) -> Mtime:
+        """Obtain mtime from the result of os.stat(self.file, follow_symlinks=False).
+
+        Directories and symlinks need further stat calls (see mtime_uncached),
+        whose errors are raised to the caller.
+        """
+        file = str(self.file)
+        is_symlink = stat.S_ISLNK(lstat_result.st_mode)
+        is_dir = stat.S_ISDIR(lstat_result.st_mode)
+        mtime = lstat_result.st_mtime
+
+        def get_dir_mtime():
+            # Try whether we have a timestamp file for it.
+            return os.stat(
+                os.path.join(file, ".snakemake_timestamp"),
+                follow_symlinks=True,
+            ).st_mtime
+
+        if not is_symlink:
+            if is_dir:
+                try:
+                    mtime = get_dir_mtime()
+                except FileNotFoundError:
+                    # No timestamp, hence go on as if it is a file.
+                    pass
+
+            # In the usual case, not a dir, not a symlink.
+            # We need just a single stat call.
+            return Mtime(local=mtime, storage=mtime_in_storage)
+
+        else:
+            # In case of a symlink, we need the stats for the target file/dir.
+            target_stat = os.stat(file, follow_symlinks=True)
+            # Further, we need to check again if this is a directory.
+            is_dir = stat.S_ISDIR(target_stat.st_mode)
+            mtime_target = target_stat.st_mtime
+
+            if is_dir:
+                try:
+                    mtime_target = get_dir_mtime()
+                except FileNotFoundError:
+                    # No timestamp, hence go on as if it is a file.
+                    pass
+
+            return Mtime(
+                local=mtime, local_target=mtime_target, storage=mtime_in_storage
             )
 
     @property
