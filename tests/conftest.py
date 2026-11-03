@@ -50,6 +50,24 @@ if ON_WINDOWS and bash_cmd:
 
 
 @pytest.fixture
+def dummy_server(tmp_path, monkeypatch):
+    """Serve the snakemake logo via a local HTTP server.
+
+    Yields the URL of the logo and exposes it to subprocesses via DUMMY_SERVER_URL.
+    """
+    import shutil
+    from .common import dpath, serve_directory
+
+    served = tmp_path / "served"
+    served.mkdir()
+    shutil.copy(dpath("../images/logo.png"), served / "logo.png")
+    with serve_directory(served) as server_url:
+        url = f"{server_url}/logo.png"
+        monkeypatch.setenv("DUMMY_SERVER_URL", url)
+        yield url
+
+
+@pytest.fixture
 def s3_storage():
     from snakemake_storage_plugin_s3 import StorageProviderSettings
     from snakemake_interface_common.plugin_registry.plugin import TaggedSettings

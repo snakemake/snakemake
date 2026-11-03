@@ -1,6 +1,8 @@
 rule random_python_conda_script:
 	output:
 		"version.txt"
+	params:
+		x=1
 	conda:
 		"test_python_env.yaml"
 	script:
