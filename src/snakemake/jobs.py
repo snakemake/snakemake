@@ -1571,7 +1571,18 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface, GroupJobSchedulerInterfac
             # Additionally, this is the most stable id we can get, even if the group
             # changes by adding more upstream jobs, e.g. due to groupid usage in input
             # functions (see Dag.update_incomplete_input_expand_jobs())
-            last_job = sorted(self.toposorted[-1])[-1]
+            # Sorting by uuid first and then by rule order (a stable sort)
+            # makes the choice deterministic across processes: rule order ties
+            # would otherwise be resolved by hash-dependent set iteration order,
+            # which can differ between the submitting and the nested run
+            # (see issue #4329).
+            last_level = sorted(sorted(self.toposorted[-1], key=lambda j: j.uuid()))
+            # Pipe and service jobs must not be chosen: with inherited pipe
+            # dependencies they can end up on the last level, and their uuid
+            # depends on the groupid wildcard, which would make the group id
+            # circular and unstable.
+            candidates = [job for job in last_level if not job.pipe_or_service_output]
+            last_job = (candidates or last_level)[-1]
             self._jobid = last_job.uuid()
         return self._jobid
 
