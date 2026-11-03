@@ -1,6 +1,43 @@
 # Changelog
 
 
+## [10.0.0](https://github.com/snakemake/snakemake/compare/v9.27.0...v10.0.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* generic software deployment plugin support ([#3339](https://github.com/snakemake/snakemake/issues/3339))
+
+### Features
+
+* add ability to deploy workflow runtime and plugin dependencies on the fly ([#4182](https://github.com/snakemake/snakemake/issues/4182)) ([93365f0](https://github.com/snakemake/snakemake/commit/93365f0891b2bc287bbd233750c58749be9f49d5))
+* expose iofile access_pattern to plugins via AnnotatedStringInterface ([#4337](https://github.com/snakemake/snakemake/issues/4337)) ([4523356](https://github.com/snakemake/snakemake/commit/4523356973a83aa237a121717ee81dd2e09175da))
+* generic software deployment plugin support ([#3339](https://github.com/snakemake/snakemake/issues/3339)) ([91763d6](https://github.com/snakemake/snakemake/commit/91763d644db0a6051c40014fa8ffad340f7d39a0))
+
+
+### Bug Fixes
+
+* accept fractional job counts and ms unit in --max-jobs-per-timespan ([#4361](https://github.com/snakemake/snakemake/issues/4361)) ([0803f45](https://github.com/snakemake/snakemake/commit/0803f45efea30e7e81ee3790e0f89b68bae9b80a))
+* fix discovery of uv exec for --with-pkgs ([#4374](https://github.com/snakemake/snakemake/issues/4374)) ([9e1f43d](https://github.com/snakemake/snakemake/commit/9e1f43d89a5cb21c5dc7da251e15d91fe5b8f300))
+* forward --notemp to spawned jobs ([#4363](https://github.com/snakemake/snakemake/issues/4363)) ([c709aa7](https://github.com/snakemake/snakemake/commit/c709aa74c82079bda6776d446dfc201a48e03892))
+* handle getpass.getuser() failure in workflow info header ([#4322](https://github.com/snakemake/snakemake/issues/4322)) ([5bf5e21](https://github.com/snakemake/snakemake/commit/5bf5e21b0d0e7e65e247c1f2c61c1a4f74a1a752))
+* keep snakemake.params and makedirs working in scripts with Python &lt; 3.11 ([#4357](https://github.com/snakemake/snakemake/issues/4357)) ([21d804c](https://github.com/snakemake/snakemake/commit/21d804ca040e8f355713342bca56884bdf465ea2))
+
+
+### Performance Improvements
+
+* cache input sizes between scheduling rounds ([#4370](https://github.com/snakemake/snakemake/issues/4370)) ([86c3113](https://github.com/snakemake/snakemake/commit/86c31130239381055fea37fe0c369c6775cb75c3))
+* compute input checksums once per job when storing metadata ([#4365](https://github.com/snakemake/snakemake/issues/4365)) ([c69d17d](https://github.com/snakemake/snakemake/commit/c69d17dbf02feed121cb38d3e47f6c54c3e8127d))
+* correctly propagate inventory instruction in recursive DAG construction ([#4342](https://github.com/snakemake/snakemake/issues/4342)) ([1c67a66](https://github.com/snakemake/snakemake/commit/1c67a66cbe14bbb91fa54c960c4e26d8de2b171f))
+
+
+### Documentation
+
+* Add faq section on resource definition priorization ([#4081](https://github.com/snakemake/snakemake/issues/4081)) ([f78d99b](https://github.com/snakemake/snakemake/commit/f78d99ba1ee54cb92e98349fce5a53f0c0783d6a))
+* document the minimum Pixi version for contributors ([#4346](https://github.com/snakemake/snakemake/issues/4346)) ([6acc649](https://github.com/snakemake/snakemake/commit/6acc64995b9c80ba6a553252d055980dfa89c394))
+* escape pyproject values in the substitution prolog ([#4371](https://github.com/snakemake/snakemake/issues/4371)) ([e2ad766](https://github.com/snakemake/snakemake/commit/e2ad766bdde2d635f76108ced7a151e1e4ed916f))
+* retrieve values from pyproject ([#4367](https://github.com/snakemake/snakemake/issues/4367)) ([184ad19](https://github.com/snakemake/snakemake/commit/184ad191db1b5517fa98139d0597453f241be781))
+
 ## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
 
 
