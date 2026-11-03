@@ -413,6 +413,18 @@ def get_argument_parser(
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
 
+    plugin_registries = [
+        ExecutorPluginRegistry(),
+        StoragePluginRegistry(),
+        ReportPluginRegistry(),
+        LoggerPluginRegistry(),
+        SchedulerPluginRegistry(),
+        SoftwareDeploymentPluginRegistry(),
+    ]
+    if recollect_plugins:
+        for plugin_registry in plugin_registries:
+            plugin_registry.collect_plugins()
+
     dirs = get_appdirs()
     config_files = []
     if profiles:
@@ -1865,16 +1877,7 @@ def get_argument_parser(
         )
 
         # Add namespaced arguments to parser for each plugin
-        for plugin_registry in [
-            ExecutorPluginRegistry(),
-            StoragePluginRegistry(),
-            ReportPluginRegistry(),
-            LoggerPluginRegistry(),
-            SchedulerPluginRegistry(),
-            SoftwareDeploymentPluginRegistry(),
-        ]:
-            if recollect_plugins:
-                plugin_registry.collect_plugins()
+        for plugin_registry in plugin_registries:
             plugin_registry.register_cli_args(parser)
 
     group_internal.add_argument(
