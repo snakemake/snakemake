@@ -44,7 +44,7 @@ class RuntimeDependencyManager:
     _lock_lifetime = timedelta(seconds=30)
 
     def __init__(self, deployment_prefix: Path):
-        version_path = get_minor_version()
+        version_path = f"py_{sys.version_info.major}.{sys.version_info.minor}/snakemake_{get_minor_version()}"
         if is_editable():
             version_path += "+edits"
         self._prefixes: Map[PackageType, Path] = {
@@ -52,7 +52,7 @@ class RuntimeDependencyManager:
                 appname="snakemake", version=version_path, ensure_exists=True
             )
             / "global_dependencies",
-            PackageType.WORKFLOW: deployment_prefix / "workflow_dependencies",
+            PackageType.WORKFLOW: deployment_prefix / "workflow_dependencies" / version_path,
         }
         self._packages: Dict[PackageType, Dict[str, Requirement]] = {
             PackageType.WORKFLOW: dict(),
@@ -205,7 +205,8 @@ class RuntimeDependencyManager:
                 )
                 if posterior_packages:
                     print(
-                        f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}"
+                        f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}",
+                        file=sys.stderr,
                     )
                     # explicitly install the determined versions of the requested
                     # packages under the prefix
