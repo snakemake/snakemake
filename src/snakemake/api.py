@@ -1,3 +1,4 @@
+from snakemake.runtime_dependencies import RuntimeDependencyManager
 from snakemake.settings.enums import ChangeType
 
 __author__ = "Johannes Köster"
@@ -112,6 +113,7 @@ class SnakemakeApi(ApiBase):
 
     output_settings: OutputSettings = field(default_factory=OutputSettings)
     logger_manager: LoggerManager = field(init=False)
+    from_cli: bool = False
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
     _is_in_context: bool = field(init=False, default=False)
 
@@ -156,6 +158,17 @@ class SnakemakeApi(ApiBase):
             deployment_settings = DeploymentSettings()
         if storage_provider_settings is None:
             storage_provider_settings = {}
+
+        if not self.from_cli:
+            # this is only needed if the API is called directly, without going through the CLI
+            runtime_dep_manager = RuntimeDependencyManager(
+                deployment_settings.deployment_prefix
+            )
+            runtime_dep_manager.add_global_packages(*deployment_settings.with_pkgs)
+            runtime_dep_manager.add_workflow_packages(
+                *deployment_settings.workflow_with_pkgs
+            )
+            runtime_dep_manager.deploy_packages()
 
         self._check_is_in_context()
 
