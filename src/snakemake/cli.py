@@ -405,7 +405,11 @@ class ArgparserMode:
     PRE = 1
 
 
-def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL):
+def get_argument_parser(
+    profiles=None,
+    mode: ArgparserMode = ArgparserMode.FULL,
+    recollect_plugins: bool = False,
+):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
 
@@ -1869,7 +1873,8 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
             SchedulerPluginRegistry(),
             SoftwareDeploymentPluginRegistry(),
         ]:
-            plugin_registry.collect_plugins()
+            if recollect_plugins:
+                plugin_registry.collect_plugins()
             plugin_registry.register_cli_args(parser)
 
     group_internal.add_argument(
@@ -1965,7 +1970,12 @@ def parse_args(argv):
         pre_args, _ = get_argument_parser(
             profiles=profiles, mode=ArgparserMode.PRE
         ).parse_known_args(argv)
-    if pre_args.mode != ExecMode.SUBPROCESS:
+
+    deploy_runtime_dependencies = (pre_args.mode != ExecMode.SUBPROCESS) and (
+        pre_args.with_pkgs or pre_args.workflow_with_pkgs
+    )
+
+    if deploy_runtime_dependencies:
         runtime_dep_manager = RuntimeDependencyManager(
             pre_args.software_deployment_prefix
         )
@@ -1977,6 +1987,7 @@ def parse_args(argv):
     parser = get_argument_parser(
         profiles=profiles if pre_args.mode == ExecMode.DEFAULT else None,
         mode=ArgparserMode.FULL,
+        recollect_plugins=deploy_runtime_dependencies,
     )
 
     # configargparse appends the profile args to the end of argv
