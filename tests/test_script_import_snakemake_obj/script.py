@@ -1,8 +1,7 @@
-from typing import TYPE_CHECKING
+from snakemake.script import snakemake, is_script
 
-if TYPE_CHECKING:
-    from snakemake.iocontainers import snakemake
-
+if not is_script:
+    raise Exception("This script can only be run as a Snakemake script.")
 
 with open(snakemake.output[0], "w") as f:
     f.write("Hello world!")
