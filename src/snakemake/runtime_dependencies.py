@@ -61,9 +61,10 @@ class RuntimeDependencyManager:
             return self._uv_exec
 
         suffix = ".exe" if ON_WINDOWS else ""
-        in_env_uv = Path(sys.executable).parent / f"uv{suffix}"
-        if in_env_uv.exists():
+        if (in_env_uv := Path(sys.executable).parent / f"uv{suffix}").exists():
             self._uv_exec = str(in_env_uv)
+        elif (global_uv := shutil.which("uv")) is not None:
+            self._uv_exec = global_uv
         else:
             raise WorkflowError("Unable to find 'uv' executable in the environment.")
 
