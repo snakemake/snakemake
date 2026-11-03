@@ -1861,12 +1861,16 @@ def get_argument_parser(profiles=None, mode: ArgparserMode = ArgparserMode.FULL)
         )
 
         # Add namespaced arguments to parser for each plugin
-        ExecutorPluginRegistry().register_cli_args(parser)
-        StoragePluginRegistry().register_cli_args(parser)
-        ReportPluginRegistry().register_cli_args(parser)
-        LoggerPluginRegistry().register_cli_args(parser)
-        SchedulerPluginRegistry().register_cli_args(parser)
-        SoftwareDeploymentPluginRegistry().register_cli_args(parser)
+        for plugin_registry in [
+            ExecutorPluginRegistry(),
+            StoragePluginRegistry(),
+            ReportPluginRegistry(),
+            LoggerPluginRegistry(),
+            SchedulerPluginRegistry(),
+            SoftwareDeploymentPluginRegistry(),
+        ]:
+            plugin_registry.collect_plugins()
+            plugin_registry.register_cli_args(parser)
 
     group_internal.add_argument(
         "--mode",
