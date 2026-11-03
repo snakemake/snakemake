@@ -117,7 +117,7 @@ class RuntimeDependencyManager:
 
         try:
             self._deploy_packages_per_type(
-                self._packages[PackageType.GLOBAL].values(),
+                self._packages[PackageType.WORKFLOW].values(),
                 self._prefixes[PackageType.WORKFLOW],
                 prior_env_packages,
                 prior_global_packages,
