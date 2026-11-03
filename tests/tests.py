@@ -2376,6 +2376,10 @@ def test_ancient_dag():
     run(dpath("test_ancient_dag"))
 
 
+def test_ancient_masked():
+    run(dpath("test_ancient_masked"))
+
+
 @skip_on_windows
 def test_checkpoint_allowed_rules():
     run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
