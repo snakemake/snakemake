@@ -67,11 +67,9 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
 
     if isinstance(dict_like, (Namedlist, Mapping)):
         items = dict_like.items()
-
     else:
-        raise ValueError(
-            "bug: format_dict applied to something neither a dict nor a Namedlist"
-        )
+        raise ValueError("bug: format_dict applied to neither a dict nor a Namedlist")
+
     return ", ".join(
         f"{name}={value}"
         for name, value in items
@@ -81,6 +79,19 @@ def format_dict(dict_like, omit_keys=None, omit_values=None) -> str:
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
 format_wildcards = format_dict
+
+
+def format_params(params) -> str:
+    from snakemake.iocontainers import Namedlist
+
+    if isinstance(params, Namedlist):
+        items = params._allitems()
+    elif isinstance(params, Mapping):
+        items = params.items()
+    else:
+        raise ValueError("bug: format_params applied to neither a dict nor a Namedlist")
+
+    return ", ".join(f"{name}={value}" if name else str(value) for name, value in items)
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
@@ -279,6 +290,10 @@ SNAKEMAKE
         wildcards = format_wildcards(msg["wildcards"])
         if wildcards:
             output.append(f"    wildcards: {wildcards}")
+
+        params = format_params(msg["params"])
+        if params:
+            output.append(f"    params: {params}")
 
         for item, omit in zip("priority threads".split(), [0, 1]):
             fmt = format_item(item, omit=omit)
