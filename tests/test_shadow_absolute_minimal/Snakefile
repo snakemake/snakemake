@@ -1,0 +1,134 @@
+import os
+
+# Fixtures for the overlap rules: a directory that holds a symlink and a
+# read-only file. Both are also declared as input, so they are inside another
+# input directory.
+os.makedirs("refdir/sub", exist_ok=True)
+with open("refdir/sub/ref.txt", "w") as handle:
+    handle.write("ref\n")
+if not os.path.islink("refdir/sub/link.txt"):
+    os.symlink("ref.txt", "refdir/sub/link.txt")
+if os.path.exists("refdir/ro.txt"):
+    os.chmod("refdir/ro.txt", 0o644)
+with open("refdir/ro.txt", "w") as handle:
+    handle.write("ro\n")
+os.chmod("refdir/ro.txt", 0o444)
+
+
+rule all:
+    input:
+        "absolute_minimal.out",
+        os.path.join(os.getcwd(), "absolute_minimal_abs_output.out"),
+        "absolute_minimal_overlap.out",
+        "copy_absolute_minimal.out",
+        "copy_absolute_minimal_overlap.out",
+
+
+rule absolute_minimal:
+    input:
+        rel="test.in",
+        abs=os.path.join(os.getcwd(), "test.in"),
+    output: "absolute_minimal.out"
+    shadow: "absolute-minimal"
+    shell:
+        """
+        # Verify absolute input was remapped into the shadow dir
+        case "{input.abs}" in
+            "$PWD"/*) ;;
+            *) echo "Input not remapped into shadow dir: {input.abs}"; exit 1 ;;
+        esac
+
+        # Verify both inputs are symlinks
+        test -L "{input.rel}"
+        test -L "{input.abs}"
+
+        # Verify undeclared files are not in the shadow dir
+        test ! -e extra.txt
+
+        cat {input.rel} {input.abs} > {output}
+        """
+
+
+rule absolute_minimal_abs_output:
+    input: os.path.join(os.getcwd(), "test.in")
+    output: os.path.join(os.getcwd(), "absolute_minimal_abs_output.out")
+    shadow: "absolute-minimal"
+    shell:
+        """
+        # Verify absolute output was remapped into the shadow dir
+        case "{output}" in
+            "$PWD"/*) ;;
+            *) echo "Output not remapped into shadow dir: {output}"; exit 1 ;;
+        esac
+
+        cat {input} > {output}
+        """
+
+
+rule absolute_minimal_overlap:
+    # Absolute inputs that overlap: paths inside another input directory.
+    input:
+        refdir=os.path.join(os.getcwd(), "refdir"),
+        sub=os.path.join(os.getcwd(), "refdir", "sub"),
+    output: "absolute_minimal_overlap.out"
+    shadow: "absolute-minimal"
+    shell:
+        """
+        # The nested input comes with the symlinked directory
+        test -L "{input.refdir}"
+        test ! -L "{input.sub}"
+
+        cat {input.sub}/ref.txt > {output}
+        """
+
+
+rule copy_absolute_minimal:
+    input:
+        rel="test.in",
+        abs=os.path.join(os.getcwd(), "test.in"),
+    output: "copy_absolute_minimal.out"
+    shadow: "copy-absolute-minimal"
+    shell:
+        """
+        # Verify absolute input was remapped into the shadow dir
+        case "{input.abs}" in
+            "$PWD"/*) ;;
+            *) echo "Input not remapped into shadow dir: {input.abs}"; exit 1 ;;
+        esac
+
+        # Verify both inputs are copies, not symlinks
+        test -f "{input.rel}" && test ! -L "{input.rel}"
+        test -f "{input.abs}" && test ! -L "{input.abs}"
+
+        # Verify undeclared files are not in the shadow dir
+        test ! -e extra.txt
+
+        cat {input.rel} {input.abs} > {output}
+        """
+
+
+rule copy_absolute_minimal_overlap:
+    # Absolute inputs that overlap: the same file under two names, and paths
+    # inside another input directory.
+    input:
+        refdir=os.path.join(os.getcwd(), "refdir"),
+        sub=os.path.join(os.getcwd(), "refdir", "sub"),
+        readonly=os.path.join(os.getcwd(), "refdir", "ro.txt"),
+        dup1=os.path.join(os.getcwd(), "test.in"),
+        dup2=os.path.join(os.getcwd(), "test.in"),
+    output: "copy_absolute_minimal_overlap.out"
+    shadow: "copy-absolute-minimal"
+    shell:
+        """
+        test ! -L "{input.refdir}"
+
+        # Verify the symlink inside the copied directory is still a symlink
+        test -L "{input.sub}/link.txt"
+
+        # Verify the read-only file was copied
+        test -f "{input.readonly}"
+
+        cat {input.dup1} > {output}
+        cat {input.refdir}/sub/ref.txt >> {output}
+        cat {input.dup2} >> {output}
+        """
