@@ -4,11 +4,8 @@ __license__ = "MIT"
 
 import os
 import sys
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
-
-import pytest
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -347,13 +344,13 @@ class TestCrossKindFallback:
 # Integration tests — require conda executable and plugins
 # ---------------------------------------------------------------------------
 
-from .common import run, dpath, conda
+from .common import run, dpath, conda_plugin
 from .conftest import skip_on_windows
 from .common import connected
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_software_directive_conda():
     """Test that the software: directive works with conda() factory."""
     run(
@@ -363,7 +360,7 @@ def test_software_directive_conda():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_software_directive_callable():
     """Test that the software: directive works with a callable envfile."""
     run(
@@ -374,7 +371,7 @@ def test_software_directive_callable():
 
 @skip_on_windows
 @connected
-@conda
+@conda_plugin
 def test_software_directive_within():
     """Test software: conda(envfile=..., within=container(...)) composition."""
     run(
@@ -384,7 +381,7 @@ def test_software_directive_within():
 
 
 @skip_on_windows
-@conda
+@conda_plugin
 def test_software_directive_fallback():
     """Test software: envmodules(...) or conda(...) fallback chain.
 

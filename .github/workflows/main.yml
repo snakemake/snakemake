@@ -87,6 +87,11 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
+      # still needed for the test_conda_named testcase
+      - name: Setup global conda
+        run: |
+          pixi global install conda
+
       # See https://github.com/apptainer/apptainer/pull/2262
       - name: Disable apparmor namespace restrictions for apptainer (os='Linux')
         if: runner.os == 'Linux'
