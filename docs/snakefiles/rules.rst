@@ -1466,7 +1466,7 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
 
 Above example mimics a case where one would have to look up the value of some threshold in a config dictionary.
 Note that in contrast to the ``input`` directive, functions passed to the
-``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
+``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, ``resources``, and ``attempt``.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
 This way, params can be used to dynamically adjust those values into whatever format is needed for your command or script.
 
