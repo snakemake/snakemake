@@ -111,13 +111,15 @@ class RuleLinter(Linter):
             )
 
     def lint_missing_software_definition(self, rule):
+        # None if the rule has no software deployment directive at all
+        env_specs = rule.software_env_specs
         if (
             not rule.norun
             and not rule.is_handover
             and not rule.is_run
-            and not rule.software_env_specs.contains_conda_or_container()
+            and (env_specs is None or not env_specs.contains_conda_or_container())
         ):
-            if rule.software_env_specs.is_empty():
+            if env_specs is None or env_specs.is_empty():
                 yield Lint(
                     title="Specify a conda environment or container for each rule.",
                     body="This way, the used software for each specific step is documented, and "
