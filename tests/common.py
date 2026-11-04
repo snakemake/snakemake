@@ -120,6 +120,15 @@ def has_conda() -> bool:
     return shutil.which("conda") is not None
 
 
+def has_conda_plugin() -> bool:
+    try:
+        import snakemake_software_deployment_plugin_conda  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -145,8 +154,13 @@ apptainer = pytest.mark.skipif(
 )
 
 conda = pytest.mark.skipif(
-    not has_conda(),
-    reason="Skipping Conda tests because no conda executable available.",
+    not has_conda() and not is_ci(),
+    reason="Skipping Conda client tests because no conda executable available.",
+)
+
+conda_plugin = pytest.mark.skipif(
+    not has_conda_plugin() and not is_ci(),
+    reason="Skipping Conda plugin tests because the plugin is not available.",
 )
 
 zenodo = pytest.mark.skipif(
