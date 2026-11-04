@@ -68,94 +68,82 @@ To avoid clashes with command line argument specifications, it is best to provid
       snakemake path/to/desired/output.file <other arguments>
 
 
-Interactive debugging
----------------------
+Debugging in an IDE
+-------------------
 
-Debugging the main workflow process using Visual Studio Code
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+You can step through Snakemake code in any IDE that can attach to a `debugpy <https://github.com/microsoft/debugpy>`_ server, e.g. Visual Studio Code, Zed or Neovim (nvim-dap).
+debugpy comes with Snakemake, so you do not need to install it.
+You can debug either the main workflow process or the Python scripts of individual jobs.
+In both cases, Snakemake waits on a network address (default ``127.0.0.1:5678``) until your IDE's debugger attaches.
 
-The `Visual Studio Code <https://code.visualstudio.com/>`_ editor comes with a powerful debugger for Python.
-With a little tinkering, you can also use it to debug Snakemake's main process, which can be very useful for developing both workflows and plugins for Snakemake.
+Configuring the IDE
+^^^^^^^^^^^^^^^^^^^
 
-.. note:: This is neither officially supported by Snakemake nor by Visual Studio Code, and may frequently crash!
-
-To set this up, perform the following steps:
-
-1. Install Visual Studio Code and the `Python debugger extension <https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy>`_
-2. Open your workflow in Visual Studio Code and create or open the file ``.vscode/launch.json``.
-3. Add the following configuration to the ``launch.json`` file:
+Point your IDE's debugger at the address that Snakemake waits on.
+In Visual Studio Code, add this configuration to ``.vscode/launch.json``:
 
 .. code-block:: json
 
     {
-        "configurations": [
-
-            // ...
-
-            {
-                "name": "DebugPy: debug Snakemake workflow",
-                "request": "launch",
-                "type": "debugpy",
-                "cwd": "${workspaceFolder}",
-                "args": [
-                    "snakemake",
-                    "--debug",
-                    "--cores",
-                    "1",
-                    "--nolock",
-                    "--forceall",
-                    "--executor",
-                    "local",
-                ],
-                "program": "-m",
-                "python": "${command:python.interpreterPath}",
-                "console": "internalConsole",
-                "redirectOutput": true,
-                "internalConsoleOptions": "openOnSessionStart",
-                // Don't set justMyCode to 'true' - otherwise breakpoints will be skipped.
-                // Technically they do not occur within your code, but within Snakemake's workflow.py
-                "justMyCode": false,
-            },
-        ]
+        "name": "DebugPy: attach to Snakemake",
+        "type": "debugpy",
+        "request": "attach",
+        "connect": {"host": "127.0.0.1", "port": 5678}
     }
 
-To now debug your workflow:
+You only need to set this once, because the same configuration works for the main workflow process and for scripts.
+To attach, select it in the "Run and Debug" tab and start it (keyboard shortcut: ``F5``).
 
-1. Add breakpoints to your Snakefile by adding ``breakpoint()`` statements wherever you want to halt execution to inspect the state of the workflow - for example, in the :ref:`onerror handler <snakefiles-job_lifetime_handlers>`:
+.. warning:: Anyone who can connect to the debugpy port can execute arbitrary code as your user. Keep the host ``127.0.0.1``. To debug on a remote machine, e.g. an HPC login node, forward the port via SSH instead of listening on a public address:
 
-.. code-block:: python
+   .. code-block:: console
 
-    onerror: # Is executed if the pipeline fails
-        breakpoint()
+       ssh -L 5678:127.0.0.1:5678 user@remote-host
 
-2. Start the debugger in Visual Studio Code by navigating to the "Run and Debug" tab and selecting the "DebugPy: debug Snakemake workflow" configuration (keyboard shortcut: ``F5``).
-   This will open an interactive debugging console, allowing you to step through the workflow execution and inspect variables, e.g. Snakemake's ``workflow`` object.
+Debugging the main workflow process
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Debugging the main process lets you inspect Snakemake's ``workflow`` object, e.g. in :ref:`event handlers <snakefiles-job_lifetime_handlers>`, which helps when developing both workflows and plugins.
 
-.. note:: This will **not** work for debugging the execution of individual jobs, regardless of whether they are executed locally or remotely. For this, you can use Snakemake's ``--debug`` or ``--debug-scripts`` flags, see below.
+1. Add ``breakpoint()`` statements to your Snakefile where execution should halt, e.g. in the ``onerror`` handler:
 
+   .. code-block:: python
 
-Further reading: `Python debugging in VS Code <https://code.visualstudio.com/docs/python/debugging>`_
+       onerror:
+           breakpoint()
+           print("Workflow failed")
 
+2. Start Snakemake through debugpy, which waits for a debugger to attach before it runs the workflow:
 
-Debugging of individual jobs
-----------------------------------------
+   .. code-block:: console
 
-**For Python scripts / run blocks in the terminal:**
+       python -m debugpy --listen 127.0.0.1:5678 --wait-for-client -m snakemake --cores 1
 
-When executing Snakemake with the ``--debug`` flag, Snakemake will drop into an interactive `Python debugger <https://docs.python.org/3/library/pdb.html>`_ (PDB) session. By including ``breakpoint()`` statements in your code you can specify where PDB should halt execution, allowing you to explore the current state of the job.
+3. Attach your IDE's debugger.
+
+Snakemake then halts at each ``breakpoint()``, with the local variables of the surrounding Snakefile code available for inspection.
+
+.. note:: The IDE highlights the wrong line in the Snakefile.
+   Snakemake translates the Snakefile into Python code before it runs it, and many directives take more lines in that code than in the Snakefile.
+   For example, ``onstart:`` becomes two lines, a decorator and a function definition.
+   The IDE shows the line number of the translated code, so the highlighted line moves further down the Snakefile with every directive above the breakpoint.
+   Execution still halts at the right place, and the variables and call stack that the IDE shows are correct.
+   To check where you are, read the function name in the call stack, e.g. ``__onstart`` or ``__onerror``.
+   For the same reason, set breakpoints with ``breakpoint()`` statements rather than in the IDE.
+
+This does not debug individual jobs, because Snakemake runs them in separate processes.
 
 .. _snakefiles-debugging_scripts_in_ide:
 
-**For Python scripts in an IDE:**
+Debugging Python scripts of individual jobs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When executing Snakemake with the ``--debug-scripts`` flag, each job of a rule with a Python ``script:`` directive or a Python-based ``wrapper:`` pauses before the script runs and waits for an IDE debugger to attach via `debugpy <https://github.com/microsoft/debugpy>`_.
+When executing Snakemake with the ``--debug-scripts`` flag, each job of a rule with a Python ``script:`` directive or a Python-based ``wrapper:`` pauses before the script runs and waits for your IDE's debugger to attach.
 Breakpoints that you set in the script file in your IDE are then hit, with the ``snakemake`` object available for inspection.
-This works with any IDE that can attach to a debugpy server, e.g. Visual Studio Code, Zed or Neovim (nvim-dap).
 
 Requirements and limitations:
 
-* ``debugpy`` must be installed in the environment that runs Snakemake. It does not need to be installed in the job's software environment (e.g. a conda environment of the rule).
+* debugpy does not need to be installed in the job's software environment (e.g. a conda environment of the rule).
 * Execution must be local and on a single core (``--cores 1``), so that only one job waits for a debugger at a time.
 * Only Python scripts and Python-based wrappers pause. Other job types, e.g. ``run:``, ``shell:``, ``notebook:`` or scripts in other languages, run as usual.
 
@@ -167,28 +155,20 @@ To debug a script:
 
        snakemake --cores 1 --debug-scripts path/to/desired/output.file
 
-2. When a script job starts, Snakemake prints which rule is paused, the script file to set breakpoints in and the address to attach to (default ``127.0.0.1:5678``).
-3. Set breakpoints in that script file and attach your IDE's debugger. In Visual Studio Code, use a configuration like this in ``.vscode/launch.json``:
-
-   .. code-block:: json
-
-       {
-           "name": "DebugPy: attach to Snakemake script",
-           "type": "debugpy",
-           "request": "attach",
-           "connect": {"host": "127.0.0.1", "port": 5678}
-       }
-   You only need to set this once; this configuration will be reused for all future debug sessions in your working directory.
-
+2. When a script job starts, Snakemake prints which rule is paused, the script file to set breakpoints in and the address to attach to.
+3. Set breakpoints in that script file and attach your IDE's debugger.
 4. The script runs once the debugger is attached and stops at your breakpoints. When the script finishes, the debugger disconnects and Snakemake continues. The next script job pauses again, so attach the debugger again for it. Press ``Ctrl-C`` in the terminal to abort a waiting job.
 
 To use another address, set the environment variables ``SNAKEMAKE_DEBUGPY_HOST`` and ``SNAKEMAKE_DEBUGPY_PORT``.
+To debug the main workflow process and scripts at the same time, start the main process on another port, e.g. ``--listen 127.0.0.1:5679``, and add a second IDE configuration for that port.
 
-.. warning:: Anyone who can connect to the debugpy port can execute arbitrary code as your user. Keep the default host ``127.0.0.1``. To debug on a remote machine, e.g. an HPC login node, forward the port via SSH instead of listening on a public address:
 
-   .. code-block:: console
+Debugging individual jobs without an IDE
+----------------------------------------
 
-       ssh -L 5678:127.0.0.1:5678 user@remote-host
+**For Python scripts / run blocks:**
+
+When executing Snakemake with the ``--debug`` flag, Snakemake will drop into an interactive `Python debugger <https://docs.python.org/3/library/pdb.html>`_ (PDB) session. By including ``breakpoint()`` statements in your code you can specify where PDB should halt execution, allowing you to explore the current state of the job.
 
 **For R scripts / run blocks:**
 
