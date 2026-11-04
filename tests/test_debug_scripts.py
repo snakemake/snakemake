@@ -5,6 +5,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Callable
 
@@ -98,11 +99,17 @@ def wait_until(condition: Callable[[], bool]) -> None:
         time.sleep(0.05)
 
 
+def connections(process: psutil.Process) -> list:
+    with suppress(psutil.NoSuchProcess):
+        return process.net_connections()
+    return []
+
+
 def listens_on(process: psutil.Process, port: int) -> bool:
     return any(
         conn.status == psutil.CONN_LISTEN and conn.laddr.port == port
         for child in process.children(recursive=True)
-        for conn in child.net_connections()
+        for conn in connections(child)
     )
 
 
@@ -137,26 +144,32 @@ def test_debug_scripts_stops_at_breakpoint(
     assert ("reachable from other machines" in capsys.readouterr().out) == warned
 
 
+@pytest.mark.parametrize("shadow", ["", "minimal"])
 def test_debug_scripts_job_exits_when_snakemake_is_killed(
-    monkeypatch: pytest.MonkeyPatch,
+    shadow: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A script waiting for a debugger exits once the Snakemake process is gone."""
     port = free_port()
     monkeypatch.setenv("SNAKEMAKE_DEBUGPY_PORT", str(port))
     with prepare_tmpdir(dpath("test_debug_scripts")) as tmpdir:
         with subprocess.Popen(
-            [sys.executable, "-m", "snakemake", "--cores", "1", "--debug-scripts"],
+            [
+                *(sys.executable, "-m", "snakemake", "--cores", "1", "--debug-scripts"),
+                *("--config", f"shadow={shadow}"),
+            ],
             cwd=tmpdir,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ) as process:
             snakemake = psutil.Process(process.pid)
-            wait_until(lambda: listens_on(snakemake, port))
-            jobs = snakemake.children(recursive=True)
-            snakemake.kill()
+            try:
+                wait_until(lambda: listens_on(snakemake, port))
+                jobs = snakemake.children(recursive=True)
+            finally:
+                snakemake.kill()
             process.wait()
-            _, alive = psutil.wait_procs(jobs, timeout=10)
+            _, alive = psutil.wait_procs(jobs, timeout=TIMEOUT)
 
     assert alive == []
     with socket.socket() as sock:

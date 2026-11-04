@@ -7,6 +7,8 @@ import time
 from functools import partial
 from typing import Any, Callable, Dict
 
+PARENT_PID_ENVVAR = "SNAKEMAKE_DEBUG_PARENT_PID"
+
 
 def _wait_posix(parent_pid: int) -> None:
     """Block until the parent process no longer exists (POSIX).
@@ -116,6 +118,6 @@ def launch(
     debugpy.listen((host, port), in_process_debug_adapter=True)
     print(message, file=sys.stderr, flush=True)
     debugpy.wait_for_client()
-    with open(src) as f:
+    with open(src, encoding="utf-8") as f:
         code = compile(f.read(), src, "exec")
     exec(code, {**script_globals, "__file__": file_override})

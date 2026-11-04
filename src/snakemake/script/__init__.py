@@ -31,6 +31,7 @@ from urllib.error import URLError
 from snakemake import iocontainers
 from snakemake.iocontainers import Snakemake
 from snakemake.common.misc import get_snakemake_searchpaths
+from snakemake.debug_launcher import PARENT_PID_ENVVAR
 from snakemake.common.constants import (
     MIN_PY_VERSION,
     ON_WINDOWS,
@@ -427,6 +428,7 @@ class PythonScript(ScriptBase):
         host = os.environ.get("SNAKEMAKE_DEBUGPY_HOST", "127.0.0.1")
         port = int(os.environ.get("SNAKEMAKE_DEBUGPY_PORT", "5678"))
         src = self._debug_source_path()
+        parent_pid = int(os.environ.get(PARENT_PID_ENVVAR, os.getpid()))
         debugpy_dir = os.path.dirname(os.path.dirname(debugpy.__file__))
         message = (
             f"Rule {self.run_args.job_rule.name} (jobid {self.run_args.jobid}) is paused, waiting for a debugger to attach.\n"
@@ -443,7 +445,7 @@ class PythonScript(ScriptBase):
         return (
             "from snakemake.debug_launcher import launch\n"
             f"launch({src!r}, {self._file_override!r}, {host!r}, {port}, "
-            f"{os.getpid()}, {debugpy_dir!r}, {message!r}, globals())\n"
+            f"{parent_pid}, {debugpy_dir!r}, {message!r}, globals())\n"
         ).encode()
 
     def get_preamble(self):

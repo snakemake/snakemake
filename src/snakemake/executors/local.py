@@ -26,6 +26,7 @@ import concurrent.futures
 import subprocess
 from functools import partial
 from snakemake.executors import change_working_directory
+from snakemake.debug_launcher import PARENT_PID_ENVVAR
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -230,8 +231,13 @@ class Executor(RealExecutor):
         cmd = self.format_job_exec(job)
         logger.debug(f"spawned job: {cmd}")
 
+        env = (
+            os.environ | {PARENT_PID_ENVVAR: str(os.getpid())}
+            if self.workflow.execution_settings.debug_scripts
+            else None
+        )
         try:
-            subprocess.check_call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True, env=env)
         except subprocess.CalledProcessError:
             raise SpawnedJobError()
 
