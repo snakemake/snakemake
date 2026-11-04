@@ -639,6 +639,8 @@ class DAGApi(ApiBase):
                 raise ApiError(
                     "notebook edit mode is only allowed with local execution."
                 )
+            if execution_settings.edit_script:
+                raise ApiError("--edit-script is only allowed with local execution.")
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 

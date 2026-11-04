@@ -152,6 +152,7 @@ class Executor(RealExecutor):
                 if self.dag.is_edit_notebook_job(job)
                 else None
             ),
+            edit_script=self.dag.is_edit_script_job(job),
             basedir=job.rule.basedir,
             cache_path=self.workflow.sourcecache.cache_path,
             runtime_cache_path=self.workflow.sourcecache.runtime_cache_path,
@@ -296,6 +297,7 @@ class RunArgs:
     shadow_dir: Path
     jobid: Union[int, str]
     edit_notebook: Optional[NotebookEditMode]
+    edit_script: bool
     basedir: SourceFile
     cache_path: Path
     runtime_cache_path: Path

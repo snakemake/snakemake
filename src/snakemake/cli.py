@@ -1597,6 +1597,14 @@ def get_argument_parser(profiles=None, with_plugins: bool = True):
         "allows to set breakpoints in run blocks.",
     )
     group_behavior.add_argument(
+        "--edit-script",
+        metavar="TARGET",
+        help="Pause the Python script job that generates the given target file, and "
+        "offer IDEs a Jupyter kernel with the job's `snakemake` object, such that the "
+        "script can be developed interactively. Requires ipykernel in the job's "
+        "environment. Pressing Enter runs the saved script and finishes the job.",
+    )
+    group_behavior.add_argument(
         "--runtime-profile",
         metavar="FILE",
         help="Profile Snakemake and write the output to FILE. This requires yappi "
@@ -1985,6 +1993,9 @@ def parse_edit_notebook(args):
         args.targets = {args.edit_notebook}
         args.force = True
         edit_notebook = NotebookEditMode(args.notebook_listen)
+    elif args.edit_script:
+        args.targets = {args.edit_script}
+        args.force = True
     return edit_notebook
 
 
@@ -2316,6 +2327,7 @@ def args_to_api(args, parser):
                                 keep_incomplete=args.keep_incomplete,
                                 keep_metadata=not args.drop_metadata,
                                 edit_notebook=edit_notebook,
+                                edit_script=args.edit_script is not None,
                                 cleanup_scripts=not args.skip_script_cleanup,
                                 queue_input_wait_time=args.queue_input_wait_time,
                             ),
