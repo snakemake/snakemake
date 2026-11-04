@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pixi-format
+        name: Run formatter
+        entry: pixi run format
+        language: system
+        types: [python]
+        pass_filenames: false
+
