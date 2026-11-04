@@ -56,7 +56,6 @@ from snakemake.common.misc import (
 from snakemake.exceptions import (
     InputOpenException,
     MissingOutputException,
-    UndefinedPathvarException,
     WildcardError,
     WorkflowError,
 )
@@ -334,11 +333,6 @@ class _IOFile(AnnotatedStringFormatMixin, str):
             if file.endswith("/"):
                 # remove trailing slashes
                 modified = file.rstrip("/")
-            if rule is not None:
-                try:
-                    modified = rule.pathvars.apply(modified)
-                except UndefinedPathvarException as e:
-                    raise WorkflowError(e, rule=rule) from e
             if is_annotated:
                 modified = AnnotatedString(modified)
                 modified.flags = file.flags  # type: ignore[attr-defined]

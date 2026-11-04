@@ -4,7 +4,7 @@ shell.executable("bash")
 pathvars:
     results="results/custom",
     per="{sample}",
-    nested="<per>",
+    nested="<results>/b/{sample}",
 
 
 rule all:
@@ -29,7 +29,7 @@ rule b:
         "<resources>/<resname>.txt",
         infunc,
     output:
-        "<results>/b/<nested>.txt"
+        "<nested>.txt"
     pathvars:
         resname="test"
     shell:
@@ -38,6 +38,6 @@ rule b:
 
 use rule b as c with:
     output:
-        "<results>/b/<nested>.csv"
+        "<nested>.csv"
     pathvars:
         resname="test2"
