@@ -94,7 +94,16 @@ class Executor(RealExecutor):
         return sys.executable
 
     def additional_general_args(self):
-        return "--quiet progress rules host"
+        settings = self.workflow.execution_settings
+        debug_flags = [
+            flag
+            for flag, enabled in (
+                ("--debug", settings.debug),
+                ("--debug-scripts", settings.debug_scripts),
+            )
+            if enabled
+        ]
+        return " ".join(["--quiet progress rules host", *debug_flags])
 
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)}"

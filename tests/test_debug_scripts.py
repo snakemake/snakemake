@@ -106,10 +106,12 @@ def listens_on(process: psutil.Process, port: int) -> bool:
     )
 
 
+@pytest.mark.parametrize("shadow", ["", "minimal"])
 @pytest.mark.parametrize("host, warned", [("127.0.0.1", False), ("0.0.0.0", True)])
 def test_debug_scripts_stops_at_breakpoint(
     host: str,
     warned: bool,
+    shadow: str,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -126,7 +128,7 @@ def test_debug_scripts_stops_at_breakpoint(
                 path,
                 tmpdir=tmpdir,
                 cleanup=False,
-                shellcmd="snakemake --cores 1 --debug-scripts",
+                shellcmd=f"snakemake --cores 1 --debug-scripts --config shadow={shadow}",
                 timeout=TIMEOUT,
             )
             frame = client.result(TIMEOUT)

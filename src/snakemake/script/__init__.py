@@ -426,24 +426,24 @@ class PythonScript(ScriptBase):
             ) from e
         host = os.environ.get("SNAKEMAKE_DEBUGPY_HOST", "127.0.0.1")
         port = int(os.environ.get("SNAKEMAKE_DEBUGPY_PORT", "5678"))
-        if not _is_loopback(host):
-            logger.warning(
-                f"--debug-scripts: debugpy listens on {host}:{port}, which is reachable "
-                "from other machines. Anyone who can connect can execute arbitrary code "
-                "as your user. Prefer 127.0.0.1 and an SSH tunnel for remote debugging."
-            )
         src = self._debug_source_path()
         debugpy_dir = os.path.dirname(os.path.dirname(debugpy.__file__))
-        logger.info(
+        message = (
             f"Rule {self.run_args.job_rule.name} (jobid {self.run_args.jobid}) is paused, waiting for a debugger to attach.\n"
             f"    Script to set breakpoints in: {src}\n"
             f"    Attach your IDE's Python debugger (debugpy) to {host}:{port} to continue.\n"
             f"    The job resumes once a debugger is attached; press Ctrl-C to abort."
         )
+        if not _is_loopback(host):
+            message += (
+                f"\nWarning: debugpy listens on {host}:{port}, which is reachable "
+                "from other machines. Anyone who can connect can execute arbitrary code "
+                "as your user. Prefer 127.0.0.1 and an SSH tunnel for remote debugging."
+            )
         return (
             "from snakemake.debug_launcher import launch\n"
             f"launch({src!r}, {self._file_override!r}, {host!r}, {port}, "
-            f"{os.getpid()}, {debugpy_dir!r}, globals())\n"
+            f"{os.getpid()}, {debugpy_dir!r}, {message!r}, globals())\n"
         ).encode()
 
     def get_preamble(self):

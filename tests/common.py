@@ -3,7 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -408,13 +408,15 @@ def run(
                 ) as process:
                     try:
                         stdout, _ = process.communicate(timeout=timeout)
-                    except subprocess.TimeoutExpired:
+                    except subprocess.TimeoutExpired as e:
                         shell_process = psutil.Process(process.pid)
                         for proc in [
                             *shell_process.children(recursive=True),
                             shell_process,
                         ]:
-                            proc.kill()
+                            with suppress(psutil.NoSuchProcess):
+                                proc.kill()
+                        print((e.output or b"").decode(), file=sys.stderr)
                         raise
                 if process.returncode:
                     raise subprocess.CalledProcessError(

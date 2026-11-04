@@ -1,5 +1,6 @@
 rule hello:
     output:
         "out.txt",
+    shadow: config.get("shadow")
     script:
         "scripts/hello.py"

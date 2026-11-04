@@ -84,6 +84,7 @@ def launch(
     port: int,
     parent_pid: int,
     debugpy_dir: str,
+    message: str,
     script_globals: Dict[str, Any],
 ) -> None:
     """Wait for an IDE debugger to attach, then run the job's script.
@@ -101,6 +102,9 @@ def launch(
         debugpy_dir: Directory containing the debugpy package of the Snakemake
             environment. It is appended to ``sys.path`` so that debugpy need not
             be installed in the job's environment.
+        message: Notice printed to stderr once debugpy listens. The job's
+            stderr is used because Snakemake hides its own log messages in
+            spawned subprocess jobs.
         script_globals: Globals of the generated script, which contain the
             ``snakemake`` object defined by the preamble.
     """
@@ -110,6 +114,7 @@ def launch(
     import debugpy
 
     debugpy.listen((host, port), in_process_debug_adapter=True)
+    print(message, file=sys.stderr, flush=True)
     debugpy.wait_for_client()
     with open(src) as f:
         code = compile(f.read(), src, "exec")
