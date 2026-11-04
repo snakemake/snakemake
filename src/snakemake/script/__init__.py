@@ -16,6 +16,7 @@ import math
 import os
 import pickle
 import re
+import select
 import shlex
 import shutil
 import sys
@@ -396,6 +397,7 @@ class PythonScript(ScriptBase):
         )
 
     def edit(self) -> None:
+        """Offer a Jupyter kernel for the job, wait for Enter, then run the saved script."""
         py_exec = self._python_exec()
         probe = (
             'import importlib.util as u, json, sys; print(json.dumps(u.find_spec("ipykernel") '
@@ -418,6 +420,8 @@ class PythonScript(ScriptBase):
             "kernels",
             f"snakemake-{hashlib.sha256(workdir.encode()).hexdigest()[:8]}",
         )
+        record = self.run_args.edit_script_kernel_record
+        record.write_text(str(kernel_dir))
         kernel_dir.mkdir(parents=True, exist_ok=True)
         preamble = kernel_dir / "preamble.py"
         preamble.write_text(f"{self.get_preamble()}import os; os.chdir({workdir!r})\n")
@@ -440,9 +444,17 @@ class PythonScript(ScriptBase):
                 f"    Select the Jupyter kernel '{display_name}' in your IDE to run code from it with the job's `snakemake` object. You may need to refresh the kernel list to see the new kernel.\n\n"
                 "    Press Enter to run the saved script and finish the job; press Ctrl-C to abort."
             )
-            input()
+            if os.name == "nt":
+                input()
+            else:
+                while not select.select([sys.stdin], [], [], 0.5)[0]:
+                    if self.run_args.cancelled.is_set():
+                        raise WorkflowError("--edit-script was aborted.")
+                if not sys.stdin.readline():
+                    raise WorkflowError("--edit-script stopped: stdin was closed.")
         finally:
             shutil.rmtree(kernel_dir)
+            record.unlink()
         self.source = Path(self.local_path).read_text()
         self.evaluate()
 

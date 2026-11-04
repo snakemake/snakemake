@@ -121,12 +121,22 @@ class EnvironmentMaintenanceMixin:
     shadow_path: str | Path
     container_img_path: str | Path
     conda_env_archive_path: str | Path
+    edit_script_kernel_record: Path
     dag: Any
 
     def cleanup_shadow(self) -> None:
         if os.path.exists(self.shadow_path):
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
+
+    def cleanup_edit_script_kernel(self) -> None:
+        if not self.edit_script_kernel_record.exists():
+            return
+        kernel_dir = Path(self.edit_script_kernel_record.read_text())
+        if kernel_dir.exists():
+            shutil.rmtree(kernel_dir)
+        self.edit_script_kernel_record.unlink()
+        logger.info(f"Removed Jupyter kernel {kernel_dir} left by --edit-script.")
 
 
 class FileBackupMixin:
@@ -202,6 +212,7 @@ class PersistenceBase(
         self.source_cache = os.path.join(self.path, "source_cache")
         self.iocache_path = os.path.join(self.path, "iocache")
         self._aux_path = os.path.join(self.path, "auxiliary")
+        self.edit_script_kernel_record = self.path / "edit_script_kernel"
 
         if shadow_prefix is None:
             self.shadow_path = os.path.join(self.path, "shadow")

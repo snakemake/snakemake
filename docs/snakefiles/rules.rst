@@ -2053,6 +2053,8 @@ a notebook if execution encounters an error.
 
 .. _nbconvert: https://nbconvert.readthedocs.io/en/latest/
 
+.. _snakefiles_notebook-edit-mode:
+
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
 Let us assume you have written above rule, but the notebook does not yet exist.
 By running

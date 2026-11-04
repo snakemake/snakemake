@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Features
-
-* Added interactive Python script editor, available via the `--edit-scripts` CLI option.
-When used, job execution is paused while the user edits and runs their script using their IDE Python REPL.
 
 ## [9.27.0](https://github.com/snakemake/snakemake/compare/v9.26.1...v9.27.0) (2026-09-11)
 

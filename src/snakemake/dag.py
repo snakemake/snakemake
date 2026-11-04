@@ -3459,6 +3459,8 @@ class ScriptProcessor(DAGProcessorBase):
 
 
 class EditScriptProcessor(DAGProcessorBase):
+    """Reject --edit-script targets whose job is not a local, non-container Python script."""
+
     def process_job(self, job: Job) -> None:
         if not self.dag.is_edit_script_job(job):
             return
@@ -3473,7 +3475,7 @@ class EditScriptProcessor(DAGProcessorBase):
             )
         if language != "python":
             raise WorkflowError(
-                f"--edit-script requires a Python script, but rule {job.rule.name} has none."
+                f"--edit-script requires a Python script, but rule {job.rule.name} is not a Python `script:` rule."
             )
         if not is_local:
             raise WorkflowError(
