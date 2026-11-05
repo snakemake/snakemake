@@ -5,9 +5,10 @@ import sys
 import threading
 import time
 from functools import partial
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict
 
 PARENT_PID_ENVVAR = "SNAKEMAKE_DEBUG_PARENT_PID"
+MIN_PYTHON = (3, 9)
 
 
 def _wait_posix(parent_pid: int) -> None:
@@ -88,7 +89,6 @@ def launch(
     debugpy_dir: str,
     message: str,
     script_globals: Dict[str, Any],
-    min_python: Tuple[int, ...],
 ) -> None:
     """Wait for an IDE debugger to attach, then run the job's script.
 
@@ -110,17 +110,15 @@ def launch(
             spawned subprocess jobs.
         script_globals: Globals of the generated script, which contain the
             ``snakemake`` object defined by the preamble.
-        min_python: Oldest Python version that the debugpy of the Snakemake
-            environment supports, from its ``Requires-Python`` metadata.
 
     Raises:
-        RuntimeError: If the job's Python is older than ``min_python``.
+        RuntimeError: If the job's Python is older than ``MIN_PYTHON``.
     """
-    if sys.version_info < min_python:
+    if sys.version_info < MIN_PYTHON:
         raise RuntimeError(
-            f"--debug-scripts requires Python {'.'.join(map(str, min_python))} or newer "
-            f"in the job's environment, because the debugpy installed with Snakemake "
-            f"does not support older versions. The job runs Python {sys.version.split()[0]}."
+            f"--debug-scripts requires Python {'.'.join(map(str, MIN_PYTHON))} or newer "
+            f"in the job's environment, because debugpy does not support older versions. "
+            f"The job runs Python {sys.version.split()[0]}."
         )
     _start_watchdog(parent_pid)
     os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
@@ -132,4 +130,5 @@ def launch(
     debugpy.wait_for_client()
     with open(src, encoding="utf-8") as f:
         code = compile(f.read(), src, "exec")
-    exec(code, {**script_globals, "__file__": file_override})
+    script_globals["__file__"] = file_override
+    exec(code, script_globals)

@@ -1,4 +1,11 @@
+import pickle
 greeting = "hello"
-message = greeting + "\n"
+
+
+def add_newline(text):
+    return text + "\n"
+
+
+message = pickle.loads(pickle.dumps(add_newline))(greeting)
 with open(snakemake.output[0], "w") as f:
     f.write(message)

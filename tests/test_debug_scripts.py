@@ -14,7 +14,7 @@ import pytest
 
 from snakemake import api
 from snakemake.api import ApiError
-from snakemake.debug_launcher import launch
+from snakemake import debug_launcher
 from snakemake.settings import types as settings
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -207,9 +207,12 @@ def test_debug_flags_reject_multicore_execution(setting: str, option: str) -> No
             )
 
 
-def test_debug_launcher_rejects_job_python_older_than_debugpy_supports() -> None:
-    min_python = (sys.version_info.major, sys.version_info.minor + 1)
+def test_debug_launcher_rejects_job_python_older_than_debugpy_supports(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    newer = (sys.version_info.major, sys.version_info.minor + 1)
+    monkeypatch.setattr(debug_launcher, "MIN_PYTHON", newer)
     with pytest.raises(
         RuntimeError, match=r"^--debug-scripts requires Python \d+\.\d+ or newer"
     ):
-        launch("", "", "127.0.0.1", 0, os.getpid(), "", "", {}, min_python)
+        debug_launcher.launch("", "", "127.0.0.1", 0, os.getpid(), "", "", {})
