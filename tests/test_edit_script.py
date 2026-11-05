@@ -39,8 +39,13 @@ def snakemake_kernels() -> list[str]:
 
 
 @pytest.fixture
+def target() -> str:
+    return OUT
+
+
+@pytest.fixture
 def paused_job(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, target: str
 ) -> Iterator[tuple[subprocess.Popen, int, Path]]:
     import pty
 
@@ -48,7 +53,7 @@ def paused_job(
     with prepare_tmpdir(dpath("test_edit_script")) as tmpdir:
         terminal, stdin = pty.openpty()
         process = subprocess.Popen(
-            [sys.executable, "-m", "snakemake", "-c1", "--edit-script", OUT],
+            [sys.executable, "-m", "snakemake", "-c1", "--edit-script", target],
             cwd=tmpdir,
             stdin=stdin,
             stdout=subprocess.DEVNULL,
@@ -86,6 +91,19 @@ def test_edit_script_offers_kernel_then_runs_saved_script(
     assert process.wait(timeout=TIMEOUT) == 0
     assert "".join(outputs).split() == [OUT, os.path.realpath(tmpdir), str(script)]
     assert ((tmpdir / OUT).read_text(), snakemake_kernels()) == ("edited\n", [])
+
+
+@skip_on_windows
+@pytest.mark.parametrize("target", ["shadow.txt"])
+def test_edit_script_pauses_shadow_job(
+    paused_job: tuple[subprocess.Popen, int, Path],
+) -> None:
+    """A shadow job pauses for editing in the main process, then writes its output."""
+    process, terminal, tmpdir = paused_job
+    os.write(terminal, b"\n")
+
+    assert process.wait(timeout=TIMEOUT) == 0
+    assert (tmpdir / "shadow.txt").read_text() == "hello\n"
 
 
 @skip_on_windows
@@ -154,3 +172,21 @@ def test_edit_script_rejects_invalid_setup(
                 executor=executor,
                 execution_settings=settings.ExecutionSettings(edit_script=True),
             )
+
+
+def test_unlock_rejects_invalid_kernel_record() -> None:
+    """--unlock refuses to delete a path that is not a Snakemake kernel directory."""
+    with prepare_tmpdir(dpath("test_edit_script")) as tmpdir:
+        record = Path(tmpdir, ".snakemake", "edit_script_kernel")
+        record.parent.mkdir()
+        record.write_text("")
+        result = subprocess.run(
+            [sys.executable, "-m", "snakemake", "--unlock"],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert "Refusing to remove '.'" in result.stderr
+        assert (record.exists(), Path(tmpdir, "Snakefile").exists()) == (True, True)

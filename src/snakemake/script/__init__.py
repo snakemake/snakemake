@@ -446,6 +446,8 @@ class PythonScript(ScriptBase):
             )
             if os.name == "nt":
                 input()
+                if self.run_args.cancelled.is_set():
+                    raise WorkflowError("--edit-script was aborted.")
             else:
                 while not select.select([sys.stdin], [], [], 0.5)[0]:
                     if self.run_args.cancelled.is_set():

@@ -5,6 +5,15 @@ rule hello:
         "scripts/hello.py"
 
 
+rule shadow:
+    output:
+        "shadow.txt",
+    shadow:
+        "minimal"
+    script:
+        "scripts/hello.py"
+
+
 rule shell:
     output:
         "shell.txt",

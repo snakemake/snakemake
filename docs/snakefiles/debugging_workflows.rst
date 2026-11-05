@@ -189,5 +189,6 @@ Snakemake registers a Jupyter kernel for the job, which you select in your IDE t
 Use ``# %%`` comments to split your script into cells that you can run separately.
 When you are happy with your script, save it and press Enter in the terminal running Snakemake to run it and finish the job.
 Press Ctrl-C instead to abort: the job fails and the script does not run.
+On Windows, press Enter after Ctrl-C to complete the abort.
 Either way, Snakemake removes the kernel again.
 If Snakemake is killed while the job is paused, the kernel stays registered; run ``snakemake --unlock`` to remove it together with the stale lock.

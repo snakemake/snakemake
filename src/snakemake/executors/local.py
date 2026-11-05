@@ -174,6 +174,7 @@ class Executor(RealExecutor):
             self.use_threads
             or (not job.is_shadow and not job.is_run)
             or job.is_template_engine
+            or self.dag.is_edit_script_job(job)
         ):
             future = self.pool.submit(
                 self.cached_or_run, job, run_wrapper, self.job_args_and_prepare(job)

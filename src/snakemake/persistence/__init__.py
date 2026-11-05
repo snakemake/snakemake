@@ -133,6 +133,15 @@ class EnvironmentMaintenanceMixin:
         if not self.edit_script_kernel_record.exists():
             return
         kernel_dir = Path(self.edit_script_kernel_record.read_text())
+        if not (
+            kernel_dir.is_absolute()
+            and kernel_dir.parent.name == "kernels"
+            and kernel_dir.name.startswith("snakemake-")
+        ):
+            raise snakemake.exceptions.WorkflowError(
+                f"Refusing to remove {str(kernel_dir)!r} recorded by --edit-script: "
+                f"it is not a Snakemake Jupyter kernel directory. Delete {self.edit_script_kernel_record} and retry."
+            )
         if kernel_dir.exists():
             shutil.rmtree(kernel_dir)
         self.edit_script_kernel_record.unlink()
