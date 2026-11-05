@@ -550,6 +550,9 @@ class _IOFile(AnnotatedStringFormatMixin, str):
         return (
             await self.exists_local()
             and not os.access(self.file, os.W_OK)
+            # os.access also fails for a missing file, and the cached
+            # existence above may be stale, so check the filesystem again
+            and os.path.exists(self.file)
             and not os.path.islink(self.file)
         )
 

@@ -233,3 +233,31 @@ def test_annotated_string_format_raises_on_storage_flag():
         # AnnotatedString has no apply_wildcards(), so it must not get the _IOFile-
         # specific message that points users to it.
         assert "apply_wildcards" not in str(e)
+
+
+def test_iofile_protected_ignores_stale_exists_cache(tmp_path):
+    import asyncio
+    from types import SimpleNamespace
+
+    from snakemake.io import IOCache
+    from snakemake.pathvars import Pathvars
+
+    cache = IOCache(max_wait_time=0)
+    rule = SimpleNamespace(pathvars=Pathvars(), workflow=SimpleNamespace(iocache=cache))
+    path = tmp_path / "output.txt"
+    path.write_text("example")
+    f = IOFile(str(path), rule=rule)
+
+    async def check():
+        # caches that the file exists
+        assert await f.exists_local()
+        path.chmod(0o444)
+        assert await f.protected()
+        path.chmod(0o644)
+        assert not await f.protected()
+        path.unlink()
+        # the cache still says the file exists, but a missing file is not protected
+        assert await f.exists_local()
+        assert not await f.protected()
+
+    asyncio.run(check())
