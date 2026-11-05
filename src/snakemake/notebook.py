@@ -270,7 +270,7 @@ class MarimoNotebook(PythonScript):
         fd.write(source_with_preamble.encode())
 
     def execute_script(self, fname, edit=None):
-        fname_out = self.log.get("notebook", None)
+        fname_out = self.run_args.log.get("notebook", None)
         if fname_out is not None:
             if not fname_out.endswith(".html"):
                 raise ValueError(
