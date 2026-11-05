@@ -250,6 +250,8 @@ glpk = ">=5.0,<6"
 pandoc = ">=3.6.3,<4"
 packaging = ">=26.1,<27"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 docutils = ">=0.20,<0.23"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
+filelock = ">=3.17.0,<4"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
+python-dateutil = ">=2.8.2,<3"  # work around https://pixi.sh/latest/concepts/conda_pypi/#pinned-package-conflicts
 
 [tool.pixi.feature.test.target.linux-64.pypi-dependencies]
 snakemake-storage-plugin-xrootd = "*"
