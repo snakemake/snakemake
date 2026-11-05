@@ -1,0 +1,22 @@
+module a:
+    snakefile: "a.smk"
+
+
+use rule * from a as a_*
+use rule A from a as a1_* with:
+    output:
+        touch("a1")
+
+
+assert a.checkpoints.A.rule.output == checkpoints.a_A.rule.output == ['a']
+assert a.checkpoints.B.rule.output ==  checkpoints.a_B.rule.output == ['b']
+assert a.checkpoints.a_A.rule.output == ['c']  # not the same
+assert checkpoints.a1_A.rule.output == ['a1']
+
+
+use rule A from a as a_* with:
+    output:
+        touch("A")
+
+
+assert a.checkpoints.A.rule.output == checkpoints.a_A.rule.output == ['A']

@@ -1761,6 +1761,10 @@ def test_module_checkpoint():
     run(dpath("test_module_checkpoint"))
 
 
+def test_module_checkpoint_overwrite():
+    run(dpath("test_module_checkpoint_overwrite"), check_results=False)
+
+
 def test_uncreatable_checkpoint_input():
     run(dpath("test_uncreatable_checkpoint_input"))
 
@@ -2187,6 +2191,11 @@ def test_module_nested():
         executor="dryrun",
         check_results=False,
     )
+
+
+@skip_on_windows  # used `cat` and `echo`
+def test_module_reuse():
+    run(dpath("test_module_reuse"))
 
 
 def test_modules_all_exclude_1():
