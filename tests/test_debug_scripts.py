@@ -14,6 +14,7 @@ import pytest
 
 from snakemake import api
 from snakemake.api import ApiError
+from snakemake.debug_launcher import launch
 from snakemake.settings import types as settings
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -105,6 +106,13 @@ def connections(process: psutil.Process) -> list:
     return []
 
 
+def exited(process: psutil.Process) -> bool:
+    try:
+        return process.status() == psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
+        return True
+
+
 def listens_on(process: psutil.Process, port: int) -> bool:
     return any(
         conn.status == psutil.CONN_LISTEN and conn.laddr.port == port
@@ -169,9 +177,8 @@ def test_debug_scripts_job_exits_when_snakemake_is_killed(
             finally:
                 snakemake.kill()
             process.wait()
-            _, alive = psutil.wait_procs(jobs, timeout=TIMEOUT)
+            wait_until(lambda: all(map(exited, jobs)))
 
-    assert alive == []
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", port))
 
@@ -198,3 +205,11 @@ def test_debug_flags_reject_multicore_execution(setting: str, option: str) -> No
                 executor="local",
                 execution_settings=settings.ExecutionSettings(**{setting: True}),
             )
+
+
+def test_debug_launcher_rejects_job_python_older_than_debugpy_supports() -> None:
+    min_python = (sys.version_info.major, sys.version_info.minor + 1)
+    with pytest.raises(
+        RuntimeError, match=r"^--debug-scripts requires Python \d+\.\d+ or newer"
+    ):
+        launch("", "", "127.0.0.1", 0, os.getpid(), "", "", {}, min_python)

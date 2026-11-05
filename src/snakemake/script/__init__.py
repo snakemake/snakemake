@@ -21,12 +21,16 @@ import socket
 import sys
 import tempfile
 import textwrap
+from importlib.metadata import metadata
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
 from pathlib import Path
 from typing import List, Pattern, Tuple
 from urllib.error import URLError
+
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 from snakemake import iocontainers
 from snakemake.iocontainers import Snakemake
@@ -385,6 +389,12 @@ def _is_loopback(host: str) -> bool:
     )
 
 
+def _debugpy_min_python() -> Tuple[int, ...]:
+    requires_python = SpecifierSet(metadata("debugpy")["Requires-Python"])
+    floors = [Version(s.version).release for s in requires_python if s.operator == ">="]
+    return max(floors, default=())
+
+
 class PythonScript(ScriptBase):
 
     @staticmethod
@@ -430,6 +440,7 @@ class PythonScript(ScriptBase):
         src = self._debug_source_path()
         parent_pid = int(os.environ.get(PARENT_PID_ENVVAR, os.getpid()))
         debugpy_dir = os.path.dirname(os.path.dirname(debugpy.__file__))
+        min_python = _debugpy_min_python()
         message = (
             f"Rule {self.run_args.job_rule.name} (jobid {self.run_args.jobid}) is paused, waiting for a debugger to attach.\n"
             f"    Script to set breakpoints in: {src}\n"
@@ -445,7 +456,7 @@ class PythonScript(ScriptBase):
         return (
             "from snakemake.debug_launcher import launch\n"
             f"launch({src!r}, {self._file_override!r}, {host!r}, {port}, "
-            f"{parent_pid}, {debugpy_dir!r}, {message!r}, globals())\n"
+            f"{parent_pid}, {debugpy_dir!r}, {message!r}, globals(), {min_python!r})\n"
         ).encode()
 
     def get_preamble(self):
