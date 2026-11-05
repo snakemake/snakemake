@@ -237,6 +237,7 @@ def test_annotated_string_format_raises_on_storage_flag():
 
 def test_iofile_protected_ignores_stale_exists_cache(tmp_path):
     import asyncio
+    import os
     from types import SimpleNamespace
 
     from snakemake.io import IOCache
@@ -252,12 +253,45 @@ def test_iofile_protected_ignores_stale_exists_cache(tmp_path):
         # caches that the file exists
         assert await f.exists_local()
         path.chmod(0o444)
-        assert await f.protected()
+        # root can write read-only files, so only check this if writes are blocked
+        if not os.access(path, os.W_OK):
+            assert await f.protected()
         path.chmod(0o644)
         assert not await f.protected()
         path.unlink()
         # the cache still says the file exists, but a missing file is not protected
         assert await f.exists_local()
         assert not await f.protected()
+
+    asyncio.run(check())
+
+
+def test_iofile_protected_raises_on_stat_error(tmp_path):
+    import asyncio
+    import errno
+    import os
+    from types import SimpleNamespace
+    from unittest import mock
+
+    import pytest
+
+    from snakemake.io import IOCache
+    from snakemake.pathvars import Pathvars
+
+    cache = IOCache(max_wait_time=0)
+    rule = SimpleNamespace(pathvars=Pathvars(), workflow=SimpleNamespace(iocache=cache))
+    path = tmp_path / "output.txt"
+    path.write_text("example")
+    f = IOFile(str(path), rule=rule)
+
+    async def check():
+        assert await f.exists_local()
+        # an I/O error must not be mistaken for a missing (unprotected) file
+        with (
+            mock.patch("os.access", return_value=False),
+            mock.patch("os.stat", side_effect=OSError(errno.EIO, "I/O error")),
+        ):
+            with pytest.raises(OSError):
+                await f.protected()
 
     asyncio.run(check())

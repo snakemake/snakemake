@@ -547,14 +547,17 @@ class _IOFile(AnnotatedStringFormatMixin, str):
     async def protected(self):
         """Returns True if the file is protected. Always False for symlinks."""
         # symlinks are never regarded as protected
-        return (
-            await self.exists_local()
-            and not os.access(self.file, os.W_OK)
-            # os.access also fails for a missing file, and the cached
-            # existence above may be stale, so check the filesystem again
-            and os.path.exists(self.file)
-            and not os.path.islink(self.file)
-        )
+        if not await self.exists_local() or os.access(self.file, os.W_OK):
+            return False
+        # os.access also fails for a missing file, and the cached existence
+        # above may be stale, so check the filesystem again. Only treat the
+        # file as gone if it is really missing; other errors (e.g. EIO) are
+        # raised so that a protected file is never deleted by mistake.
+        try:
+            os.stat(self.file)
+        except FileNotFoundError:
+            return False
+        return not os.path.islink(self.file)
 
     async def mtime(self):
         assert self.rule is not None
