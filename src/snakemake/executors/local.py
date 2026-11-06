@@ -23,6 +23,7 @@ import sys
 import time
 import shlex
 import concurrent.futures
+import threading
 import subprocess
 from functools import partial
 from snakemake.executors import change_working_directory
@@ -79,6 +80,7 @@ class Executor(RealExecutor):
         workers = cores + 5 if cores is not None else 5
         self.workers = workers
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
+        self.cancelled = threading.Event()
 
     def get_exec_mode(self):
         return ExecMode.SUBPROCESS
@@ -152,6 +154,9 @@ class Executor(RealExecutor):
                 if self.dag.is_edit_notebook_job(job)
                 else None
             ),
+            edit_script=self.dag.is_edit_script_job(job),
+            cancelled=self.cancelled,
+            edit_script_kernel_record=self.workflow.persistence.edit_script_kernel_record,
             basedir=job.rule.basedir,
             cache_path=self.workflow.sourcecache.cache_path,
             runtime_cache_path=self.workflow.sourcecache.runtime_cache_path,
@@ -169,6 +174,7 @@ class Executor(RealExecutor):
             self.use_threads
             or (not job.is_shadow and not job.is_run)
             or job.is_template_engine
+            or self.dag.is_edit_script_job(job)
         ):
             future = self.pool.submit(
                 self.cached_or_run, job, run_wrapper, self.job_args_and_prepare(job)
@@ -251,6 +257,7 @@ class Executor(RealExecutor):
         self.pool.shutdown()
 
     def cancel(self):
+        self.cancelled.set()
         self.pool.shutdown()
 
     def _callback(self, job_info: SubmittedJobInfo, future):
@@ -296,6 +303,9 @@ class RunArgs:
     shadow_dir: Path
     jobid: Union[int, str]
     edit_notebook: Optional[NotebookEditMode]
+    edit_script: bool
+    cancelled: threading.Event
+    edit_script_kernel_record: Path
     basedir: SourceFile
     cache_path: Path
     runtime_cache_path: Path

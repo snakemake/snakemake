@@ -121,6 +121,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_incomplete: bool = False
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
+    edit_script: bool = False
     cleanup_scripts: bool = True
     queue_input_wait_time: int = 10
 

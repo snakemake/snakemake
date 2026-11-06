@@ -169,3 +169,26 @@ Preserving wrapper scripts
 
 Snakemake produces a series of wrapper scripts for rules using the ``script`` directive (default location ``.snakemake/scripts/``). 
 Normally, these are deleted after each run. For debugging purposes, you can disable this behavior by running snakemake with the ``--skip-script-cleanup`` flag.
+
+
+Interactive editing
+-------------------
+
+You can pause a job to edit its Python script or Jupyter notebook interactively, with the rule properties available as attributes of the ``snakemake`` object.
+When you continue, the job runs the most recent saved version of the script or notebook.
+Interactive editing requires local execution with one core (``--cores 1``) and a local script or notebook.
+
+To edit notebooks, use ``--edit-notebook <output-file>``, as described in :ref:`editing notebooks <snakefiles_notebook-edit-mode>`.
+
+Editing scripts
+^^^^^^^^^^^^^^^
+
+Use the ``--edit-script <output-file>`` option to pause the Python script job that generates ``<output-file>``.
+The job's Python environment needs ``ipykernel`` installed, and your IDE needs to support Jupyter kernels.
+Snakemake registers a Jupyter kernel for the job, which you select in your IDE to run parts of your script or all of it.
+Use ``# %%`` comments to split your script into cells that you can run separately.
+When you are happy with your script, save it and press Enter in the terminal running Snakemake to run it and finish the job.
+Snakemake reads Enter from its standard input, so it refuses to pause when its input is not a terminal. On Windows, Git Bash gives Snakemake a pipe instead of a terminal, so run Snakemake from PowerShell or Command Prompt.
+Press Ctrl-C instead to abort: the job fails and the script does not run.
+Either way, Snakemake removes the kernel again.
+If Snakemake is killed while the job is paused, the kernel stays registered; run ``snakemake --unlock`` to remove it together with the stale lock.

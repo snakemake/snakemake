@@ -611,6 +611,15 @@ class DAGApi(ApiBase):
                     )
                 # clean up all previously recorded jobids.
                 shell.cleanup()
+                if (
+                    execution_settings.edit_script
+                    and pseudo_executor is None
+                    and not sys.stdin.isatty()
+                ):
+                    raise ApiError(
+                        "--edit-script waits for Enter on stdin, which has to be a terminal, but stdin is a pipe or a file. "
+                        "On Windows, Git Bash connects stdin through a pipe, so run Snakemake from PowerShell or Command Prompt instead."
+                    )
             else:
                 # set cores if that is not done yet
                 if self.workflow_api.resource_settings.cores is None:
@@ -621,6 +630,14 @@ class DAGApi(ApiBase):
             ):
                 raise ApiError(
                     "debug mode cannot be used with multi-core execution, "
+                    "please enforce a single core by setting --cores 1"
+                )
+            if (
+                execution_settings.edit_script
+                and self.workflow_api.resource_settings.cores > 1
+            ):
+                raise ApiError(
+                    "--edit-script cannot be used with multi-core execution, "
                     "please enforce a single core by setting --cores 1"
                 )
         else:
@@ -639,6 +656,8 @@ class DAGApi(ApiBase):
                 raise ApiError(
                     "notebook edit mode is only allowed with local execution."
                 )
+            if execution_settings.edit_script:
+                raise ApiError("--edit-script is only allowed with local execution.")
             if execution_settings.debug:
                 raise ApiError("debug mode cannot be used with non-local execution")
 

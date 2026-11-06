@@ -1,0 +1,37 @@
+rule hello:
+    output:
+        "out.txt",
+    script:
+        "scripts/hello.py"
+
+
+rule shadow:
+    output:
+        "shadow.txt",
+    shadow:
+        "minimal"
+    script:
+        "scripts/hello.py"
+
+
+rule shell:
+    output:
+        "shell.txt",
+    shell:
+        "touch {output}"
+
+
+rule remote:
+    output:
+        "remote.txt",
+    script:
+        config.get("remote_script", "scripts/hello.py")
+
+
+rule container:
+    output:
+        "container.txt",
+    container:
+        "docker://python:3.13-slim"
+    script:
+        "scripts/hello.py"

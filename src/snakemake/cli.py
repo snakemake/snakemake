@@ -1038,15 +1038,16 @@ def get_argument_parser(profiles=None, with_plugins: bool = True):
     )
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
+    group_edit = group_notebooks.add_mutually_exclusive_group()
 
-    group_notebooks.add_argument(
+    group_edit.add_argument(
         "--draft-notebook",
         metavar="TARGET",
         help="Draft a skeleton notebook for the rule used to generate the given target file. This notebook "
         "can then be opened in a jupyter server, executed and implemented until ready. After saving, it "
         "will automatically be reused in non-interactive mode by Snakemake for subsequent jobs.",
     )
-    group_notebooks.add_argument(
+    group_edit.add_argument(
         "--edit-notebook",
         metavar="TARGET",
         help="Interactively edit the notebook associated with the rule used to generate the given target file. "
@@ -1055,6 +1056,15 @@ def get_argument_parser(profiles=None, with_plugins: bool = True):
         "closing the notebook and hitting the `Quit` button on the jupyter dashboard. "
         "Afterwards, the updated notebook will be automatically stored in the path defined in the rule. "
         "If the notebook is not yet present, this will create an empty draft. ",
+    )
+    group_edit.add_argument(
+        "--edit-script",
+        metavar="TARGET",
+        help="Pause the Python script job that generates the given target file, and "
+        "offer IDEs a Jupyter kernel with the job's `snakemake` object, such that the "
+        "script can be developed interactively. Requires ipykernel in the job's "
+        "environment. Pressing Enter runs the saved script and finishes the job; "
+        "Ctrl-C aborts it. Requires a terminal on stdin and `--cores 1`.",
     )
     group_notebooks.add_argument(
         "--notebook-listen",
@@ -1224,7 +1234,10 @@ def get_argument_parser(profiles=None, with_plugins: bool = True):
         help="Don't delete wrapper scripts used for execution",
     )
     group_utils.add_argument(
-        "--unlock", action="store_true", help="Remove a lock on the working directory."
+        "--unlock",
+        action="store_true",
+        help="Remove a lock on the working directory, and any Jupyter kernel left "
+        "by an `--edit-script` run that was killed.",
     )
     group_utils.add_argument(
         "--list-changes",
@@ -1985,6 +1998,9 @@ def parse_edit_notebook(args):
         args.targets = {args.edit_notebook}
         args.force = True
         edit_notebook = NotebookEditMode(args.notebook_listen)
+    elif args.edit_script:
+        args.targets = {args.edit_script}
+        args.force = True
     return edit_notebook
 
 
@@ -2316,6 +2332,7 @@ def args_to_api(args, parser):
                                 keep_incomplete=args.keep_incomplete,
                                 keep_metadata=not args.drop_metadata,
                                 edit_notebook=edit_notebook,
+                                edit_script=args.edit_script is not None,
                                 cleanup_scripts=not args.skip_script_cleanup,
                                 queue_input_wait_time=args.queue_input_wait_time,
                             ),

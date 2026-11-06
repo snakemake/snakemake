@@ -131,6 +131,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
             ScriptProcessor(self),
             WrapperProcessor(self),
             NotebookProcessor(self),
+            EditScriptProcessor(self),
         ]
         self._deferred_temp_jobs = []
         self._queue_input_jobs = None
@@ -333,7 +334,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     def cleanup_workdir(self):
         for job in self.jobs:
-            if not self.is_edit_notebook_job(job):
+            if not (self.is_edit_notebook_job(job) or self.is_edit_script_job(job)):
                 for io_dir in set(
                     os.path.dirname(io_file)
                     for io_file in chain(job.output, job.input)
@@ -548,6 +549,13 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         return (
             self.workflow.execution_settings is not None
             and self.workflow.execution_settings.edit_notebook
+            and job.targetfile in self.targetfiles
+        )
+
+    def is_edit_script_job(self, job: Job) -> bool:
+        return (
+            self.workflow.execution_settings is not None
+            and self.workflow.execution_settings.edit_script
             and job.targetfile in self.targetfiles
         )
 
@@ -3448,6 +3456,38 @@ class ScriptProcessor(DAGProcessorBase):
                     f"{self.script_type.capitalize()} {job.rule.script} not accessible. "
                     "Please check the path to the script."
                 )
+
+
+class EditScriptProcessor(DAGProcessorBase):
+    """Reject --edit-script targets whose job is not a local, non-container Python script."""
+
+    def process_job(self, job: Job) -> None:
+        if not self.dag.is_edit_script_job(job):
+            return
+        language, is_local = None, False
+        if job.is_script:
+            _, _, language, is_local, _ = script.get_source(
+                job.rule.script,
+                self.dag.workflow.sourcecache,
+                job.rule.basedir,
+                job.wildcards,
+                job.params,
+            )
+        if language != "python":
+            raise WorkflowError(
+                f"--edit-script requires a Python script, but rule {job.rule.name} is not a Python `script:` rule."
+            )
+        if not is_local:
+            raise WorkflowError(
+                f"--edit-script requires a local script, but script {job.rule.script} of rule {job.rule.name} is remote."
+            )
+        if (
+            job.software_env_spec is not None
+            and job.software_env_spec.kind == "container"
+        ):
+            raise WorkflowError(
+                f"--edit-script does not support container jobs, but rule {job.rule.name} runs in a container."
+            )
 
 
 class NotebookProcessor(ScriptProcessor):

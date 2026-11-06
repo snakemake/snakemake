@@ -9,6 +9,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+import hashlib
 import itertools
 import json
 import math
@@ -16,9 +17,11 @@ import os
 import pickle
 import re
 import shlex
+import shutil
 import sys
 import tempfile
 import textwrap
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
@@ -393,6 +396,71 @@ class PythonScript(ScriptBase):
             file_override=repr(file_override)
         )
 
+    def edit(self) -> None:
+        """Offer a Jupyter kernel for the job, wait for Enter, then run the saved script."""
+        py_exec = self._python_exec()
+        probe = (
+            'import importlib.util as u, json, sys; print(json.dumps(u.find_spec("ipykernel") '
+            'and [sys.executable, __import__("jupyter_core.paths").paths.jupyter_data_dir()]))'
+        )
+        environment = json.loads(
+            self._execute_cmd(
+                "{py_exec} -c {probe:q}", py_exec=py_exec, probe=probe, read=True
+            )
+        )
+        if environment is None:
+            raise WorkflowError(
+                f"Editing a script requires ipykernel in the job's Python environment ({py_exec})."
+            )
+        python, data_dir = environment
+        workdir = os.getcwd()
+        display_name = f"Snakemake: {os.path.basename(workdir)}"
+        kernel_dir = Path(
+            data_dir,
+            "kernels",
+            f"snakemake-{hashlib.sha256(workdir.encode()).hexdigest()[:8]}",
+        )
+        record = self.run_args.edit_script_kernel_record
+        record.write_text(str(kernel_dir))
+        kernel_dir.mkdir(parents=True, exist_ok=True)
+        preamble = kernel_dir / "preamble.py"
+        preamble.write_text(f"{self.get_preamble()}import os; os.chdir({workdir!r})\n")
+        load = f"__file__ = {str(preamble)!r}; exec(compile(open(__file__).read(), __file__, 'exec'))"
+        argv = [python, "-m", "ipykernel_launcher", "-f", "{connection_file}"]
+        (kernel_dir / "kernel.json").write_text(
+            json.dumps(
+                {
+                    "argv": [*argv, f"--IPKernelApp.exec_lines={load}"],
+                    "display_name": display_name,
+                    "language": "python",
+                    "metadata": {"debugger": True},
+                }
+            )
+        )
+        try:
+            logger.info(
+                f"Rule {self.run_args.job_rule.name} (jobid {self.run_args.jobid}) is paused for editing.\n"
+                f"    Script to edit: {self.local_path}\n"
+                f"    Select the Jupyter kernel '{display_name}' in your IDE to run code from it with the job's `snakemake` object. You may need to refresh the kernel list to see the new kernel.\n\n"
+                "    Press Enter to run the saved script and finish the job; press Ctrl-C to abort."
+            )
+            line: List[str] = []
+            reader = threading.Thread(
+                target=lambda: line.append(sys.stdin.readline()), daemon=True
+            )
+            reader.start()
+            while reader.is_alive() and not self.run_args.cancelled.is_set():
+                reader.join(0.5)
+            if self.run_args.cancelled.is_set():
+                raise WorkflowError("--edit-script was aborted.")
+            if not line or not line[0]:
+                raise WorkflowError("--edit-script stopped: stdin was closed.")
+        finally:
+            shutil.rmtree(kernel_dir)
+            record.unlink()
+        self.source = Path(self.local_path).read_text()
+        self.evaluate()
+
     def get_preamble(self):
         snakemake = Snakemake(
             input_=self.run_args.input,
@@ -476,7 +544,7 @@ class PythonScript(ScriptBase):
                 f"Unable to determine Python version from output '{out}': {e}"
             )
 
-    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
+    def _python_exec(self) -> str:
         py_exec = sys.executable
         if self.run_args.software_env is not None:
             if self.run_args.software_env.spec.kind == "container":
@@ -503,9 +571,15 @@ class PythonScript(ScriptBase):
             # use forward slashes so script command still works even if
             # bash is configured as executable on Windows
             py_exec = py_exec.replace("\\", "/")
+        return py_exec
+
+    def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         # use the same Python as the running process or the one from the environment
         self._execute_cmd(
-            "{py_exec} {fname:q}", py_exec=py_exec, fname=fname, is_python_script=True
+            "{py_exec} {fname:q}",
+            py_exec=self._python_exec(),
+            fname=fname,
+            is_python_script=True,
         )
 
 
@@ -1089,4 +1163,7 @@ def script(
         run_args=run_args,
         config=config,
     )
-    executor.evaluate()
+    if run_args.edit_script:
+        executor.edit()
+    else:
+        executor.evaluate()

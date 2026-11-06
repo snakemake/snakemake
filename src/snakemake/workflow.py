@@ -1009,6 +1009,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         try:
             self.persistence.cleanup_locks()
+            self.persistence.cleanup_edit_script_kernel()
             logger.info("Unlocked working directory.")
         except IOError as e:
             raise WorkflowError(
