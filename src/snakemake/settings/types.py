@@ -1,5 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
+from fractions import Fraction
 from functools import cached_property
 from pathlib import Path
 import re
@@ -58,7 +59,7 @@ class NotebookEditMode:
 
 
 class MaxJobsPerTimespan:
-    arg_re = re.compile(r"(?P<count>\d+)/(?P<timespan>\d+(h|m|s|ms|w|d))")
+    arg_re = re.compile(r"(?P<count>\d+(\.\d+)?)/(?P<timespan>\d+(ms|s|m|h|d|w))")
 
     def __init__(self, max_jobs: int, timespan: Optional[str] = None):
         import humanfriendly
@@ -71,17 +72,19 @@ class MaxJobsPerTimespan:
 
     @classmethod
     def parse_choice(cls, arg: str):
-        m = cls.arg_re.match(arg)
+        m = cls.arg_re.fullmatch(arg)
         if m is None:
             raise WorkflowError(
                 "Invalid max jobs per timespan definition. "
-                "Must be of the form <max_jobs>/<timespan> with <max_jobs> being an "
-                "integer, and <timespan> being an integer with "
-                f"unit h, m, s ms, w, d. Given instead: {arg}"
+                "Must be of the form <max_jobs>/<timespan> with <max_jobs> being a "
+                "number (e.g. 2 or 0.5), and <timespan> being an integer with "
+                f"unit ms, s, m, h, d, w. Given instead: {arg}"
             )
-        max_jobs, timespan = m.group("count"), m.group("timespan")
-        max_jobs = int(max_jobs)
-        return cls(max_jobs, timespan=timespan)
+        max_jobs = Fraction(m.group("count"))
+        limit = cls(max_jobs.numerator, timespan=m.group("timespan"))
+        # The rate limiter counts whole jobs, so 0.5/1s becomes 1 job per 2s
+        limit.timespan *= max_jobs.denominator
+        return limit
 
 
 @dataclass
@@ -260,6 +263,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         cache_prefix: Optional[Path] = None,
         pinfile_prefix: Optional[Path] = None,
         not_block_search_path_envvars: bool = False,
+        with_pkgs: AnySet[str] = frozenset(),
+        workflow_with_pkgs: AnySet[str] = frozenset(),
     ) -> None:
         super().__init__()
         self.deployment_methods: AnySet[str] = deployment_methods
@@ -269,6 +274,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         self.cache_prefix: Path = cache_prefix or Path(".snakemake/software/cache")
         self.pinfile_prefix: Path = pinfile_prefix or Path(".snakemake/software/pins")
         self.not_block_search_path_envvars: bool = not_block_search_path_envvars
+        self.with_pkgs: AnySet[str] = with_pkgs
+        self.workflow_with_pkgs: AnySet[str] = workflow_with_pkgs
 
     def deployment_method(self) -> AnySet[str]:
         return self.deployment_methods

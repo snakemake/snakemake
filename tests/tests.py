@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import hashlib
 import os
 import shutil
 import sys
@@ -15,9 +16,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from snakemake.exceptions import ResourceConversionError
 from snakemake.exceptions import ResourceDuplicationError
+from snakemake.io import _IOFile
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
 from snakemake.resources import GroupResources, is_ordinary_string, Resources
+from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
 from snakemake.settings.types import Batch
@@ -394,6 +397,46 @@ def test_params_outdated_metadata(mocker, tmp_path, backend, PersistenceClass):
 
     assert spy.call_count > 0, f"has_outdated_metadata was not called for {backend}!"
     assert spy.spy_return == True
+
+
+@pytest.mark.parametrize(
+    "backend, PersistenceClass",
+    [
+        (PersistenceBackend.FILE, FilePersistence),
+        (PersistenceBackend.DB, DbPersistence),
+    ],
+)
+def test_github_issue4240(mocker, tmp_path, backend, PersistenceClass):
+    """Input checksums are computed once per job, not once per output file,
+    while every output record still carries the checksums of all eligible inputs
+    """
+    spy = mocker.spy(_IOFile, "checksum")
+    write_spy = mocker.spy(PersistenceClass, "_write_record")
+    run(
+        dpath("test_github_issue4240"),
+        persistence_backend=backend,
+        persistence_backend_db_url=(
+            f"sqlite:///{tmp_path / 'metadata.db'}"
+            if backend == PersistenceBackend.DB
+            else None
+        ),
+    )
+    # big.txt exceeds the checksum size threshold: it is still checked once,
+    # but no checksum is recorded for it
+    calls = sorted(os.path.basename(call.args[0]) for call in spy.call_args_list)
+    assert calls == ["big.txt", "in0.txt", "in1.txt", "in2.txt"]
+
+    expected = {
+        f"in{i}.txt": "sha256:"
+        + hashlib.sha256(
+            (Path(dpath("test_github_issue4240")) / f"in{i}.txt").read_bytes()
+        ).hexdigest()
+        for i in range(3)
+    }
+    records = {call.args[1]: call.args[2] for call in write_spy.call_args_list}
+    assert sorted(records) == ["big.txt", "out0.txt", "out1.txt", "out2.txt"]
+    for out in ["out0.txt", "out1.txt", "out2.txt"]:
+        assert records[out].input_checksums == expected
 
 
 def test_persistence_backend_db_run_directive_concurrency(tmp_path):
@@ -2983,6 +3026,47 @@ def test_update_flag():
     run(dpath("test_update_flag"))
 
 
+def _record_db_sizes(monkeypatch):
+    """Record the size of db.txt handed to the job selector, per rule."""
+    seen = set()
+    job_selector = JobScheduler.job_selector
+
+    def recording_job_selector(self, jobs):
+        """Select jobs and record the db.txt sizes handed to the selector."""
+        selected = job_selector(self, jobs)
+        seen.update(
+            (job.rule.name, self._input_sizes[f])
+            for job in jobs
+            if not job.is_group()
+            for f in job.input
+            if os.path.basename(f) == "db.txt"
+        )
+        return selected
+
+    monkeypatch.setattr(JobScheduler, "job_selector", recording_job_selector)
+    return seen
+
+
+@skip_on_windows  # OS agnostic
+def test_input_sizes_update_flag(monkeypatch):
+    """Input sizes cached for job prioritization are measured again
+    once a job has updated the file
+    """
+    seen = _record_db_sizes(monkeypatch)
+    run(dpath("test_input_sizes_update_flag"))
+    assert seen == {("before", 3), ("after", 6)}
+
+
+@skip_on_windows
+def test_input_sizes_update_flag_group(monkeypatch):
+    """Same as test_input_sizes_update_flag, with the file updated and consumed
+    within a group job, hence not part of the group's outputs
+    """
+    seen = _record_db_sizes(monkeypatch)
+    run(dpath("test_input_sizes_update_flag_group"), cluster="./qsub")
+    assert seen == {("before", 3), ("after", 6)}
+
+
 @skip_on_windows  # OS agnostic
 def test_list_input_changes():
     run(dpath("test01"), shellcmd="snakemake --list-input-changes", check_results=False)
@@ -3005,6 +3089,16 @@ def test_storage_cleanup_local():
 @skip_on_windows
 def test_group_temp():
     run(dpath("test_group_temp"), cluster="./qsub")
+
+
+@skip_on_windows
+def test_group_temp_notemp():
+    # --notemp has to reach the group job, which handles group-internal temp files
+    run(
+        dpath("test_group_temp_notemp"),
+        shellcmd="snakemake --executor cluster-generic "
+        "--cluster-generic-submit-cmd ./qsub --jobs 1 --notemp",
+    )
 
 
 @skip_on_windows  # OS agnostic
