@@ -1,3 +1,4 @@
+import hashlib
 from itertools import chain
 import threading
 import sys
@@ -121,6 +122,9 @@ class RuntimeDependencyManager:
                 self._prefixes[PackageType.WORKFLOW],
                 prior_env_packages,
                 prior_global_packages,
+                # workflow specific packages have to be separated by their hash to avoid conflicts
+                # between workflows and between different profiles of the same workflow
+                separate_by_hash=True,
             )
         except sp.CalledProcessError as e:
             # try to solve together as a fallback
@@ -150,6 +154,7 @@ class RuntimeDependencyManager:
         packages: Iterable[Requirement],
         prefix: Path,
         *prior_package_sets: Set[Requirement],
+        separate_by_hash: bool = False,
     ) -> None:
         """Deploys the runtime dependencies for the given package type, optionally
         considering additional packages (e.g. plugin packages when deploying
@@ -159,6 +164,9 @@ class RuntimeDependencyManager:
         if not packages:
             # no packages requested, stop early
             return
+
+        if separate_by_hash:
+            prefix = prefix / hash_packages(packages)
 
         prior_packages = {}
         for pkg_set in prior_package_sets:
@@ -214,6 +222,9 @@ class RuntimeDependencyManager:
                     )
                     # explicitly install the determined versions of the requested
                     # packages under the prefix
+                    if prefix.exists():
+                        # clean up old versions
+                        shutil.rmtree(prefix)
                     sp.run(
                         [
                             self.uv_exec,
@@ -304,3 +315,11 @@ def is_editable() -> Path | None:
     direct_url = Distribution.from_name("snakemake").read_text("direct_url.json")
     dir_info = json.loads(direct_url).get("dir_info", {})
     return dir_info.get("editable", False)
+
+
+def hash_packages(packages: Iterable[Requirement]) -> str:
+    """Generates a hash for the given set of packages."""
+    m = hashlib.sha256()
+    for pkg in sorted(packages, key=str):
+        m.update(str(pkg).encode())
+    return m.hexdigest()

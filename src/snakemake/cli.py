@@ -1778,7 +1778,7 @@ def get_argument_parser(
         "--software-deployment-prefix",
         "--sdm-prefix",
         metavar="DIR",
-        default=DeploymentSettings().deployment_prefix,
+        default=DeploymentSettings.DEFAULT_DEPLOYMENT_PREFIX,
         type=maybe_base64(expandvars(Path)),
         help="Specify a directory under which Snakemake shall deploy software "
         "environments. "
@@ -1980,7 +1980,7 @@ def parse_args(argv):
 
     if deploy_runtime_dependencies:
         runtime_dep_manager = RuntimeDependencyManager(
-            pre_args.software_deployment_prefix
+            pre_args.software_deployment_prefix,
         )
         runtime_dep_manager.add_global_packages(*pre_args.with_pkgs)
         runtime_dep_manager.add_workflow_packages(*pre_args.workflow_with_pkgs)
