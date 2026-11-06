@@ -3,7 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -21,6 +21,7 @@ from typing import Any, List, Mapping
 import urllib
 import urllib.request
 import urllib.error
+import psutil
 import pytest
 import glob
 import subprocess
@@ -264,6 +265,7 @@ def run(
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd: str | None = None,
     sigint_after: float | None = None,
+    timeout: float | None = None,
     overwrite_resource_scopes=None,
     executor="local",
     executor_settings=None,
@@ -341,6 +343,8 @@ def run(
         subprocess.
     sigint_after
         If not None, send a SIGINT signal after this many seconds.
+    timeout
+        If not None, fail if the shell command runs longer than this many seconds.
     tmpdir
         Temporary directory to run in. If None one will be created automatically.
     no_tmpdir
@@ -404,17 +408,35 @@ def run(
         if not shellcmd.startswith("snakemake"):
             raise ValueError("shellcmd does not start with snakemake")
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+        assert (
+            timeout is None or sigint_after is None
+        ), "Cannot combine timeout and SIGINT"
         try:
             if sigint_after is None:
-                res = subprocess.run(
+                with subprocess.Popen(
                     shellcmd,
                     cwd=path if no_tmpdir else tmpdir,
-                    check=True,
                     shell=True,
                     stderr=subprocess.STDOUT,
                     stdout=subprocess.PIPE,
-                )
-                print(res.stdout.decode())
+                ) as process:
+                    try:
+                        stdout, _ = process.communicate(timeout=timeout)
+                    except subprocess.TimeoutExpired as e:
+                        shell_process = psutil.Process(process.pid)
+                        for proc in [
+                            *shell_process.children(recursive=True),
+                            shell_process,
+                        ]:
+                            with suppress(psutil.NoSuchProcess):
+                                proc.kill()
+                        print((e.output or b"").decode(), file=sys.stderr)
+                        raise
+                if process.returncode:
+                    raise subprocess.CalledProcessError(
+                        process.returncode, shellcmd, stdout
+                    )
+                print(stdout.decode())
                 success = True
             else:
                 with subprocess.Popen(
@@ -435,6 +457,7 @@ def run(
 
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
+        assert timeout is None, "Cannot apply a timeout when calling directly"
 
         if cluster is not None:
             executor = "cluster-generic"

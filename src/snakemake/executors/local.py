@@ -26,6 +26,7 @@ import concurrent.futures
 import subprocess
 from functools import partial
 from snakemake.executors import change_working_directory
+from snakemake.debug_launcher import PARENT_PID_ENVVAR
 
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -94,7 +95,16 @@ class Executor(RealExecutor):
         return sys.executable
 
     def additional_general_args(self):
-        return "--quiet progress rules host"
+        settings = self.workflow.execution_settings
+        debug_flags = [
+            flag
+            for flag, enabled in (
+                ("--debug", settings.debug),
+                ("--debug-scripts", settings.debug_scripts),
+            )
+            if enabled
+        ]
+        return " ".join(["--quiet progress rules host", *debug_flags])
 
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)}"
@@ -126,7 +136,11 @@ class Executor(RealExecutor):
         self.workflow.async_run(job.prepare())
 
         benchmark = None
-        benchmark_repeats = job.benchmark_repeats or 1
+        benchmark_repeats = (
+            1
+            if self.workflow.execution_settings.debug_scripts
+            else job.benchmark_repeats or 1
+        )
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
@@ -144,6 +158,7 @@ class Executor(RealExecutor):
             benchmark_extended=self.workflow.output_settings.benchmark_extended,
             linemaps=self.workflow.linemaps,
             debug=self.workflow.execution_settings.debug,
+            debug_scripts=self.workflow.execution_settings.debug_scripts,
             cleanup_scripts=self.workflow.execution_settings.cleanup_scripts,
             shadow_dir=job.shadow_dir,
             jobid=job.jobid,
@@ -220,8 +235,13 @@ class Executor(RealExecutor):
         cmd = self.format_job_exec(job)
         logger.debug(f"spawned job: {cmd}")
 
+        env = (
+            os.environ | {PARENT_PID_ENVVAR: str(os.getpid())}
+            if self.workflow.execution_settings.debug_scripts
+            else None
+        )
         try:
-            subprocess.check_call(cmd, shell=True)
+            subprocess.check_call(cmd, shell=True, env=env)
         except subprocess.CalledProcessError:
             raise SpawnedJobError()
 
@@ -292,6 +312,7 @@ class RunArgs:
     benchmark_extended: bool
     linemaps: Dict[str, Dict[int, int]]
     debug: bool
+    debug_scripts: bool
     cleanup_scripts: bool
     shadow_dir: Path
     jobid: Union[int, str]
