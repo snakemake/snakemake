@@ -617,7 +617,8 @@ class DAGApi(ApiBase):
                     and not sys.stdin.isatty()
                 ):
                     raise ApiError(
-                        "--edit-script waits for Enter on stdin, which has to be a terminal."
+                        "--edit-script waits for Enter on stdin, which has to be a terminal, but stdin is a pipe or a file. "
+                        "On Windows, Git Bash connects stdin through a pipe, so run Snakemake from PowerShell or Command Prompt instead."
                     )
             else:
                 # set cores if that is not done yet

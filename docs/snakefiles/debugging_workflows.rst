@@ -188,6 +188,7 @@ The job's Python environment needs ``ipykernel`` installed, and your IDE needs t
 Snakemake registers a Jupyter kernel for the job, which you select in your IDE to run parts of your script or all of it.
 Use ``# %%`` comments to split your script into cells that you can run separately.
 When you are happy with your script, save it and press Enter in the terminal running Snakemake to run it and finish the job.
+Snakemake reads Enter from its standard input, so it refuses to pause when its input is not a terminal. On Windows, Git Bash gives Snakemake a pipe instead of a terminal, so run Snakemake from PowerShell or Command Prompt.
 Press Ctrl-C instead to abort: the job fails and the script does not run.
 Either way, Snakemake removes the kernel again.
 If Snakemake is killed while the job is paused, the kernel stays registered; run ``snakemake --unlock`` to remove it together with the stale lock.
