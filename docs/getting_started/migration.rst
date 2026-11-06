@@ -25,7 +25,8 @@ The plugins are separate packages and have to be installed into the same environ
     pip install snakemake-software-deployment-plugin-container snakemake-software-deployment-plugin-conda
 
 The options ``--apptainer-prefix`` and ``--apptainer-args`` (and their aliases ``--singularity-prefix`` and ``--singularity-args``) have been removed.
-Apptainer and udocker store pulled images under the software deployment prefixes (``--sdm-prefix`` and ``--sdm-cache-prefix``) instead.
+udocker stores pulled images below ``--sdm-prefix``.
+Apptainer stores the pulled image file below the software deployment prefixes, but also keeps its own image cache, which defaults to ``~/.apptainer/cache`` and can be moved via ``APPTAINER_CACHEDIR``.
 Arguments for the container runtime cannot be passed via Snakemake anymore.
 With Apptainer, options can be set via environment variables instead, e.g. ``APPTAINER_CLEANENV=1`` instead of ``--cleanenv``.
 
