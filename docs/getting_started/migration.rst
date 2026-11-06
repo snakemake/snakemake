@@ -27,8 +27,8 @@ The plugins are separate packages and have to be installed into the same environ
 The options ``--apptainer-prefix`` and ``--apptainer-args`` (and their aliases ``--singularity-prefix`` and ``--singularity-args``) have been removed.
 udocker stores pulled images below ``--sdm-prefix``.
 Apptainer stores the pulled image file below the software deployment prefixes, but also keeps its own image cache, which defaults to ``~/.apptainer/cache`` and can be moved via ``APPTAINER_CACHEDIR``.
-Arguments for the container runtime cannot be passed via Snakemake anymore.
-With Apptainer, options can be set via environment variables instead, e.g. ``APPTAINER_CLEANENV=1`` instead of ``--cleanenv``.
+The container plugin does not pass arbitrary arguments to the container runtime, it only offers dedicated settings such as additional mount points (``--sdm-container-mountpoints``).
+Apptainer options without such a setting can be set via environment variables instead, e.g. ``APPTAINER_CLEANENV=1`` instead of ``--cleanenv``.
 
 Migrating to Snakemake 9
 ------------------------
