@@ -105,6 +105,7 @@ class RuntimeDependencyManager:
                 self._packages[PackageType.GLOBAL].values(),
                 self._prefixes[PackageType.GLOBAL],
                 prior_env_packages,
+                separate_by_hash=False,
             )
         except sp.CalledProcessError as e:
             raise WorkflowError(
