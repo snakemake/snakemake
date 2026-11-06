@@ -222,12 +222,35 @@ class RuntimeDependencyManager:
                         f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}",
                         file=sys.stderr,
                     )
+                    # remove old packages that are not needed anymore.
+                    # get all packages in the prefix and remove those that are not in the dryrun result
+                    sp.run(
+                        [
+                            self.uv_exec,
+                            "pip",
+                            "uninstall",
+                            "-y",
+                            "--target",
+                            str(prefix),
+                            "--python",
+                            sys.executable,
+                        ]
+                        + [
+                            str(pkg)
+                            for pkg in self.get_packages_in_prefix(prefix)
+                            if pkg not in posterior_packages
+                        ],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    # install the new packages that are needed according to the dryrun result
                     sp.run(
                         [
                             self.uv_exec,
                             "pip",
                             "install",
-                            "--no-deps",
+                            "--no-deps",  # we have an explicitl list, the rest is in the prior packages
                             "--target",
                             str(prefix),
                             "--python",
