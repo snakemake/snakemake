@@ -87,6 +87,11 @@ Persistence
 """""""""""
 The `Persistence` class (`snakemake/persistence.py <https://github.com/snakemake/snakemake/blob/main/src/snakemake/persistence.py>`__) manages the persistent storage of metadata and provenance information. The `Persistence` class interacts with the `Workflow` and `DAG` classes to manage workflow state.
 
+Each output file gets a ``MetadataRecord`` (``snakemake/persistence/__init__.py``).
+The file backend stores it as JSON, and the DB backend (``snakemake/persistence/db.py``) maps its fields to table columns.
+Adding or changing a field of ``MetadataRecord`` or of one of the ORM classes in ``db.py`` therefore needs a step in ``DbPersistence._migrate_schema`` that upgrades existing databases.
+``test_persistence_backend_db_schema_migration`` in ``tests/tests.py`` fails if a column is missing after upgrading a database written by Snakemake 9.x.
+
 Scheduler
 """""""""
 The `Scheduler` class (`snakemake/scheduler.py <https://github.com/snakemake/snakemake/blob/main/src/snakemake/scheduler.py>`__) is responsible for scheduling jobs for execution. It uses the DAG to determine the order of job execution, taking into account resource constraints and job priorities. The `Scheduler` class interacts with the `Workflow`, `DAG`, and `Rule` classes to manage job scheduling.
