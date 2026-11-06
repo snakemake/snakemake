@@ -136,6 +136,7 @@ class RuntimeDependencyManager:
                     ),
                     self._prefixes[PackageType.WORKFLOW],
                     prior_env_packages,
+                    separate_by_hash=True,
                 )
             except sp.CalledProcessError as e2:
                 raise WorkflowError(
