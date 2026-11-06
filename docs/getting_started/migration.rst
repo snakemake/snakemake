@@ -11,6 +11,13 @@ Sometimes, new features are added that do not require, but make it strongly advi
 
 Below are migration hints for particular Snakemake versions.
 
+Migrating to Snakemake 10
+-------------------------
+
+Software deployment is now handled by plugins.
+The former built-in ``apptainer`` deployment method is replaced by the ``container`` plugin, which supports several container runtimes.
+Use ``--software-deployment-method container --sdm-container-runtime apptainer`` (or ``--sdm container --sdm-container-runtime apptainer``) where you used ``--software-deployment-method apptainer`` before, and ``--sdm conda container --sdm-container-runtime apptainer`` instead of ``--sdm conda apptainer``.
+
 Migrating to Snakemake 9
 ------------------------
 
@@ -49,7 +56,7 @@ The command line interface of Snakemake 8 has a lot of new options which are bes
 Moreover, some options have been renamed:
 
 * All the execution backends have been moved into plugins. When you used e.g. ``--kubernetes`` and corresponding options before, you should now use ``--executor kubernetes`` and check the `Snakemake plugin catalog <https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/kubernetes.html>`_ for the new options. The same holds for all other execution backends, see `here <https://snakemake.github.io/snakemake-plugin-catalog/index.html>`__.
-* The ``--use-conda`` and ``--use-singularity`` options are deprecated. Instead you should now use ``--software-deployment-method conda`` or ``--software-deployment-method container --sdm-container-runtime apptainer`` or ``--software-deployment-method conda container --sdm-container-runtime apptainer`` if you need both.
+* The ``--use-conda`` and ``--use-singularity`` options are deprecated. Instead you should now use ``--software-deployment-method conda`` or ``--software-deployment-method apptainer`` or ``--software-deployment-method conda apptainer`` if you need both.
 * There is a new executor plugin for `Google Cloud Batch <https://cloud.google.com/batch/docs/get-started>`_.
   This is meant as a replacement for the old Google Life Sciences executor. 
   The new executor is called ``googlebatch`` and can be used with ``--executor googlebatch``. 

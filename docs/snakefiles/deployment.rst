@@ -719,7 +719,7 @@ Unified software directive (``software:``)
 
 .. note::
 
-   The ``software:`` directive is available starting with Snakemake 9.x.
+   The ``software:`` directive is available starting with Snakemake 10.x.
    It provides a unified, composable way to specify software environments,
    superseding the separate ``conda:``, ``container:``, and ``envmodules:``
    directives.
@@ -736,7 +736,7 @@ Activate plugins via the CLI:
 .. code-block:: bash
 
     snakemake --sdm conda
-    snakemake --sdm conda container --sdm-container-runtime apptainer
+    snakemake --sdm conda container
     snakemake --sdm conda container envmodules
 
 Basic usage
@@ -804,7 +804,7 @@ a container:
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
-When executed with ``--sdm conda container --sdm-container-runtime apptainer``, Snakemake will:
+When executed with ``--sdm conda container``, Snakemake will:
 
 1. Pull the container image
 2. Create the conda environment from inside the container
