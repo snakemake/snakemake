@@ -950,7 +950,7 @@ class BashScript(ScriptBase):
 class XonshScript(PythonScript):
     def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd(
-            "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",
+            "xonsh -DXONSH_SUBPROC_CMD_RAISE_ERROR=true {fname:q}",
             fname=fname,
         )
 
