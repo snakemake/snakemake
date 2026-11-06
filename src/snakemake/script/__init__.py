@@ -16,12 +16,12 @@ import math
 import os
 import pickle
 import re
-import select
 import shlex
 import shutil
 import sys
 import tempfile
 import textwrap
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
@@ -444,16 +444,17 @@ class PythonScript(ScriptBase):
                 f"    Select the Jupyter kernel '{display_name}' in your IDE to run code from it with the job's `snakemake` object. You may need to refresh the kernel list to see the new kernel.\n\n"
                 "    Press Enter to run the saved script and finish the job; press Ctrl-C to abort."
             )
-            if os.name == "nt":
-                input()
-                if self.run_args.cancelled.is_set():
-                    raise WorkflowError("--edit-script was aborted.")
-            else:
-                while not select.select([sys.stdin], [], [], 0.5)[0]:
-                    if self.run_args.cancelled.is_set():
-                        raise WorkflowError("--edit-script was aborted.")
-                if not sys.stdin.readline():
-                    raise WorkflowError("--edit-script stopped: stdin was closed.")
+            line: List[str] = []
+            reader = threading.Thread(
+                target=lambda: line.append(sys.stdin.readline()), daemon=True
+            )
+            reader.start()
+            while reader.is_alive() and not self.run_args.cancelled.is_set():
+                reader.join(0.5)
+            if self.run_args.cancelled.is_set():
+                raise WorkflowError("--edit-script was aborted.")
+            if not line or not line[0]:
+                raise WorkflowError("--edit-script stopped: stdin was closed.")
         finally:
             shutil.rmtree(kernel_dir)
             record.unlink()

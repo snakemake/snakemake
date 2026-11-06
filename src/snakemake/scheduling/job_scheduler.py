@@ -232,10 +232,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             while True:
                 if self.workflow.dag.queue_input_jobs:
                     self.update_queue_input_jobs()
-                # work around so that the wait does not prevent keyboard interrupts
-                # while not self._open_jobs.acquire(False):
-                #    time.sleep(1)
-                self._open_jobs.acquire()
+                while not self._open_jobs.acquire(timeout=0.5):
+                    pass
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
