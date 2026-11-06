@@ -1,0 +1,15 @@
+shell.executable("bash")
+
+
+rule all:
+    input:
+        expand("test.{i}.out", i=range(2)),
+
+
+rule a:
+    output:
+        "test.{i}.out",
+    software:
+        conda(envfile="environment.yaml")
+    script:
+        "run_numpy.py"
