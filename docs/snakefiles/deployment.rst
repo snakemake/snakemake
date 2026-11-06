@@ -461,9 +461,9 @@ When executing Snakemake with
 
 .. code-block:: bash
 
-    snakemake --software-deployment-method apptainer
+    snakemake --software-deployment-method container --sdm-container-runtime apptainer
     # or the shorthand version
-    snakemake --sdm apptainer
+    snakemake --sdm container --sdm-container-runtime apptainer
 
 it will execute the job within a container that is spawned from the given image.
 Allowed image urls entail everything supported by apptainer (e.g., ``shub://`` and ``docker://``).
@@ -474,7 +474,7 @@ Finally it is also possible to use a callable which returns a ``str`` value and 
 
 Note that the isolation of jobs running in containers depends on the container engine.
 For example, Docker does not pass any host environment variables to the container, whereas Apptainer/Singularity passes everything.
-To override the default behaviour, consider using ``--apptainer-args`` or ``--singularity-args``, e.g. to pass ``--cleanenv``.
+To change this for Apptainer, set the corresponding environment variable before invoking Snakemake, e.g. ``APPTAINER_CLEANENV=1`` instead of passing ``--cleanenv``.
 
 Files that are mounted in ``input`` using ``workflow.source_path`` are also automatically available in the container. This is realized by mounting the snakemake cache in the container (/home/<user>/.cache/snakemake/snakemake/source-cache) where the sourced files will be cached. 
 
@@ -592,9 +592,9 @@ Then, upon invocation with
 
 .. code-block:: bash
 
-    snakemake --software-deployment-method conda apptainer
+    snakemake --software-deployment-method conda container --sdm-container-runtime apptainer
     # or the shorthand version
-    snakemake --sdm conda apptainer
+    snakemake --sdm conda container --sdm-container-runtime apptainer
 
 Snakemake will first pull the defined container image, and then create the requested conda environment from within the container.
 The conda environments will still be stored in your working environment, such that they don't have to be recreated unless they have changed.
@@ -719,7 +719,7 @@ Unified software directive (``software:``)
 
 .. note::
 
-   The ``software:`` directive is available starting with Snakemake 9.x.
+   The ``software:`` directive is available starting with Snakemake 10.x.
    It provides a unified, composable way to specify software environments,
    superseding the separate ``conda:``, ``container:``, and ``envmodules:``
    directives.
@@ -736,8 +736,8 @@ Activate plugins via the CLI:
 .. code-block:: bash
 
     snakemake --sdm conda
-    snakemake --sdm conda apptainer
-    snakemake --sdm conda apptainer envmodules
+    snakemake --sdm conda container
+    snakemake --sdm conda container envmodules
 
 Basic usage
 ~~~~~~~~~~~
@@ -800,11 +800,11 @@ a container:
             "reads.fq"
         output:
             "mapped.bam"
-        software: conda(envfile="envs/bwa.yaml", within=container(image="ubuntu:22.04"))
+        software: conda(envfile="envs/bwa.yaml", within=container(image_uri="condaforge/miniforge3:26.3.2-3"))
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
-When executed with ``--sdm conda apptainer``, Snakemake will:
+When executed with ``--sdm conda container``, Snakemake will:
 
 1. Pull the container image
 2. Create the conda environment from inside the container
@@ -852,7 +852,7 @@ Composition and fallback can be combined:
             "reads.fq"
         output:
             "mapped.bam"
-        software: envmodules("bio/bwa/0.7.9") or conda(envfile="envs/bwa.yaml", within=container(image="ubuntu:22.04"))
+        software: envmodules("bio/bwa/0.7.9") or conda(envfile="envs/bwa.yaml", within=container(image_uri="condaforge/miniforge3:26.3.2-3"))
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
@@ -877,7 +877,7 @@ Additional plugins may be provided by the community.
 Plugin arguments:
 
 * ``conda(envfile=..., directory=..., name=..., pinfile=..., within=...)``
-* ``container(image=..., within=...)``
+* ``container(image_uri=..., within=...)``
 * ``envmodules(*names, within=...)``
 
 All factory functions accept the ``within`` keyword for composition.
@@ -887,16 +887,16 @@ Migration from legacy directives
 
 The legacy directives continue to work. To migrate:
 
-+-----------------------------------+---------------------------------------------------------------+
-| Legacy                            | New                                                           |
-+===================================+===============================================================+
-| ``conda: "env.yaml"``             | ``software: conda(envfile="env.yaml")``                       |
-+-----------------------------------+---------------------------------------------------------------+
-| ``container: "docker://img"``     | ``software: container(image="docker://img")``                 |
-+-----------------------------------+---------------------------------------------------------------+
-| ``envmodules: "m1", "m2"``        | ``software: envmodules("m1", "m2")``                          |
-+-----------------------------------+---------------------------------------------------------------+
-| ``conda:`` + ``container:``       | ``software: conda(envfile=..., within=container(image=...))`` |
-+-----------------------------------+---------------------------------------------------------------+
-| ``envmodules:`` + ``conda:``      | ``software: envmodules(...) or conda(envfile=...)``           |
-+-----------------------------------+---------------------------------------------------------------+
++-----------------------------------+-------------------------------------------------------------------+
+| Legacy                            | New                                                               |
++===================================+===================================================================+
+| ``conda: "env.yaml"``             | ``software: conda(envfile="env.yaml")``                           |
++-----------------------------------+-------------------------------------------------------------------+
+| ``container: "docker://img"``     | ``software: container(image_uri="docker://img")``                 |
++-----------------------------------+-------------------------------------------------------------------+
+| ``envmodules: "m1", "m2"``        | ``software: envmodules("m1", "m2")``                              |
++-----------------------------------+-------------------------------------------------------------------+
+| ``conda:`` + ``container:``       | ``software: conda(envfile=..., within=container(image_uri=...))`` |
++-----------------------------------+-------------------------------------------------------------------+
+| ``envmodules:`` + ``conda:``      | ``software: envmodules(...) or conda(envfile=...)``               |
++-----------------------------------+-------------------------------------------------------------------+
