@@ -474,7 +474,7 @@ Finally it is also possible to use a callable which returns a ``str`` value and 
 
 Note that the isolation of jobs running in containers depends on the container engine.
 For example, Docker does not pass any host environment variables to the container, whereas Apptainer/Singularity passes everything.
-To override the default behaviour, consider using ``--apptainer-args`` or ``--singularity-args``, e.g. to pass ``--cleanenv``.
+To change this for Apptainer, set the corresponding environment variable before invoking Snakemake, e.g. ``APPTAINER_CLEANENV=1`` instead of passing ``--cleanenv``.
 
 Files that are mounted in ``input`` using ``workflow.source_path`` are also automatically available in the container. This is realized by mounting the snakemake cache in the container (/home/<user>/.cache/snakemake/snakemake/source-cache) where the sourced files will be cached. 
 
@@ -800,7 +800,7 @@ a container:
             "reads.fq"
         output:
             "mapped.bam"
-        software: conda(envfile="envs/bwa.yaml", within=container(image_uri="ubuntu:22.04"))
+        software: conda(envfile="envs/bwa.yaml", within=container(image_uri="condaforge/miniforge3:26.3.2-3"))
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
@@ -852,7 +852,7 @@ Composition and fallback can be combined:
             "reads.fq"
         output:
             "mapped.bam"
-        software: envmodules("bio/bwa/0.7.9") or conda(envfile="envs/bwa.yaml", within=container(image_uri="ubuntu:22.04"))
+        software: envmodules("bio/bwa/0.7.9") or conda(envfile="envs/bwa.yaml", within=container(image_uri="condaforge/miniforge3:26.3.2-3"))
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 

@@ -18,6 +18,17 @@ Software deployment is now handled by plugins.
 The former built-in ``apptainer`` deployment method is replaced by the ``container`` plugin, which supports several container runtimes.
 Use ``--software-deployment-method container --sdm-container-runtime apptainer`` (or ``--sdm container --sdm-container-runtime apptainer``) where you used ``--software-deployment-method apptainer`` before, and ``--sdm conda container --sdm-container-runtime apptainer`` instead of ``--sdm conda apptainer``.
 
+The plugins are separate packages and have to be installed into the same environment as Snakemake, e.g.:
+
+.. code-block:: bash
+
+    pip install snakemake-software-deployment-plugin-container snakemake-software-deployment-plugin-conda
+
+The options ``--apptainer-prefix`` and ``--apptainer-args`` (and their aliases ``--singularity-prefix`` and ``--singularity-args``) have been removed.
+Apptainer and udocker store pulled images under the software deployment prefixes (``--sdm-prefix`` and ``--sdm-cache-prefix``) instead.
+Arguments for the container runtime cannot be passed via Snakemake anymore.
+With Apptainer, options can be set via environment variables instead, e.g. ``APPTAINER_CLEANENV=1`` instead of ``--cleanenv``.
+
 Migrating to Snakemake 9
 ------------------------
 
