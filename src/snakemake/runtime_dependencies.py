@@ -222,11 +222,6 @@ class RuntimeDependencyManager:
                         f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}",
                         file=sys.stderr,
                     )
-                    # explicitly install the determined versions of the requested
-                    # packages under the prefix
-                    if prefix.exists():
-                        # clean up old versions
-                        shutil.rmtree(prefix)
                     sp.run(
                         [
                             self.uv_exec,
