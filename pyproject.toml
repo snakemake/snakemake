@@ -42,7 +42,7 @@ dependencies = [
   "jsonschema",
   "nbformat",
   "packaging >=26.1,<27",
-  "psutil>=6",
+  "psutil",
   "pulp>=2.3.1,<3.4",
   "pyyaml",
   "referencing",
@@ -245,6 +245,7 @@ snakemake-software-deployment-plugin-conda = ">=0.8.7,<1.0.0"
 snakemake-software-deployment-plugin-container = ">=0.7.5,<1.0.0"
 snakemake-software-deployment-plugin-envmodules = ">=0.2.0,<1.0.0"
 yappi = "*"
+psutil = ">=6"
 
 [tool.pixi.feature.test.dependencies]
 graphviz = ">=12.2.1,<13"

@@ -19,7 +19,8 @@ from snakemake.settings import types as settings
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from .common import dpath, prepare_tmpdir, run
+from .common import apptainer, connected, dpath, prepare_tmpdir, run
+from .conftest import skip_on_windows
 
 TIMEOUT = 60
 
@@ -147,8 +148,10 @@ def test_debug_scripts_stops_at_breakpoint(
                 timeout=TIMEOUT,
             )
             frame = client.result(TIMEOUT)
+        benchmark_rows = (Path(tmpdir) / "bench.tsv").read_text().splitlines()[1:]
 
     assert (Path(frame["source"]["path"]), frame["line"]) == (source, 2)
+    assert len(benchmark_rows) == 1
     assert ("reachable from other machines" in capsys.readouterr().out) == warned
 
 
@@ -216,3 +219,21 @@ def test_debug_launcher_rejects_job_python_older_than_debugpy_supports(
         RuntimeError, match=r"^--debug-scripts requires Python \d+\.\d+ or newer"
     ):
         debug_launcher.launch("", "", "127.0.0.1", 0, os.getpid(), "", "", {})
+
+
+@skip_on_windows
+@connected
+@apptainer
+def test_debug_scripts_rejects_container_jobs(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run(
+        dpath("test_debug_scripts"),
+        shouldfail=True,
+        shellcmd="snakemake --cores 1 --debug-scripts --sdm container --sdm-container-runtime apptainer container.txt",
+        timeout=TIMEOUT,
+    )
+
+    assert "--debug-scripts does not support jobs that run in a container" in (
+        capsys.readouterr().out
+    )

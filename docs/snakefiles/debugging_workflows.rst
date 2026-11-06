@@ -147,7 +147,8 @@ Requirements and limitations:
   However, the job's Python has to be version 3.9 or newer, because debugpy does not support older versions. A job with an older Python fails before the script runs.
 * Execution must be local and on a single core (``--cores 1``), so that only one job waits for a debugger at a time.
 * Only Python scripts and Python-based wrappers pause. Other job types, e.g. ``run:``, ``shell:``, ``notebook:`` or scripts in other languages, run as usual.
-* Jobs that run in a container (``container:`` with ``--sdm apptainer``) are not supported, because the container does not see debugpy and Snakemake from the host environment.
+* A job with ``benchmark: repeat(..., n)`` runs once instead of ``n`` times, so that it pauses only once. Its benchmark file includes the time spent waiting for the debugger and at breakpoints.
+* Jobs that run in a container (``container:`` with ``--sdm container``) are not supported, because the container does not see debugpy and Snakemake from the host environment.
 
 To debug a script:
 

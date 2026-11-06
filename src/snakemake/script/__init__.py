@@ -25,7 +25,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
 from pathlib import Path
-from typing import List, Pattern, Tuple
+from typing import IO, List, Pattern, Tuple
 from urllib.error import URLError
 
 from snakemake import iocontainers
@@ -402,7 +402,7 @@ class PythonScript(ScriptBase):
             file_override=repr(self._file_override)
         )
 
-    def write_script(self, preamble, fd):
+    def write_script(self, preamble: str, fd: IO[bytes]) -> None:
         if not self.run_args.debug_scripts:
             return super().write_script(preamble, fd)
         fd.write(preamble.encode())
@@ -418,6 +418,13 @@ class PythonScript(ScriptBase):
         return str(self.cache_path)
 
     def _debug_launcher(self) -> bytes:
+        software_env = self.run_args.software_env
+        if software_env is not None and software_env.spec.kind == "container":
+            raise WorkflowError(
+                f"--debug-scripts does not support jobs that run in a container, but rule "
+                f"{self.run_args.job_rule.name} runs in one. Run the job without "
+                "--debug-scripts, or without container deployment."
+            )
         try:
             import debugpy
         except ImportError as e:

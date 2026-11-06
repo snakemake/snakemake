@@ -136,7 +136,11 @@ class Executor(RealExecutor):
         self.workflow.async_run(job.prepare())
 
         benchmark = None
-        benchmark_repeats = job.benchmark_repeats or 1
+        benchmark_repeats = (
+            1
+            if self.workflow.execution_settings.debug_scripts
+            else job.benchmark_repeats or 1
+        )
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
 
