@@ -289,9 +289,33 @@ def test_iofile_protected_raises_on_stat_error(tmp_path):
         # an I/O error must not be mistaken for a missing (unprotected) file
         with (
             mock.patch("os.access", return_value=False),
-            mock.patch("os.stat", side_effect=OSError(errno.EIO, "I/O error")),
+            mock.patch("os.lstat", side_effect=OSError(errno.EIO, "I/O error")),
         ):
             with pytest.raises(OSError):
                 await f.protected()
+
+    asyncio.run(check())
+
+
+def test_iofile_protected_cyclic_symlink(tmp_path):
+    import asyncio
+    from types import SimpleNamespace
+
+    from snakemake.io import IOCache
+    from snakemake.pathvars import Pathvars
+
+    cache = IOCache(max_wait_time=0)
+    rule = SimpleNamespace(pathvars=Pathvars(), workflow=SimpleNamespace(iocache=cache))
+    path = tmp_path / "output.txt"
+    path.write_text("example")
+    f = IOFile(str(path), rule=rule)
+
+    async def check():
+        assert await f.exists_local()
+        # replace the cached file with a symlink that points to itself
+        path.unlink()
+        path.symlink_to(path)
+        # symlinks are never protected, even ones that cannot be followed
+        assert not await f.protected()
 
     asyncio.run(check())

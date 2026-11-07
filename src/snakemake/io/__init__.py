@@ -553,11 +553,12 @@ class _IOFile(AnnotatedStringFormatMixin, str):
         # above may be stale, so check the filesystem again. Only treat the
         # file as gone if it is really missing; other errors (e.g. EIO) are
         # raised so that a protected file is never deleted by mistake.
+        # lstat, so that a broken or cyclic symlink is reported as a symlink.
         try:
-            os.stat(self.file)
+            st = os.lstat(self.file)
         except FileNotFoundError:
             return False
-        return not os.path.islink(self.file)
+        return not stat.S_ISLNK(st.st_mode)
 
     async def mtime(self):
         assert self.rule is not None
