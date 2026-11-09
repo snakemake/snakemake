@@ -1,18 +1,20 @@
 a = 1
 
 
-rule run:
+checkpoint run:
     output:
         txt=touch("A/foo.txt"),
     shell:
         f"echo 'I was here' > {output.txt}"
 
 
+checkpoints.run
+
+
 # Reproduces #3751 (unwanted-rule filtering should not remove transitively referenced rules).
 rule ignored:
     input:
         rds=rules.run.output.txt,
-
 
 
 rule run2:

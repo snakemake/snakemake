@@ -13,14 +13,17 @@ module B:
 use rule * from B as B_*
 
 
+checkpoints.B_A_run
+
+
 use rule A_run from B as B_A_run with:
     input:
         rds="Snakefile",
 
-        
+
 use rule A_run from B as documented_run with:
     """a rule from deep module"""
-        
+
 
 assert hasattr(
     rules, "B_A_run"
