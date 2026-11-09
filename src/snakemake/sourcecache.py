@@ -270,8 +270,9 @@ class LocalGitFile(SourceFile):
         return f"git+file://{os.path.abspath(self.repo_path)}/{self.path}@{self.ref}"
 
     def join(self, path):
-        if isinstance(path, SourceFile):
-            path = path.get_path_or_uri(secret_free=False)
+        assert isinstance(
+            path, str
+        ), f"LocalGitFile.join expects a str path, got {type(path).__name__}"
         path = os.path.normpath("/".join((self.path, path)))
         if ON_WINDOWS:
             # convert back to URL separators
