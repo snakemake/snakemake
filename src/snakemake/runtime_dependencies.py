@@ -331,8 +331,10 @@ def parse_uv_pip_dry_run_output(output: str) -> Iterable[Requirement]:
             yield Requirement(pkg_str)
 
 
-def is_editable() -> Path | None:
+def is_editable() -> bool:
     direct_url = Distribution.from_name("snakemake").read_text("direct_url.json")
+    if direct_url is None:
+        return False
     dir_info = json.loads(direct_url).get("dir_info", {})
     return dir_info.get("editable", False)
 
