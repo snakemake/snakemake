@@ -3759,6 +3759,20 @@ def test_github_issue_4039_runtime_no_override():
 
 
 @skip_on_windows
+@connected
+def test_github_issue4376():
+    """Test report generation after workflow including a defined software env (conda).
+    Test for https://github.com/snakemake/snakemake/issues/4376"""
+    run(
+        dpath("test_github_issue4376"),
+        report="report.html",
+        report_after_run=True,
+        check_md5=False,
+        deployment_method={"conda"},
+    )
+
+
+@skip_on_windows
 def test_delete_temp_fs():
     outdir = run(
         dpath("test_delete_temp_fs"),
