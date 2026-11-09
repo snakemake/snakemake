@@ -9,6 +9,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+import ipaddress
 import itertools
 import json
 import math
@@ -16,6 +17,7 @@ import os
 import pickle
 import re
 import shlex
+import socket
 import sys
 import tempfile
 import textwrap
@@ -23,12 +25,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from numbers import Complex, Integral, Number, Real
 from pathlib import Path
-from typing import List, Pattern, Tuple
+from typing import IO, List, Pattern, Tuple
 from urllib.error import URLError
 
 from snakemake import iocontainers
 from snakemake.iocontainers import Snakemake
 from snakemake.common.misc import get_snakemake_searchpaths
+from snakemake.debug_launcher import PARENT_PID_ENVVAR
 from snakemake.common.constants import (
     MIN_PY_VERSION,
     ON_WINDOWS,
@@ -375,23 +378,82 @@ class ScriptBase(ABC):
         )
 
 
+def _is_loopback(host: str) -> bool:
+    return all(
+        ipaddress.ip_address(info[4][0]).is_loopback
+        for info in socket.getaddrinfo(host, None)
+    )
+
+
 class PythonScript(ScriptBase):
 
     @staticmethod
     def _minify_preamble(preamble: str) -> str:
         return textwrap.dedent(preamble).replace("\n", "")
 
-    def preamble_addendum(self) -> str:
+    @property
+    def _file_override(self) -> str:
         if isinstance(self.path, LocalSourceFile):
-            file_override = os.path.realpath(
-                self.path.get_path_or_uri(secret_free=True)
-            )
-        else:
-            file_override = self.path.get_path_or_uri(secret_free=True)
+            return os.path.realpath(self.path.get_path_or_uri(secret_free=True))
+        return self.path.get_path_or_uri(secret_free=True)
 
+    def preamble_addendum(self) -> str:
         return "__real_file__ = __file__; __file__ = {file_override};".format(
-            file_override=repr(file_override)
+            file_override=repr(self._file_override)
         )
+
+    def write_script(self, preamble: str, fd: IO[bytes]) -> None:
+        if not self.run_args.debug_scripts:
+            return super().write_script(preamble, fd)
+        fd.write(preamble.encode())
+        fd.write(self._debug_launcher())
+
+    def _debug_source_path(self) -> str:
+        if isinstance(self.path, LocalSourceFile):
+            return self._file_override
+        if self.cache_path is None or not os.path.isfile(self.cache_path):
+            raise WorkflowError(
+                f"No local copy of script {self._file_override} available for debugging."
+            )
+        return str(self.cache_path)
+
+    def _debug_launcher(self) -> bytes:
+        software_env = self.run_args.software_env
+        if software_env is not None and software_env.spec.kind == "container":
+            raise WorkflowError(
+                f"--debug-scripts does not support jobs that run in a container, but rule "
+                f"{self.run_args.job_rule.name} runs in one. Run the job without "
+                "--debug-scripts, or without container deployment."
+            )
+        try:
+            import debugpy
+        except ImportError as e:
+            raise WorkflowError(
+                "Debugging Python scripts with --debug-scripts requires debugpy to be "
+                "installed in the environment running Snakemake."
+            ) from e
+        host = os.environ.get("SNAKEMAKE_DEBUGPY_HOST", "127.0.0.1")
+        port = int(os.environ.get("SNAKEMAKE_DEBUGPY_PORT", "5678"))
+        src = self._debug_source_path()
+        parent_pid = int(os.environ.get(PARENT_PID_ENVVAR, os.getpid()))
+        debugpy_dir = os.path.dirname(os.path.dirname(debugpy.__file__))
+        message = (
+            f"Rule {self.run_args.job_rule.name} (jobid {self.run_args.jobid}) is paused, waiting for a debugger to attach.\n"
+            f"    Script to set breakpoints in: {src}\n"
+            f"    Attach your IDE's Python debugger (debugpy) to {host}:{port} to continue.\n"
+            f"    The job resumes once a debugger is attached; press Ctrl-C to abort."
+        )
+        if not _is_loopback(host):
+            message += (
+                f"\nWarning: debugpy listens on {host}:{port}, which is reachable "
+                "from other machines. Anyone who can connect can execute arbitrary code "
+                "as your user. Prefer 127.0.0.1 and an SSH tunnel for remote debugging."
+            )
+        return (
+            "from snakemake.debug_launcher import launch\n"
+            f"launch({src!r}, {self._file_override!r}, {host!r}, {port}, "
+            f"{parent_pid}, {debugpy_dir!r}, {message!r}, globals())\n"
+        ).encode()
 
     def get_preamble(self):
         snakemake = Snakemake(
@@ -948,6 +1010,8 @@ class BashScript(ScriptBase):
 
 
 class XonshScript(PythonScript):
+    write_script = ScriptBase.write_script
+
     def execute_script(self, fname, edit: Optional[NotebookEditMode] = False):
         self._execute_cmd(
             "xonsh -DRAISE_SUBPROC_ERROR=true -DXONSH_SHOW_TRACEBACK=true {fname:q}",

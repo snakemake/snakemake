@@ -1,0 +1,17 @@
+rule hello:
+    output:
+        "out.txt",
+    benchmark:
+        repeat("bench.tsv", 3)
+    shadow: config.get("shadow")
+    script:
+        "scripts/hello.py"
+
+
+rule container:
+    output:
+        "container.txt",
+    container:
+        "docker://python:3.13-slim"
+    script:
+        "scripts/hello.py"
