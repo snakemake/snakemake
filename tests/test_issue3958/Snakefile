@@ -1,0 +1,12 @@
+storage:
+    provider = "http"
+
+rule all:
+    input: 
+        "out.txt"
+
+rule test_apptainer_storage:
+    input: storage.http("http://info.cern.ch/hypertext/WWW/TheProject.html")
+    output: "out.txt"
+    container: "docker://bash"
+    shell: "head -n 2 {input} > {output}"

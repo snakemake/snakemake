@@ -27,6 +27,9 @@ following structure:
     │   ├── notebooks
     |   │   ├── notebook1.py.ipynb
     |   │   └── notebook2.r.ipynb
+    │   ├── profiles
+    |   │   └── default
+    |   │       └── profile.yaml
     │   ├── report
     |   │   ├── plot1.rst
     |   │   └── plot2.rst
@@ -83,9 +86,10 @@ Consider the following example:
     use rule * from dna_seq
 
 First, we load a local configuration file.
-Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile``, while using the contents of the local configuration file.
-Note that it is possible to either specify the full URL pointing to the raw Snakefile as a string or to use the github marker as done here.
-With the latter, Snakemake can however cache the used source files persistently (if a tag is given), such that they don't have to be downloaded on each invocation.
+Next, we define the module ``dna_seq`` to be loaded from the Github repository ``snakemake-workflows/dna-seq-gatk-variant-calling`` at tag ``v2.0.1`` and path ``workflow/Snakefile``, while using the contents of the local configuration file (see :ref:`snakefile-code-hosting-providers`).
+Note that it is also possible to provide the Snakefile as a plain HTTP/HTTPS URL string.
+As an alternative convenience syntax for hosted repositories, the same module source could also be written as ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1`` or ``gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile``.
+Because the source is pinned to a tag, Snakemake can cache the used source files persistently, such that they don't have to be downloaded on each invocation.
 Finally we declare all rules of the dna_seq module to be used.
 
 This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
@@ -242,6 +246,41 @@ Therefore, the repository structure should comply with:
 Integrated Package Management
 -----------------------------
 
+Auxiliary packages for Snakemake and workflows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``--with-pkgs`` and ``--workflow-with-pkgs`` options let Snakemake automatically install auxiliary Python packages using pip-compatible package specifications.
+Use ``--with-pkgs`` for packages needed by Snakemake itself, such as executor or storage plugins.
+These packages are installed in an auxiliary environment in the user's cache and can be shared across workflows.
+
+Use ``--workflow-with-pkgs`` for packages specific to a workflow, including libraries needed by the workflow code outside of rules.
+For example, a workflow can use ``pandas`` to parse a configuration sheet when the Snakefile is evaluated.
+These packages are installed in the software deployment prefix (``--software-deployment-prefix``) and kept separate for different profiles via a hash of the requested packages.
+Packages needed by jobs inside rules should instead be specified in rule-specific environments, for example with the ``software`` directive.
+
+Both options can be set on the command line, but we recommend persisting them in profiles: put ``with-pkgs`` in a :ref:`global profile <global-profiles>` and ``workflow-with-pkgs`` in a :ref:`workflow-specific profile <workflow-specific-profile>`.
+For example, a global profile can contain:
+
+.. code-block:: yaml
+
+    with-pkgs:
+      - snakemake-executor-plugin-slurm ==2.8.0
+
+The workflow-specific profile can then contain:
+
+.. code-block:: yaml
+
+    workflow-with-pkgs:
+      - pandas >=3.1.1,<4.0
+
+Snakemake deploys the packages automatically when the workflow is run.
+It is recommended to always specify a concrete pinned version (for global packages) or version range (for workflow-specific packages).
+This allows to enforce updates by changing the profile.
+When using remote execution (like with SLURM) the respective global plugin packages should have a pinned version because they need to remain consistent between nodes.
+
+Per-rule software deployment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 It is possible (and highly encouraged, see :ref:`snakefiles-best_practices`) to define isolated software environments per rule.
 Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root privileges.
 Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--software-deployment-method conda`` option (``--sdm`` for short) to your workflow execution command, e.g. ``snakemake --cores 8 --sdm conda``.
@@ -370,6 +409,19 @@ Importantly, if the script relies on certain shell specific syntax, (e.g. `set -
     # ...
 
 If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
+
+Also, make sure that you do not accidentally inherit any environment variables that set installation paths.
+This can for example be the case if you set up ``$R_LIBS_USER`` in a ``.Renviron`` file (usually in your ``$HOME`` directory), which automatically gets `loaded on every startup of <https://rstats.wtf/r-startup.html>`_ ``R`` and ``Rscript``.
+To make sure that any package installations in the ``.post-deploy.sh`` do not go into such a user ``R`` library path, but into the conda environment, run the installation with the ``--no-environ`` flag.
+And if you use the ``R`` package ``remotes`` to install software into your conda environment, also make sure that it emits an error upon failure (instead of just a warning) `by setting the respective environment variable <https://remotes.r-lib.org/#environment-variables>`_.
+Otherwise ``Rscript`` reports success and the conda environment installation succeeds, even if the package installation in the ``Rscript`` statement failed.
+Altogether, the recommendation for installing ``R`` packages not available via conda into a conda environment, is:
+
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    Rscript --no-environ -e 'Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="false"); remotes::install_github("some-org/RPackageNotOnConda", ref = "v1.3.2", upgrade = "never")'
 
 .. _conda_named_env:
 
@@ -557,7 +609,7 @@ For example, you can write
 
 .. code-block:: python
 
-    container: "docker://continuumio/miniconda3:4.4.10"
+    container: "docker://condaforge/miniforge3:26.3.2-3"
 
     rule NAME:
         input:
@@ -693,3 +745,193 @@ This mechanism requires that you use Mamba_ or Conda and activate conda-based so
     --software-deployment-method conda
     # or the shorthand version
     --sdm conda
+
+.. _software_directive:
+
+----------------------------------------------
+Unified software directive (``software:``)
+----------------------------------------------
+
+.. note::
+
+   The ``software:`` directive is available starting with Snakemake 9.x.
+   It provides a unified, composable way to specify software environments,
+   superseding the separate ``conda:``, ``container:``, and ``envmodules:``
+   directives.
+
+In addition to the legacy ``conda:``, ``container:``, and ``envmodules:``
+directives, Snakemake offers a unified ``software:`` directive that uses
+**plugin-based deployment**. Instead of hardcoding a deployment method in the
+Snakefile, the ``software:`` directive calls a factory function that corresponds
+to an installed software deployment plugin.
+
+The available factory functions are determined by which plugins are loaded.
+Activate plugins via the CLI:
+
+.. code-block:: bash
+
+    snakemake --sdm conda
+    snakemake --sdm conda apptainer
+    snakemake --sdm conda apptainer envmodules
+
+Basic usage
+~~~~~~~~~~~
+
+Use the ``software:`` directive with a plugin-provided factory function:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: conda(envfile="envs/bwa.yaml")
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+This is equivalent to using the legacy ``conda:`` directive:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        conda:
+            "envs/bwa.yaml"
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+The ``software:`` directive also supports callables (like the legacy directives):
+
+.. code-block:: python
+
+    def get_envfile(wildcards):
+        return f"envs/{wildcards.tool}.yaml"
+
+    rule analysis:
+        output:
+            "result/{tool}.out"
+        software: conda(envfile=get_envfile)
+        shell:
+            "analyze --output {output}"
+
+Composition with ``within``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``within`` keyword argument allows nesting one deployment method inside
+another. The most common pattern is deploying a conda environment **within**
+a container:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: conda(envfile="envs/bwa.yaml", within=container(image="ubuntu:22.04"))
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+When executed with ``--sdm conda apptainer``, Snakemake will:
+
+1. Pull the container image
+2. Create the conda environment from inside the container
+3. Execute the job inside the container with the conda environment activated
+
+This replaces the legacy pattern of combining ``conda:`` and ``container:``
+directives on the same rule.
+
+Fallback chains with ``or``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``or`` operator allows specifying fallback deployment methods.
+If the primary method is unavailable, Snakemake tries the next one:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: envmodules("bio/bwa/0.7.9", "bio/samtools/1.9") or conda(envfile="envs/bwa.yaml")
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+When executed with ``--sdm envmodules conda``:
+
+* On HPC systems with environment modules, Snakemake loads ``bio/bwa/0.7.9`` and ``bio/samtools/1.9``
+* On systems without those modules, Snakemake falls back to the conda environment
+
+This replaces the legacy pattern of combining ``envmodules:`` with ``conda:``
+directives, and is the recommended way to write portable workflows.
+
+Combining ``within`` and fallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Composition and fallback can be combined:
+
+.. code-block:: python
+
+    rule bwa_mapping:
+        input:
+            "genome.fa",
+            "reads.fq"
+        output:
+            "mapped.bam"
+        software: envmodules("bio/bwa/0.7.9") or conda(envfile="envs/bwa.yaml", within=container(image="ubuntu:22.04"))
+        shell:
+            "bwa mem {input} | samtools view -Sbh - > {output}"
+
+This tries environment modules first. If unavailable, it falls back to a
+conda environment deployed inside a container.
+
+Available factory functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following factory functions are provided by the official plugins:
+
+============== ============ =====================================================
+Factory        Plugin        Description
+============== ============ =====================================================
+``conda``      conda        Conda environment from YAML file or name
+``container``  container    Docker/Apptainer/Podman container
+``envmodules`` envmodules   Environment modules (Lmod)
+============== ============ =====================================================
+
+Additional plugins may be provided by the community.
+
+Plugin arguments:
+
+* ``conda(envfile=..., directory=..., name=..., pinfile=..., within=...)``
+* ``container(image=..., within=...)``
+* ``envmodules(*names, within=...)``
+
+All factory functions accept the ``within`` keyword for composition.
+
+Migration from legacy directives
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The legacy directives continue to work. To migrate:
+
++-----------------------------------+---------------------------------------------------------------+
+| Legacy                            | New                                                           |
++===================================+===============================================================+
+| ``conda: "env.yaml"``             | ``software: conda(envfile="env.yaml")``                       |
++-----------------------------------+---------------------------------------------------------------+
+| ``container: "docker://img"``     | ``software: container(image="docker://img")``                 |
++-----------------------------------+---------------------------------------------------------------+
+| ``envmodules: "m1", "m2"``        | ``software: envmodules("m1", "m2")``                          |
++-----------------------------------+---------------------------------------------------------------+
+| ``conda:`` + ``container:``       | ``software: conda(envfile=..., within=container(image=...))`` |
++-----------------------------------+---------------------------------------------------------------+
+| ``envmodules:`` + ``conda:``      | ``software: envmodules(...) or conda(envfile=...)``           |
++-----------------------------------+---------------------------------------------------------------+

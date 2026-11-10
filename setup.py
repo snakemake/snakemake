@@ -20,7 +20,6 @@ Assets.deploy()
 
 setup(
     name="snakemake",
-    use_scm_version=True,
     package_data={
         "snakemake": [
             "assets/data/**/*",

@@ -1,3 +1,4 @@
+cores: 3
 set-resources:
   a:
     foo: test-general

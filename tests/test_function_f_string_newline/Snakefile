@@ -1,0 +1,4 @@
+def get_something():
+    prefix = "foo"
+    filename = "bar"
+    return f"{prefix}/{filename}"

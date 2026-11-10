@@ -1,0 +1,9 @@
+import os
+
+os.environ["WORKFLOW_CONFIG"] = "workflow-config.yaml"
+os.environ["TMPDIR_SUBFOLDER"] = "test"
+
+
+rule:
+    shell:
+        "python -m snakemake --cores 3 --profile . -s Snakefile.internal"

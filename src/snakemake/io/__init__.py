@@ -19,6 +19,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from inspect import isfunction, ismethod
+from io import BytesIO
 from itertools import chain, product
 from pathlib import Path
 import pickle
@@ -39,7 +40,7 @@ from typing import (
 from snakemake_interface_common.utils import lchmod
 from snakemake_interface_common.utils import lutime as lutime_raw
 from snakemake_interface_common.utils import not_iterable
-from snakemake_interface_common.io import AnnotatedStringInterface
+from snakemake_interface_common.io import AnnotatedStringInterface, AccessPattern
 from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
@@ -47,9 +48,8 @@ from snakemake_interface_storage_plugins.io import (
     get_constant_prefix,
 )
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
-
-from snakemake.common import (
-    ON_WINDOWS,
+from snakemake.common.constants import ON_WINDOWS
+from snakemake.common.misc import (
     get_input_function_aux_params,
     is_namedtuple_instance,
 )
@@ -65,7 +65,7 @@ from snakemake.logging import logger
 if TYPE_CHECKING:
     import snakemake.rules
     import snakemake.jobs
-    from snakemake.io.container import Namedlist
+    from snakemake.iocontainers import Namedlist
 
 
 def lutime(file, times):
@@ -106,13 +106,14 @@ class IOCacheLoadError(Exception):
 class IOCache(IOCacheStorageInterface):
     # Increment this when the class interface changes to invalidated previously
     # persisted versions.
-    IOCACHE_VERSION = 0
+    IOCACHE_VERSION = 1
 
     def __init__(self, max_wait_time):
         self._mtime = dict()
         self._exists_local = ExistsDict(self)
         self._exists_in_storage = ExistsDict(self)
         self._size = dict()
+        self._checksum = dict()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
@@ -127,7 +128,13 @@ class IOCache(IOCacheStorageInterface):
             setattr(simplified, name, old_attr)
 
         # Copy dictionary attributes, casting keys to str.
-        for name in ["_mtime", "_exists_local", "_exists_in_storage", "_size"]:
+        for name in [
+            "_mtime",
+            "_exists_local",
+            "_exists_in_storage",
+            "_size",
+            "_checksum",
+        ]:
             old_dict = getattr(self, name)
             if isinstance(old_dict, ExistsDict):
                 setattr(simplified, name, ExistsDict(simplified))
@@ -173,6 +180,10 @@ class IOCache(IOCacheStorageInterface):
     @property
     def size(self):
         return self._size
+
+    @property
+    def checksum(self):
+        return self._checksum
 
     async def mtime_inventory(
         self, jobs: "collections.abc.Iterable[snakemake.jobs.Job]", n_workers=8
@@ -226,6 +237,7 @@ class IOCache(IOCacheStorageInterface):
     def clear(self):
         self.mtime.clear()
         self.size.clear()
+        self.checksum.clear()
         self.exists_local.clear()
         self.exists_in_storage.clear()
         self.remaining_wait_time = self.max_wait_time
@@ -262,7 +274,35 @@ def iocache(
     return wrapper
 
 
-class _IOFile(str, AnnotatedStringInterface):
+class AnnotatedStringFormatMixin(AnnotatedStringInterface):
+    """Mixin for str subclasses that carry flags (e.g. temp(), directory()) via
+    AnnotatedStringInterface. Overrides str.format() to carry those flags over to the
+    formatted result, instead of silently dropping them as plain str.format() would.
+
+    Must precede str in the MRO of the concrete class (i.e. `class Foo(Mixin, str)`,
+    not `class Foo(str, Mixin)`), otherwise str.format() would shadow this override.
+    """
+
+    def _storage_format_error_msg(self) -> str:
+        return (
+            f"Cannot call .format() on storage-flagged value '{self}': str.format() "
+            "has no notion of storage.s3() and similar flags, and would leave the "
+            "storage query out of sync with the substituted wildcards."
+        )
+
+    def format(self, *args, **kwargs):
+        if self.is_flagged("storage_object"):
+            raise WorkflowError(self._storage_format_error_msg())
+        # narrows self for the type checker: this mixin is only valid on str subclasses
+        assert isinstance(self, str)
+        formatted = str.format(self, *args, **kwargs)
+        if self.flags:
+            formatted = AnnotatedString(formatted)
+            formatted.flags = self.flags.copy()
+        return formatted
+
+
+class _IOFile(AnnotatedStringFormatMixin, str):
     """
     A file that is either input or output of a rule.
     """
@@ -326,6 +366,11 @@ class _IOFile(str, AnnotatedStringInterface):
 
     def is_callable(self) -> bool:
         return self._is_callable
+
+    def access_pattern(self) -> Optional[AccessPattern]:
+        from snakemake.io.flags.access_patterns import STORE_KEY
+
+        return self.flags.get(STORE_KEY)
 
     async def inventory(self):
         """Starting from the given file, try to cache as much existence and
@@ -535,14 +580,15 @@ class _IOFile(str, AnnotatedStringInterface):
         location.
         """
         mtime_in_storage = (
-            (await self.storage_object.managed_mtime())
+            (await self.storage_object.managed_mtime())  # type: ignore[reportOptionalMemberAccess]
             if self.is_storage and not skip_storage
             else None
         )
 
         # We first do a normal stat.
+        file = str(self.file)
         try:
-            _stat = os.stat(self.file, follow_symlinks=False)
+            _stat = os.stat(file, follow_symlinks=False)
 
             is_symlink = stat.S_ISLNK(_stat.st_mode)
             is_dir = stat.S_ISDIR(_stat.st_mode)
@@ -551,7 +597,7 @@ class _IOFile(str, AnnotatedStringInterface):
             def get_dir_mtime():
                 # Try whether we have a timestamp file for it.
                 return os.stat(
-                    os.path.join(self.file, ".snakemake_timestamp"),
+                    os.path.join(file, ".snakemake_timestamp"),
                     follow_symlinks=True,
                 ).st_mtime
 
@@ -569,7 +615,7 @@ class _IOFile(str, AnnotatedStringInterface):
 
             else:
                 # In case of a symlink, we need the stats for the target file/dir.
-                target_stat = os.stat(self.file, follow_symlinks=True)
+                target_stat = os.stat(file, follow_symlinks=True)
                 # Further, we need to check again if this is a directory.
                 is_dir = stat.S_ISDIR(target_stat.st_mode)
                 mtime_target = target_stat.st_mtime
@@ -589,14 +635,14 @@ class _IOFile(str, AnnotatedStringInterface):
             if self.is_storage:
                 return Mtime(storage=mtime_in_storage)
             raise WorkflowError(
-                "Unable to obtain modification time of file {} although it existed before. "
+                f"Unable to obtain modification time of file {file} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
-                "was running.".format(self.file)
+                "was running."
             )
         except PermissionError:
             raise WorkflowError(
-                "Unable to obtain modification time of file {} because of missing "
-                "read permissions.".format(self.file)
+                f"Unable to obtain modification time of file {file} because of missing "
+                "read permissions."
             )
 
     @property
@@ -630,13 +676,65 @@ class _IOFile(str, AnnotatedStringInterface):
             and not self.is_fifo()
         )
 
-    async def checksum(self, threshold, force=False, algorithm=hashlib.sha256):
-        """Return checksum if file is small enough, else None.
-        Returns None if file does not exist. If force is True,
-        omit eligibility check."""
+    async def checksum(
+        self,
+        threshold: Optional[int] = None,
+        force: bool = False,
+        algorithm: None | str | Callable = None,
+    ) -> Optional[str]:
+        """Return checksum as "{algorithm}:{hexdigest}", or None.
+
+        Returns None if the file does not exist or exceeds the size threshold.
+        If force is True, the eligibility check is skipped (threshold may be None).
+
+        If algorithm is None, local files are returned as sha256, storage files may
+        use different algorithms.
+
+        A cached result is returned if available and the algorithm matches."""
+
+        wrong_algorithm_or_empty = False
+
+        algorithm_name = (
+            None
+            if algorithm is None
+            else algorithm if isinstance(algorithm, str) else algorithm().name
+        )
+
+        def check_algorithm(checksum):
+            if algorithm_name is None:
+                return True
+            used_algorithm, _ = checksum.split(":", maxsplit=1)
+            return algorithm_name == used_algorithm
+
+        assert self.rule is not None
+        iocache = self.rule.workflow.iocache
+        if iocache.active:
+            if self in iocache.checksum:
+                checksum = iocache.checksum[self]
+                # make sure the algorithm matches
+                if checksum is not None and check_algorithm(checksum):
+                    return checksum
+
+                wrong_algorithm_or_empty = True
+
+        if algorithm is None:
+            algorithm = hashlib.sha256
+
+        if self.is_storage:
+            if not wrong_algorithm_or_empty:
+                checksum = await self.storage_object.managed_checksum()
+                if iocache.active:
+                    iocache.checksum[self] = checksum
+                if checksum is not None and check_algorithm(checksum):
+                    return checksum
+
+            if force:
+                await self.retrieve_from_storage()
+
+        assert force or threshold is not None
+
         if force or await self.is_checksum_eligible(threshold):
-            checksum = algorithm()
-            if await self.size() > 0:
+            if await self.size_local() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
                 # from the empty sha256 as initialized above
@@ -644,16 +742,41 @@ class _IOFile(str, AnnotatedStringInterface):
                 # is a named pipe or a socket or a symlink to a device like
                 # /dev/random.
                 with open(self.file, "rb") as f:
-                    checksum.update(f.read())
-            return checksum.hexdigest()
+                    checksum = hashlib.file_digest(f, algorithm)
+            else:
+                checksum = hashlib.file_digest(BytesIO(b""), algorithm)
+
+            checksum = f"{checksum.name}:{checksum.hexdigest()}"
+            if iocache.active and not wrong_algorithm_or_empty:
+                # add the computed checksum, only if a different one was not already there
+                iocache.checksum[self] = checksum
+            return checksum
         else:
             return None
 
     async def is_same_checksum(
-        self, other_checksum, threshold, force=False, algorithm=hashlib.sha256
-    ):
+        self,
+        other_checksum: Optional[str],
+        threshold: Optional[int],
+        force: bool = False,
+    ) -> bool:
+        """Return True if this file's checksum matches other_checksum.
+
+        other_checksum must be in "{algorithm}:{hexdigest}" format.
+        Returns False if either checksum is unavailable (file too large or missing)."""
+
+        if other_checksum is None:
+            return False
+
+        pos = other_checksum.find(":")
+        if pos == -1:
+            raise ValueError(
+                "other_checksum needs to specify an algorithm prefix, like sha512:xxxx"
+            )
+        algorithm = other_checksum[:pos]
+
         checksum = await self.checksum(threshold, force=force, algorithm=algorithm)
-        if checksum is None or other_checksum is None:
+        if checksum is None:
             # if no checksum available or files too large, not the same
             return False
         else:
@@ -764,14 +887,17 @@ class _IOFile(str, AnnotatedStringInterface):
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
         try:
-            if self.is_directory:
-                file = os.path.join(self.file, ".snakemake_timestamp")
+            if self.is_directory and not os.path.islink(self.file):  # type: ignore[reportArgumentType]
+                # real directory: use .snakemake_timestamp as the mtime carrier
+                file = os.path.join(self.file, ".snakemake_timestamp")  # type: ignore[reportArgumentType]
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
                     with open(file, "w"):
                         pass
                 lutime(file, times)
             else:
+                # non-directory: update mtime directly
+                # For symlink file or symlink directory, only the link itself is updated, not the target.
                 lutime(self.file, times)
         except OSError as e:
             if e.errno == 2:
@@ -802,11 +928,22 @@ class _IOFile(str, AnnotatedStringInterface):
             with open(file, "w") as f:
                 pass
 
+    def _storage_format_error_msg(self) -> str:
+        # storage_object is excluded from format(): it embeds its own query string,
+        # which apply_wildcards() rebuilds consistently with the substituted wildcards.
+        # str.format() has no notion of that, so a storage-flagged file cannot be
+        # formatted this way and must go through apply_wildcards() instead.
+        return (
+            super()._storage_format_error_msg()
+            + " Use .apply_wildcards(wildcards_dict) instead, which rebuilds the "
+            "storage query correctly."
+        )
+
     def apply_wildcards(self, wildcards):
         f = self._file
 
         if self.is_callable():
-            from snakemake.io.container import Namedlist
+            from snakemake.iocontainers import Namedlist
 
             assert callable(self._file)
             f = self._file(Namedlist(fromdict=wildcards))
@@ -913,7 +1050,7 @@ class _IOFile(str, AnnotatedStringInterface):
         return self._file.__hash__()
 
 
-class AnnotatedString(str, AnnotatedStringInterface):
+class AnnotatedString(AnnotatedStringFormatMixin, str):
     def __init__(self, value):
         self._flags = {}
         self.callable = value if is_callable(value) else None
@@ -934,6 +1071,11 @@ class AnnotatedString(str, AnnotatedStringInterface):
     @flags.setter
     def flags(self, value):
         self._flags = value
+
+    def access_pattern(self) -> Optional[AccessPattern]:
+        from snakemake.io.flags.access_patterns import STORE_KEY
+
+        return self.flags.get(STORE_KEY)
 
 
 MaybeAnnotated = Union[AnnotatedStringInterface, str, Callable]
@@ -1117,7 +1259,7 @@ def contains_wildcard_constraints(pattern):
 
 
 async def remove(file, remove_non_empty_dir=False, only_local=False):
-    if not only_local and file.is_storage and file.should_not_be_retrieved_from_storage:
+    if not only_local and file.is_storage:
         if await file.exists_in_storage():
             await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
@@ -1336,11 +1478,11 @@ def ensure(value, non_empty=False, sha256=None, md5=None, sha1=None):
     checksum = sha256 or md5 or sha1
     checksum_algorithm = None
     if sha256 is not None:
-        checksum_algorithm = hashlib.sha256
+        checksum_algorithm = "sha256"
     elif md5 is not None:
-        checksum_algorithm = hashlib.md5
+        checksum_algorithm = "md5"
     elif sha1 is not None:
-        checksum_algorithm = hashlib.sha1
+        checksum_algorithm = "sha1"
     return flag(
         value,
         "ensure",
@@ -1730,26 +1872,6 @@ def strip_wildcard_constraints(pattern):
         return "{{{}}}".format(match.group("name"))
 
     return WILDCARD_REGEX.sub(strip_constraint, pattern)
-
-
-class AttributeGuard:
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, *args, **kwargs):
-        """
-        Generic function that throws an `AttributeError`.
-
-        Used as replacement for functions such as `index()` and `sort()`,
-        which may be overridden by workflows, to signal to a user that
-        these functions should not be used.
-        """
-        raise AttributeError(
-            f"{self.name}() cannot be used on snakemake input, output, resources etc.; "
-            "instead it is a valid name for items on those objects. If you want e.g. to "
-            "sort, convert to a plain list before or directly use sorted() on the "
-            "object."
-        )
 
 
 ##### Wildcard pumping detection #####

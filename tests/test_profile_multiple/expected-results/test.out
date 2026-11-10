@@ -1,0 +1,8 @@
+cores: 4
+threads: 2
+mem_mb: 1000
+eggs_factor: snfkat
+spam_factor: X
+double_jeopardy: 1
+configfile: workflow-config.yaml
+

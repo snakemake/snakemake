@@ -1,0 +1,16 @@
+from pathlib import Path
+
+shell.executable("bash")
+
+
+rule a:
+    input:
+        "input.txt",
+    output:
+        "test.out",
+    params:
+        cores=workflow.cores,
+    shell:
+        "echo 'cores: {params.cores}\n"
+        "threads: {threads}\n"
+        "' > {output}"

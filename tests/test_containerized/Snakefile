@@ -6,4 +6,4 @@ rule a:
     conda:
         "env.yaml"
     shell:
-        "bcftools 2> {output} || true"
+        "ls /conda-envs; bcftools 2> {output} || true"

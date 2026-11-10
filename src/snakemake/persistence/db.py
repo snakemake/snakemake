@@ -1,19 +1,32 @@
+import functools
+import os
+import time
 from collections import OrderedDict
 from pathlib import Path
 from typing import Iterable
 
+import psutil
 from sqlalchemy import (
     create_engine,
     select,
     delete,
     event,
 )
+from sqlalchemy.engine.url import make_url, URL
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlmodel import SQLModel, Field
+import sqlite3
 
 from snakemake.persistence import MetadataRecord, PersistenceBase
+from snakemake.logging import logger
 import snakemake.exceptions
+
+
+class SettingsORM(SQLModel, table=True):
+    __tablename__ = "snakemake_persistence_db_settings"
+    namespace: str = Field(primary_key=True)
+    is_network_fs: bool
 
 
 class Base(DeclarativeBase):
@@ -38,8 +51,6 @@ class DbPersistence(PersistenceBase):
         self,
         nolock=False,
         dag=None,
-        conda_prefix=None,
-        singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
         path: Path | None = None,
@@ -48,16 +59,10 @@ class DbPersistence(PersistenceBase):
         super().__init__(
             nolock=nolock,
             dag=dag,
-            conda_prefix=conda_prefix,
-            singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=warn_only,
             path=path,
         )
-
-        # ensure default db path is based on persistence path
-        if db_url is None:
-            db_url = f"sqlite:///{self.path / 'metadata.db'}"
 
         # use the absolute workdir path as a namespace
         # to allow using the same db for multiple different Snakemake instances running in different directories
@@ -67,28 +72,93 @@ class DbPersistence(PersistenceBase):
         self._metadata_cache = OrderedDict()
         self._cache_size = 16384
 
-        self.engine = create_engine(db_url)
+        self._setup_database(db_url)
 
-        # for SQLite, set a busy timeout to avoid immediate failures on database locks;
-        # if available, use the latency_wait setting instead.
-        # TODO: if that doesn't help, consider using flufl.lock
-        #  or a NullPool or enabling BEGIN IMMEDIATE
-        busy_timeout = 10000
+    def _setup_database(self, db_url: str | None) -> None:
+        """Sets up the database connection and schema."""
+
+        # ensure default db path is based on persistence path
+        if db_url is None:
+            db_url = f"sqlite:///{self.path / 'metadata.db'}"
+
+        parsed_url = make_url(db_url)
+        is_network_fs = self._check_network_fs(parsed_url)
+        busy_timeout = self._get_busy_timeout()
+
+        self.engine = create_engine(db_url)
+        self._attach_sqlite_pragmas(is_network_fs, busy_timeout)
+
+        SQLModel.metadata.create_all(self.engine)
+
+    def _check_network_fs(self, parsed_url: URL) -> bool:
+        """
+        Determines if the sqlite DB is on a network FS, caching the result in the DB.
+        Tries looking up the result in the snakemake_persistence_db_settings table,
+        otherwise executes psutil to figure out the result.
+        Always returns False for non-SQLite URLs.
+        """
+        if parsed_url.get_backend_name() != "sqlite":
+            return False
+
+        sqlite_db_path = parsed_url.database
+        if not sqlite_db_path or sqlite_db_path == ":memory:":
+            return False
+
+        # raw connection to avoid PRAGMA chicken-vs-egg problems
+        with sqlite3.connect(sqlite_db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS snakemake_persistence_db_settings "
+                "(namespace TEXT PRIMARY KEY, is_network_fs BOOLEAN)"
+            )
+            cursor.execute(
+                "SELECT is_network_fs FROM snakemake_persistence_db_settings WHERE namespace = ?",
+                (self.namespace,),
+            )
+            row = cursor.fetchone()
+
+            if row is not None:
+                return bool(row[0])
+
+            is_network_fs = is_network_filesystem(sqlite_db_path)
+            cursor.execute(
+                "INSERT OR IGNORE INTO snakemake_persistence_db_settings (namespace, is_network_fs) VALUES (?, ?)",
+                (self.namespace, is_network_fs),
+            )
+            conn.commit()
+
+            return is_network_fs
+
+    def _get_busy_timeout(self) -> int:
+        """
+        Determines SQLite busy timeout (`max(10000, latency_wait * 1000)`).
+        """
+        base_timeout = 10000
         if self.dag:
             latency_wait_s = self.dag.workflow.execution_settings.latency_wait * 1000
-            busy_timeout = max(busy_timeout, latency_wait_s)
+            return max(base_timeout, latency_wait_s)
+        return base_timeout
+
+    def _attach_sqlite_pragmas(self, is_network_fs: bool, busy_timeout: int) -> None:
+        """Binds the PRAGMA execution to the SQLAlchemy connection event."""
+        if self.engine.dialect.name != "sqlite":
+            return
 
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
-            if self.engine.dialect.name == "sqlite":
-                cursor = dbapi_connection.cursor()
-                # we may want to try this in the future if we encounter locking issues, but it can cause problems on network filesystems
-                # cursor.execute("PRAGMA journal_mode=WAL")
-                # cursor.execute("PRAGMA synchronous=NORMAL")
-                cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
-                cursor.close()
+            cursor = dbapi_connection.cursor()
 
-        SQLModel.metadata.create_all(self.engine)
+            if is_network_fs:
+                cursor.execute("PRAGMA journal_mode=PERSIST")
+                cursor.execute("PRAGMA synchronous=OFF")
+                cursor.execute("PRAGMA temp_store=MEMORY")
+                cursor.execute("PRAGMA cache_size=-64000")
+            else:
+                cursor.execute("PRAGMA journal_mode=TRUNCATE")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+
+            cursor.execute(f"PRAGMA busy_timeout={busy_timeout}")
+            cursor.close()
 
     def _clear_cache(self) -> None:
         self._metadata_cache.clear()
@@ -144,8 +214,13 @@ class DbPersistence(PersistenceBase):
             ) or MetadataRecordORM(namespace=self.namespace, target=key)
             record.incomplete = True
             record.external_jobid = external_jobid
+            record.starttime = time.time()
             session.add(record)
             session.commit()
+
+    def _get_recorded_starttime(self, key: str) -> float | None:
+        record = self._read_record(key)
+        return record.starttime if record else None
 
     def _unmark_incomplete(self, key: str) -> None:
         self._invalidate_cache(key)
@@ -224,3 +299,50 @@ class DbPersistence(PersistenceBase):
         with Session(self.engine) as session:
             session.execute(delete(LockORM).where(LockORM.namespace == self.namespace))
             session.commit()
+
+
+@functools.cache
+def is_network_filesystem(path: Path | str) -> bool:
+    """
+    Detects if a given path resides on a network filesystem.
+    """
+    if os.name != "posix":
+        return False
+
+    path_obj = Path(path).resolve()
+
+    logger.info("Determining filesystem type for metadata persistence storage...")
+    try:
+        best_match = max(
+            (
+                mount
+                for mount in psutil.disk_partitions(all=True)
+                if path_obj.is_relative_to(Path(mount.mountpoint).resolve())
+            ),
+            key=lambda part: len(Path(part.mountpoint).resolve().parts),
+            default=None,
+        )
+        fstype = best_match.fstype if best_match else ""
+
+        network_fs_types = {
+            "afs",
+            "beegfs",
+            "ceph",
+            "cifs",
+            "fhgfs",
+            "fuse.juicefs",
+            "fuse.sshfs",
+            "glusterfs",
+            "gpfs",
+            "lustre",
+            "nfs",
+            "nfs3",
+            "nfs4",
+            "orangefs",
+            "pvfs2",
+            "smbfs",
+        }
+        return fstype.casefold() in network_fs_types
+
+    except (PermissionError, OSError):
+        return False
