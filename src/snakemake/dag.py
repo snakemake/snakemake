@@ -501,14 +501,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     async def sanitize_local_storage_copies(self):
         """Remove local copies of storage files that will be recreated in this run."""
+
+        async def remove_local_copy(f):
+            # Preserve real protected outputs for the normal protection check.
+            if not await f.protected():
+                await f.remove(remove_non_empty_dir=True, only_local=True)
+                # Local removal must invalidate the observation made above.
+                if self.workflow.iocache.active:
+                    self.workflow.iocache.exists_local[f] = False
+
         async with asyncio.TaskGroup() as tg:
             for job in self.needrun_jobs():
                 if not self.is_running(job):
                     for f in job.output:
                         if f.is_storage and await f.exists_local():
-                            tg.create_task(
-                                f.remove(remove_non_empty_dir=True, only_local=True)
-                            )
+                            tg.create_task(remove_local_copy(f))
 
     def update_output_index(self):
         """Update the OutputIndex."""
