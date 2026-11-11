@@ -6,7 +6,6 @@
 # that are only called by Snakemake itself)!
 
 from collections import namedtuple
-from dataclasses import dataclass
 from enum import Enum
 import math
 from numbers import Integral, Real
@@ -20,7 +19,6 @@ from typing import (
     Callable,
     List,
     Dict,
-    Sequence,
     Union,
     Iterator,
     Tuple,
@@ -29,7 +27,6 @@ from typing import (
     Optional,
 )
 
-from snakemake.common.misc import is_namedtuple_instance
 from snakemake.common.report import get_report_id
 
 PathLike = Union[str, Path, os.PathLike]

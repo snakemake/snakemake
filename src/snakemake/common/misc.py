@@ -1,13 +1,9 @@
-import re
-
-from snakemake.common.constants import UUID_NAMESPACE
-from snakemake.common.constants import ON_WINDOWS
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import re
 import contextlib
 import itertools
 import math
@@ -27,6 +23,8 @@ from typing import Union
 from urllib.parse import urlsplit
 from typing import TYPE_CHECKING
 
+from snakemake.common.constants import UUID_NAMESPACE
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.common.tbdstring import TBDString
 from snakemake import __version__
 from snakemake.exceptions import NestedCoroutineError
