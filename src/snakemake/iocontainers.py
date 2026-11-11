@@ -5,6 +5,9 @@
 # Python 3.7 compatible should be imported here (except for methods
 # that are only called by Snakemake itself)!
 
+from collections import namedtuple
+import math
+from numbers import Integral, Real
 import os
 import urllib.parse
 from pathlib import Path
@@ -23,6 +26,7 @@ from typing import (
     Optional,
 )
 
+from snakemake.common.misc import is_namedtuple_instance
 from snakemake.common.report import get_report_id
 
 PathLike = Union[str, Path, os.PathLike]
@@ -31,6 +35,30 @@ FILE_HASH_PREFIX_LEN = 16
 
 if TYPE_CHECKING:
     from typing import Self
+
+
+# Taken from https://stackoverflow.com/a/62692640
+# Thanks to techkuz.
+def is_namedtuple_instance(obj: Any) -> bool:
+    return (
+        isinstance(obj, tuple) and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
+    )
+
+
+def canonicalize_numeric_value(value: Any) -> Any:
+    if isinstance(value, Integral):
+        return int(value)
+    elif isinstance(value, Real):
+        if value == float("inf"):
+            return math.inf
+        elif value == float("-inf"):
+            return -math.inf
+        elif math.isnan(value):
+            return math.nan
+        else:
+            return f"{value}"
+    else:
+        return value
 
 
 class ReportHref:
@@ -542,6 +570,9 @@ class Snakemake:
                         params[i] = pl.from_dict(value)
                     elif param_type == "pl.Series":
                         params[i] = pl.Series(**value)
+                elif param_type == "namedtuple":
+                    ntcls = namedtuple("SnakemakeNamedTuple", value["fields"])
+                    params[i] = ntcls(value["values"])
         except ImportError as e:
             raise ImportError(
                 "Failed to import required module for loading rule params. "
@@ -577,9 +608,11 @@ class Snakemake:
                 elif isinstance(value, pd.Series):
                     self._params_store[i] = value.to_dict()
                     self._params_types[i] = "pd.Series"
+                continue
             if np and isinstance(value, np.ndarray):
                 self._params_store[i] = value.tolist()
                 self._params_types[i] = "np.ndarray"
+                continue
             if pl:
                 if isinstance(value, pl.LazyFrame):
                     self._params_store[i] = value.collect().to_dict(as_series=False)
@@ -593,6 +626,17 @@ class Snakemake:
                         "values": value.to_list(),
                     }
                     self._params_types[i] = "pl.Series"
+                continue
+            if is_namedtuple_instance(value):
+                # namedtuple pickling is tricky (e.g. pandas namedtuples from itertuples)
+                # instead, we store as a dict with field names and to plain python converted
+                # values
+                self._params_store[i] = {
+                    "fields": value._fields,
+                    "values": [canonicalize_numeric_value(val) for val in value],
+                }
+                self._params_types[i] = "namedtuple"
+                continue
 
         self._params_store._take_names(params._get_names())
 
