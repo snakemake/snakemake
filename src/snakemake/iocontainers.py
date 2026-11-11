@@ -486,6 +486,8 @@ class ParamStore:
         def recurse(data):
             if isinstance(data, ParamStore):
                 return data.unpack()
+            elif isinstance(data, list):
+                return [recurse(val) for val in data]
             else:
                 return data
 
