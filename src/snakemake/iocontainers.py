@@ -454,7 +454,7 @@ class ParamStore:
             )
         elif isinstance(data, tuple):
             return ParamStore(
-                data=[ParamStore.from_avlue(val) for val in data], dtype=ParamType.TUPLE
+                data=[ParamStore.from_value(val) for val in data], dtype=ParamType.TUPLE
             )
         elif np and isinstance(data, np.ndarray):
             return ParamStore(data=data.tolist(), dtype=ParamType.NUMPY_ARRAY)
@@ -480,7 +480,7 @@ class ParamStore:
                 dtype=ParamType.POLARS_LAZYFRAME,
             )
         else:
-            return data
+            return canonicalize_numeric_value(data)
 
     def unpack(self) -> Any:
         def recurse(data):
