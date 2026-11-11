@@ -1,0 +1,13 @@
+rule all:
+    input: 'out.txt'
+
+rule valid_priority:
+    output: 'valid.txt'
+    priority: lambda wildcards: 1
+    shell: 'touch {output}'
+
+rule bad_priority:
+    input: 'valid.txt'
+    output: 'out.txt'
+    priority: lambda wildcards: "not_a_number"
+    shell: 'touch {output}'

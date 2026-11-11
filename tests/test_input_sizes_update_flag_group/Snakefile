@@ -1,0 +1,45 @@
+rule all:
+    input:
+        "before.txt",
+        "after.txt",
+
+
+rule before:
+    input:
+        before_update("db.txt"),
+    output:
+        "before.txt",
+    shell:
+        "cp {input} {output}"
+
+
+rule update:
+    input:
+        "before.txt",
+    output:
+        update("db.txt"),
+    group:
+        "g"
+    shell:
+        "cat {input} >> {output}"
+
+
+rule inner:
+    input:
+        "db.txt",
+    output:
+        "inner.txt",
+    group:
+        "g"
+    shell:
+        "cp {input} {output}"
+
+
+rule after:
+    input:
+        "db.txt",
+        "inner.txt",
+    output:
+        "after.txt",
+    shell:
+        "cat {input} > {output}"

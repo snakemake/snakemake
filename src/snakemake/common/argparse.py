@@ -66,6 +66,19 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
     None/dataclasses._MISSING_TYPE/etc.
     """
 
+    # See https://github.com/python/cpython/pull/149086.
+    if hasattr(dataclasses, "MISSING"):
+        # Python 3.15 and later, with PEP 661
+        @staticmethod
+        def _is_missing(value):
+            return value is dataclasses.MISSING
+
+    else:
+        # Python 3.14 and older, without PEP 661
+        @staticmethod
+        def _is_missing(value):
+            return isinstance(value, dataclasses._MISSING_TYPE)
+
     def _get_help_string(self, action):
         if (
             (
@@ -73,7 +86,7 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
                 or action.nargs in [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
             )
             and action.default not in (None, "", set(), argparse.SUPPRESS)
-            and not isinstance(action.default, dataclasses._MISSING_TYPE)
+            and not self._is_missing(action.default)
         ):
             if isinstance(action.default, collections.abc.Iterable) and not isinstance(
                 action.default, str

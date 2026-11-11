@@ -3,6 +3,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from contextlib import contextmanager
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import signal
@@ -13,6 +16,7 @@ import time
 from os.path import join
 import tempfile
 import hashlib
+import threading
 from typing import Any, List, Mapping
 import urllib
 import urllib.request
@@ -25,16 +29,41 @@ from typing import TypeAlias
 
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_software_deployment_plugin_container import (
+    Settings as ContainerDeploymentSettings,
+)
+from snakemake_software_deployment_plugin_container import Runtime as ContainerRuntime
 
 from snakemake import api
-from snakemake.common import ON_WINDOWS
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.report.html_reporter import ReportSettings
 from snakemake.resources import ResourceScopes, Resources
 from snakemake.scheduling.milp import SchedulerSettings
 from snakemake.settings import types as settings
+from snakemake.settings.enums import PersistenceBackend
 
 #: File system path as string or pathlike object.
 StrPath: TypeAlias = str | os.PathLike
+
+
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def log_message(self, message_format, *args):
+        pass
+
+
+@contextmanager
+def serve_directory(path: Path):
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(QuietHTTPRequestHandler, directory=str(path))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def dpath(path: StrPath) -> Path:
@@ -90,6 +119,15 @@ def has_conda() -> bool:
     return shutil.which("conda") is not None
 
 
+def has_conda_plugin() -> bool:
+    try:
+        import snakemake_software_deployment_plugin_conda  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -115,8 +153,13 @@ apptainer = pytest.mark.skipif(
 )
 
 conda = pytest.mark.skipif(
-    not has_conda(),
-    reason="Skipping Conda tests because no conda executable available.",
+    not has_conda() and not is_ci(),
+    reason="Skipping Conda client tests because no conda executable available.",
+)
+
+conda_plugin = pytest.mark.skipif(
+    not has_conda_plugin() and not is_ci(),
+    reason="Skipping Conda plugin tests because the plugin is not available.",
 )
 
 zenodo = pytest.mark.skipif(
@@ -139,6 +182,52 @@ def get_expected_files(results_dir: StrPath) -> list[str]:
         for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
         if not os.path.isdir(f)
     ]
+
+
+@contextmanager
+def prepare_tmpdir(source_path, name_slug=None, dest_path=None, cleanup=None):
+    """
+    Prepare a temporary directory containing the files associated with this test case.
+    Returns a context manager to handle removal of the temporary directory.
+    Arguments:
+        source_path:
+            Directory holding the test case files
+        name_slug:
+            Slug to identify tests and disambiguate them from each other.
+            Defaults to the name of the directory at source_path.
+        dest_path:
+            Directory in which to place the copied files.
+            By default, the function creates a temporary directory.
+        cleanup:
+            Whether to remove the created directory.
+            Defaults to True if dest_path is None,
+            and False otherwise.
+    """
+    if not dest_path:
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+
+        if name_slug is None:
+            name_slug = source_path.name
+        dest_path = os.path.join(
+            tempfile.gettempdir(), f"snakemake-{name_slug}-{tmpdir}"
+        )
+        os.mkdir(dest_path)
+        if cleanup is None:
+            cleanup = True
+
+    elif cleanup is None:
+        cleanup = False
+
+    # copy files
+    for f in os.listdir(source_path):
+        copy(os.path.join(source_path, f), dest_path)
+
+    try:
+        yield dest_path
+    finally:
+        if cleanup:
+            shutil.rmtree(dest_path, ignore_errors=ON_WINDOWS)
 
 
 def untar_folder(tar_file: StrPath, output_path: StrPath):
@@ -170,7 +259,6 @@ def run(
     nodes: int | None = None,
     set_pythonpath: bool = True,
     cleanup: bool = True,
-    conda_frontend="conda",
     config=dict(),
     targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
@@ -191,11 +279,12 @@ def run(
     omit_from=frozenset(),
     forcerun=frozenset(),
     trust_io_cache=False,
-    conda_list_envs=False,
-    conda_create_envs=False,
-    conda_prefix=None,
+    list_software_envs=False,
+    cache_or_deploy_software_envs=False,
+    deployment_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
+    debug_dag=False,
     default_storage_provider=None,
     default_storage_prefix=None,
     local_storage_prefix=Path(".snakemake/storage"),
@@ -226,8 +315,11 @@ def run(
     storage_provider_settings=None,
     shared_fs_usage=None,
     benchmark_extended=False,
-    apptainer_args="",
     tmpdir: StrPath | None = None,
+    software_deployment_provider_settings=None,
+    persistence_backend: PersistenceBackend = PersistenceBackend.FILE,
+    persistence_backend_db_url: str | None = None,
+    container_runtime: str = "udocker",
 ) -> Path | None:
     """
     Test the Snakefile in the path.
@@ -288,23 +380,19 @@ def run(
             results_dir.exists() and results_dir.is_dir()
         ), f"{results_dir} does not exist"
 
-    if tmpdir is None:
-        # If we need to further check results, we won't cleanup tmpdir
-        tmpdir = next(tempfile._get_candidate_names())
-        tmpdir = os.path.join(
-            tempfile.gettempdir(), f"snakemake-{original_dirname}-{tmpdir}"
-        )
-        os.mkdir(tmpdir)
-
-        # copy files
-        for f in os.listdir(path):
-            copy(os.path.join(path, f), tmpdir)
-
-    else:
-        tmpdir = os.fsdecode(tmpdir)
+    if not no_tmpdir:
+        if tmpdir is None:
+            with prepare_tmpdir(
+                path, name_slug=original_dirname, cleanup=False
+            ) as tmpdir:
+                # We will manually manage the directory
+                tmpdir_created = True
+        else:
+            tmpdir = os.fsdecode(tmpdir)
+            tmpdir_created = False
 
     # Snakefile is now in temporary directory
-    snakefile = join(tmpdir, snakefile)
+    snakefile = join(path if no_tmpdir else tmpdir, snakefile)
 
     snakemake_api = None
     exception = None
@@ -361,11 +449,20 @@ def run(
 
         success = True
 
+        if software_deployment_provider_settings is None:
+            software_deployment_provider_settings = {
+                "container": ContainerDeploymentSettings(
+                    runtime=getattr(ContainerRuntime, container_runtime.upper()),
+                )
+            }
+
         with api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
                 printshellcmds=printshellcmds,
+                debug_dag=debug_dag,
                 show_failed_logs=True,
+                benchmark_extended=benchmark_extended,
             ),
         ) as snakemake_api:
             try:
@@ -412,13 +509,18 @@ def run(
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
                         cache=cache,
+                        persistence_backend=persistence_backend,
+                        persistence_backend_db_url=persistence_backend_db_url,
                     ),
                     deployment_settings=settings.DeploymentSettings(
-                        conda_frontend=conda_frontend,
-                        conda_prefix=conda_prefix,
-                        deployment_method=deployment_method,
-                        apptainer_args=apptainer_args,
+                        deployment_prefix=(
+                            Path(deployment_prefix)
+                            if deployment_prefix is not None
+                            else None
+                        ),
+                        deployment_methods=deployment_method,
                     ),
+                    software_deployment_provider_settings=software_deployment_provider_settings,
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),
                 )
@@ -453,10 +555,10 @@ def run(
                         report_settings=report_settings,
                         global_report_settings=global_report_settings,
                     )
-                elif conda_create_envs:
-                    dag_api.conda_create_envs()
-                elif conda_list_envs:
-                    dag_api.conda_list_envs()
+                elif cache_or_deploy_software_envs:
+                    dag_api.cache_or_deploy_software_envs()
+                elif list_software_envs:
+                    dag_api.list_software_envs()
                 elif archive is not None:
                     dag_api.archive(Path(archive))
                 elif generate_unit_tests is not None:
@@ -507,13 +609,14 @@ def run(
         assert not success, "expected error on execution"
         if shouldfail is not True:
             with pytest.raises(shouldfail):
+                assert exception is not None
                 raise exception
     else:
         if not success:
             if snakemake_api is not None and exception is not None:
                 snakemake_api.print_exception(exception)
             print("Workdir:")
-            print_tree(tmpdir, exclude=".snakemake/conda")
+            print_tree(tmpdir if tmpdir else str(path), exclude=".snakemake")
             if exception is not None:
                 raise exception
         assert success, "expected successful execution"
@@ -525,14 +628,18 @@ def run(
             ):
                 # this means tests cannot use directories as output files
                 continue
-            targetfile = join(tmpdir, resultfile)
+            targetfile = join(tmpdir, resultfile) if tmpdir else str(path / resultfile)
             expectedfile = join(results_dir, resultfile)
 
             if ON_WINDOWS:
                 if os.path.exists(join(results_dir, resultfile + "_WIN")):
                     continue  # Skip test if a Windows specific file exists
                 if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
+                    targetfile = (
+                        join(tmpdir, resultfile[:-4])
+                        if tmpdir
+                        else str(path / resultfile)
+                    )
             elif resultfile.endswith("_WIN"):
                 # Skip win specific result files on Posix platforms
                 continue
@@ -555,6 +662,9 @@ def run(
                         content=content,
                         expected_content=expected_content,
                     )
+
+    if no_tmpdir:
+        return None
 
     if not cleanup:
         return Path(tmpdir)

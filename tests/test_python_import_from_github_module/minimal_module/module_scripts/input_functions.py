@@ -1,2 +1,2 @@
 def input_function_module(wildcards):
-    return 'results/input.txt'
+    return "results/input.txt"

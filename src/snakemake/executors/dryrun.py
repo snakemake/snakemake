@@ -3,12 +3,18 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+from typing import cast
+
+from snakemake_interface_executor_plugins.executors.base import (
+    AbstractExecutor,
+    SubmittedJobInfo,
+)
 from snakemake_interface_executor_plugins.jobs import (
+    GroupJobExecutorInterface,
     JobExecutorInterface,
+    SingleJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.settings import CommonSettings
-from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 
 from snakemake.logging import logger
 
@@ -37,28 +43,28 @@ class Executor(AbstractExecutor):
     def printjob(self, job: JobExecutorInterface):
         super().printjob(job)
         if job.is_group():
-            for j in job.jobs:
+            group_job = cast(GroupJobExecutorInterface, job)
+            for j in group_job.jobs:
                 self.printcache(j)
-        else:
-            self.printcache(job)
+            return
+        self.printcache(cast(SingleJobExecutorInterface, job))
 
-    def printcache(self, job: JobExecutorInterface):
-        cache_mode = self.workflow.get_cache_mode(job.rule)
-        if cache_mode:
-            if self.workflow.async_run(
-                self.workflow.output_file_cache.exists(job, cache_mode)
-            ):
-                logger.info(
-                    "Output file {} will be obtained from global between-workflow cache.".format(
-                        job.output[0]
-                    )
+    def printcache(self, job: SingleJobExecutorInterface):
+        if (
+            self.workflow.workflow_settings.cache is not None
+            and job.rule.cache
+            and job.rule.cache.output
+        ):
+            logger.info(
+                "Output file {} will be {} global between-workflow cache.".format(
+                    job.output[0],
+                    (
+                        "obtained from"
+                        if self.workflow.async_run(job.rule.cache.exists(job))
+                        else "written to"
+                    ),
                 )
-            else:
-                logger.info(
-                    "Output file {} will be written to global between-workflow cache.".format(
-                        job.output[0]
-                    )
-                )
+            )
 
     def cancel(self):
         # nothing to do

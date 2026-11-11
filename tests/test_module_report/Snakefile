@@ -1,7 +1,7 @@
 
 module test:
     snakefile:
-        "https://raw.githubusercontent.com/snakemake/snakemake/v6.3.0/tests/test_report/Snakefile"
+        github("snakemake/snakemake", path="tests/test_report/Snakefile", tag="v6.3.0")
     config:
         config
     replace_prefix: 

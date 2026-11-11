@@ -7,10 +7,9 @@ __license__ = "MIT"
 
 import asyncio
 from bisect import bisect
-from collections import defaultdict, deque
+from collections import deque
 import copy
-import math
-import os, signal, sys
+import signal, sys
 import threading
 
 from itertools import chain, accumulate, filterfalse, repeat
@@ -46,7 +45,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. Look below for error messages"
+    "Exiting because a job execution failed. Look above for error messages"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -204,13 +203,23 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     async def update_input_sizes(self, jobs: Iterable[AbstractJob]):
+        """Measure the input sizes of the given jobs, used for job prioritization."""
+
         async def get_size(path: _IOFile):
             return path, await path.size() if await path.exists() else None
 
         paths = {path for job in jobs for path in job.input}
-        if paths:
+        # sizes only guide job prioritization and outputs of finished jobs are
+        # dropped from the cache (see _finish_jobs), hence only measure paths
+        # that are not cached yet; with immediate submit, jobs are finished when
+        # submitted, before writing their outputs, hence measure all paths
+        immediate_submit = self.workflow.remote_execution_settings.immediate_submit
+        to_measure = [
+            path for path in paths if immediate_submit or path not in self._input_sizes
+        ]
+        if to_measure:
             self._input_sizes.update(
-                await asyncio.gather(*[get_size(path) for path in paths])
+                await asyncio.gather(*[get_size(path) for path in to_measure])
             )
 
         if len(self._input_sizes) > 10000:
@@ -253,8 +262,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         self._executor.shutdown()
                         if not user_kill:
                             logger.error(_ERROR_MSG_FINAL)
-                            for job in self.failed:
-                                job.log_error()
                         return False
                     continue
 
@@ -270,8 +277,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
-                        for job in self.failed:
-                            job.log_error()
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs and not self.keepgoing:
@@ -354,7 +359,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                                 f"{', '.join(j.name for j in local_runjobs)}."
                             )
                         else:
-                            if not self.dryrun and not self.workflow.subprocess_exec:
+                            if (
+                                not (self.dryrun or self.touch)
+                                and not self.workflow.subprocess_exec
+                            ):
                                 # retrieve storage inputs for local jobs
                                 self.workflow.async_run(
                                     self.workflow.dag.retrieve_storage_inputs(
@@ -416,6 +424,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ).start()
 
     def _finish_jobs(self):
+        """Postprocess the jobs that finished since the last scheduling round."""
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
 
@@ -423,6 +432,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         immediate_submit = self.workflow.remote_execution_settings.immediate_submit
 
         async def postprocess():
+            """Postprocess each finished job and update scheduler and DAG state."""
             for job in self._tofinish:
                 # IMPORTANT: inside of this loop, there may be no calls that have
                 # a complexity of at least the number of jobs.
@@ -486,6 +496,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             extra=dict(event=LogEvent.JOB_FINISHED, job_id=job.jobid),
                         )
                     self.progress()
+
+                # outputs may have been measured before as inputs of other jobs
+                # (e.g. update() or before_update() files), measure them again;
+                # for groups, this includes outputs consumed within the group
+                for j in job.jobs if job.is_group() else [job]:
+                    for f in j.output:
+                        self._input_sizes.pop(f, None)
 
                 await self.workflow.dag.finish(
                     job,
@@ -588,10 +605,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
             with self._lock:
                 if self.resources["_cores"] == 0:
                     return []
-                if len(jobs) == 1:
-                    return self.job_selector_greedy(
-                        jobs, self.remaining_jobs, self.resources, self._input_sizes
-                    )
                 selected = job_selector(
                     jobs, self.remaining_jobs, self.resources, self._input_sizes
                 )

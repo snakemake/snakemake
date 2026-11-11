@@ -1,7 +1,7 @@
 import inspect
 import os
 
-from snakemake.common import async_run
+from snakemake.common.misc import async_run
 import snakemake.io
 from snakemake_interface_common.exceptions import WorkflowError
 

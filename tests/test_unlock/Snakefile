@@ -1,0 +1,4 @@
+rule all:
+    output: "output.txt"
+    shell:
+        "echo done > {output}"

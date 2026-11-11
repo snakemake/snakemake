@@ -1,0 +1,9 @@
+rule echo_mem:
+    output:
+        "output.txt"
+    resources:
+        mem_mb=512
+    shell:
+        """
+        echo "Mem resource: {resources.mem_mb}" > {output}
+        """

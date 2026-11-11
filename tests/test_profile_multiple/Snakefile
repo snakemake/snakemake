@@ -1,0 +1,7 @@
+import os
+
+os.environ["WORKFLOW_CONFIG"] = "workflow-config.yaml"
+
+rule:
+    shell:
+        "python -m snakemake --profile ./base_profile.yaml --workflow-profile workflow_profile.yaml --profile ./overwrite -s Snakefile.internal"

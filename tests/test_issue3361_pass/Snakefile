@@ -1,15 +1,15 @@
 rule all:
-    input: 
+    input:
         "output.txt"
 
 rule copy_in_container:
-    input: 
+    input:
         "input.txt"
-    output: 
+    output:
         "output.txt"
     params:
         workflow.source_path("some_dir/some_other_input.txt")
-    container: 
-        "docker://ubuntu:latest"
+    container:
+        "docker://ubuntu:24.04"
     shell:
         "cat {input} {params} > {output}"

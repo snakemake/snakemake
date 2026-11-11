@@ -1,0 +1,8 @@
+rule a:
+    input:
+        a=workflow.source_path("../../resources/test.txt"),
+    output:
+        "test.out"
+    shell:
+        "echo {input.a};"
+        "cat {input.a} > {output}"

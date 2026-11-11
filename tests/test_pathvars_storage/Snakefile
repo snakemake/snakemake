@@ -1,0 +1,16 @@
+pathvars:
+    output="output",
+
+
+rule all:
+    input:
+        "<output>/result.txt",
+
+
+rule a:
+    input:
+        "input.txt",
+    output:
+        "<output>/result.txt",
+    shell:
+        "cp {input} {output}"

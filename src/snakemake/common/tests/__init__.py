@@ -70,7 +70,7 @@ class TestWorkflowsBase(ABC):
         self, deployment_method=frozenset()
     ) -> settings.DeploymentSettings:
         return settings.DeploymentSettings(
-            deployment_method=deployment_method,
+            deployment_methods=deployment_method,
         )
 
     def get_assume_shared_fs(self) -> bool:

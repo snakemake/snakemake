@@ -1,0 +1,4 @@
+cores: 3
+set-threads:
+  - a=2
+  - b=4

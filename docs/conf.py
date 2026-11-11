@@ -14,8 +14,12 @@
 # serve to show the default.
 
 import os
+import re
 from datetime import datetime
 from sphinxawesome_theme.postprocess import Icons
+from docutils import nodes
+import tomllib
+from pathlib import Path
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -38,7 +42,13 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
     "myst_parser",
+    "sphinx_reredirects",
 ]
+
+# Redirect handling
+
+redirects = {}
+
 
 html_css_files = ["custom.css"]
 
@@ -141,7 +151,7 @@ html_theme_options = {
     },
     "awesome_external_links": True,
     "awesome_headerlinks": True,
-    "show_prev_next": False,
+    "show_prev_next": True,
 }
 html_permalinks_icon = Icons.permalinks_icon
 
@@ -299,5 +309,47 @@ html_js_files = ["gurubase-widget.js"]  # gurubase AI widget
 # texinfo_no_detailmenu = False
 
 
+with open(Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
+    _pyproject = tomllib.load(f)
+
+
+def _flatten(d, prefix=""):
+    for k, v in d.items():
+        key = f"{prefix}{k}"
+        if isinstance(v, dict):
+            yield from _flatten(v, f"{key}.")
+        elif isinstance(v, (str, int, float)):
+            yield key, str(v)
+
+
+def _escape(v):
+    # escape characters that start inline markup or lists (e.g. "*" versions)
+    return re.sub(r"([\\*`|_])", r"\\\1", v)
+
+
+# Use markup like |pyproject.tool.pixi.workspace.requires-pixi| in your reStructuredText files to reference values from pyproject.toml.
+# Never hard-copy values from pyproject.toml into the documentation!
+rst_prolog = "\n".join(
+    f".. |pyproject.{k}| replace:: {_escape(v)}" for k, v in _flatten(_pyproject)
+)
+
+
+def anchor_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    """A role to insert a hidden HTML anchor (ID) for redirects."""
+    # This creates a raw HTML node
+    html = f'<span class="customanchor" id="{text}"></span>'
+    node = nodes.raw("", html, format="html")
+    return [node], []
+
+
+def oldheading_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    anchor_id = text.lower().replace(" ", "-").replace(":", "-")
+    return anchor_role(
+        name, rawtext, anchor_id, lineno, inliner, options=options, content=content
+    )
+
+
 def setup(app):
     app.add_css_file("sphinx-argparse.css")
+    app.add_role("oldanchor", anchor_role)
+    app.add_role("oldheading", oldheading_role)

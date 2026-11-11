@@ -1,0 +1,14 @@
+rule a:
+    output:
+        "test.out"
+    params:
+        cores=workflow.cores,
+        extra=lambda wc, resources: resources.extra if resources.get('extra') else 'not found'
+    shell:
+        "echo '"
+        "foo: {resources.foo}\n"
+        "mem_mb: {resources.mem_mb}\n"
+        "extra: {params.extra}\n"
+        "cores: {params.cores}"
+        "' > {output}"
+

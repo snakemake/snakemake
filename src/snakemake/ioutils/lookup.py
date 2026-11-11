@@ -103,8 +103,8 @@ NODEFAULT = object()
 
 
 def lookup(
-    dpath: Optional[str] = None,
     query: Optional[str] = None,
+    dpath: Optional[str] = None,
     cols: Optional[Union[List[str], str]] = None,
     is_nrows: Optional[int] = None,
     within=None,
@@ -169,6 +169,14 @@ def lookup(
     if is_nrows is not None and not isinstance(is_nrows, int):
         raise error(msg="The is_nrows argument has to be an int.")
 
+    if query is not None and dpath is not None:
+        raise error(msg="Cannot provide both query and dpath arguments.")
+
+    if query is not None and isinstance(within, Mapping):
+        # The query is actually meant to be a dpath, maybe provided unnamed.
+        dpath = query
+        query = None
+
     if query is not None:
         if isinstance(within, Mapping):
             raise error(
@@ -188,6 +196,8 @@ def lookup(
 
             if is_nrows is not None:
                 return is_nrows == len(res)
+            if len(res) == 0 and default is not NODEFAULT:
+                return default
             if cols is not None:
                 res = res[cols]
                 if not isinstance(cols, list):

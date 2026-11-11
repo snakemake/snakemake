@@ -23,18 +23,16 @@ class OutputFileCache(AbstractOutputFileCache):
         super().__init__()
         self.storage_provider = storage_provider
 
-    async def store(self, job: Job, cache_mode: str):
-        for entry in self._get_storage_objects(
-            job, cache_mode, check_output_exists=True
-        ):
+    async def store(self, job: Job):
+        async for entry in self._get_storage_objects(job, check_output_exists=True):
             # upload to remote
             try:
                 await entry.managed_store()
             except Exception as e:
                 self.raise_write_error(entry, exception=e)
 
-    async def fetch(self, job: Job, cache_mode: str):
-        for entry in self._get_storage_objects(job, cache_mode):
+    async def fetch(self, job: Job):
+        async for entry in self._get_storage_objects(job):
             if not await entry.managed_exists():
                 self.raise_cache_miss_exception(job)
 
@@ -44,22 +42,20 @@ class OutputFileCache(AbstractOutputFileCache):
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    async def exists(self, job: Job, cache_mode: str):
-        for entry in self._get_storage_objects(job, cache_mode):
+    async def exists(self, job: Job):
+        async for entry in self._get_storage_objects(job):
             try:
                 return await entry.managed_exists()
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def _get_storage_objects(
-        self, job: Job, cache_mode: str, check_output_exists=False
-    ):
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
+    async def _get_storage_objects(self, job: Job, check_output_exists=False):
+        provenance_hash = await self.provenance_hash_map.get_provenance_hash(job)
 
         for outputfile, ext in self.get_outputfiles(job):
             if check_output_exists and not os.path.exists(outputfile):
                 raise WorkflowError(
-                    "Cannot move output file {} to cache. It does not exist "
+                    f"Cannot move output file {outputfile} to cache. It does not exist "
                     "(maybe it was not created by the job?)."
                 )
 

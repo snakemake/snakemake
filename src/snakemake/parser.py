@@ -1,3 +1,5 @@
+from snakemake.executors.local import RunArgs
+
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
@@ -6,7 +8,7 @@ __license__ = "MIT"
 import sys
 import textwrap
 import tokenize
-from typing import Any, Callable, Dict, Generator, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
 
 from snakemake import common
 
@@ -146,7 +148,10 @@ class TokenAutomaton:
                 break
         # trim those around the f-string
         s = "".join(lines[i] for i in sorted(lines))
-        t = s[token.start[1] : t1.end[1] - len(t1.line)]
+        # Compute the absolute end index in the reconstructed source snippet.
+        # This works for both files that end with and without a trailing newline.
+        end = len(s) - len(t1.line) + t1.end[1]
+        t = s[token.start[1] : end]
         if hasattr(self, "cmd") and self.cmd[-1][1] == token:
             self.cmd[-1] = t, token
         return t
@@ -373,10 +378,7 @@ class Storage(GlobalKeywordState):
 
 
 class ResourceScope(GlobalKeywordState):
-    err_msg = (
-        "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
-        "'global'"
-    )
+    err_msg = "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or 'global'"
     current_resource = ""
 
     def block_content(self, token):
@@ -401,8 +403,7 @@ class Ruleorder(GlobalKeywordState):
             yield repr(token.string), token
         else:
             self.error(
-                "Expected a descending order of rule names, "
-                "e.g. rule1 > rule2 > rule3 ...",
+                "Expected a descending order of rule names, e.g. rule1 > rule2 > rule3 ...",
                 token,
             )
 
@@ -457,8 +458,7 @@ class Localrules(GlobalKeywordState):
             yield repr(token.string), token
         else:
             self.error(
-                "Expected a comma separated list of rules that shall "
-                "not be executed by the cluster command.",
+                "Expected a comma separated list of rules that shall not be executed by the cluster command.",
                 token,
             )
 
@@ -522,6 +522,10 @@ class Conda(RuleKeywordState):
     pass
 
 
+class Software(RuleKeywordState):
+    pass
+
+
 class Singularity(RuleKeywordState):
     @property
     def keyword(self):
@@ -580,18 +584,14 @@ class Run(RuleKeywordState):
         yield "@workflow.run"
         yield "\n"
         yield (
-            "def __rule_{rulename}(input, output, params, wildcards, threads, "
-            "resources, log, rule, conda_env, container_img, "
-            "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, sourcecache_path, runtime_sourcecache_path, "
-            "runtime_paths, {rule_func_marker}=True):".format(
+            "def __rule_{rulename}({run_args}, {rule_func_marker}=True):".format(
                 rulename=(
                     self.rulename
                     if self.rulename is not None
                     else self.snakefile.rulecount
                 ),
-                rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
+                run_args=RunArgs.rulefunc_args_signature(),
+                rule_func_marker=common.constants.RULEFUNC_CONTEXT_MARKER,
             )
         )
 
@@ -644,6 +644,7 @@ class AbstractCmd(Run):
         yield self.end_func
         yield "("
         yield from self.cmd
+        yield ", run_args=run_args, "
         yield from self.args()
         yield "\n"
         yield ")"
@@ -675,48 +676,24 @@ class Shell(AbstractCmd):
     start_func = "@workflow.shellcmd"
     end_func = "shell"
 
-    def args(self):
-        yield ", bench_record=bench_record, bench_iteration=bench_iteration"
-
 
 class Script(AbstractCmd):
     start_func = "@workflow.script"
     end_func = "script"
 
     def args(self):
-        yield (
-            ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, sourcecache_path, "
-            "runtime_sourcecache_path, runtime_paths"
-        )
+        # pass the global config variable
+        yield "config=config, "
 
 
 class Notebook(Script):
     start_func = "@workflow.notebook"
     end_func = "notebook"
 
-    def args(self):
-        yield (
-            ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, sourcecache_path, runtime_sourcecache_path, runtime_paths"
-        )
-
 
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
     end_func = "wrapper"
-
-    def args(self):
-        yield (
-            ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, sourcecache_path, runtime_sourcecache_path, "
-            "runtime_paths"
-        )
 
 
 class TemplateEngine(Script):
@@ -724,19 +701,13 @@ class TemplateEngine(Script):
     end_func = "render_template"
 
     def args(self):
-        yield (", input, output, params, wildcards, config, rule")
+        # pass the global config variable
+        yield "config=config, "
 
 
-class CWL(Script):
+class CWL(AbstractCmd):
     start_func = "@workflow.cwl"
     end_func = "cwl"
-
-    def args(self):
-        yield (
-            ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid, sourcecache_path, "
-            "runtime_sourcecache_path, runtime_paths"
-        )
 
 
 rule_property_subautomata = dict(
@@ -754,6 +725,7 @@ rule_property_subautomata = dict(
     conda=Conda,
     singularity=Singularity,
     container=Container,
+    software=Software,
     containerized=Containerized,
     envmodules=EnvModules,
     wildcard_constraints=WildcardConstraints,
@@ -793,8 +765,7 @@ class Rule(GlobalKeywordState):
 
     def start(self, aux=""):
         yield (
-            f"@workflow.rule(name={self.rulename!r}, lineno={self.lineno}, "
-            f"snakefile={self.snakefile.path!r}{aux})"
+            f"@workflow.rule(name={self.rulename!r}, lineno={self.lineno}, snakefile={self.snakefile.path!r}{aux})"
         )
 
     def end(self):
@@ -864,8 +835,7 @@ class Rule(GlobalKeywordState):
             yield f"@workflow.docstring({token.string})", token
         else:
             self.error(
-                "Expecting rule keyword, comment or docstrings "
-                "inside a rule definition.",
+                "Expecting rule keyword, comment or docstrings inside a rule definition.",
                 token,
             )
 
@@ -1029,8 +999,7 @@ class Module(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in "
-                    "module definition".format(token.string),
+                    "Unexpected keyword {} in module definition".format(token.string),
                     token,
                 )
             except StopAutomaton as e:
@@ -1045,8 +1014,7 @@ class Module(GlobalKeywordState):
             pass
         else:
             self.error(
-                "Expecting module keyword, comment or docstrings "
-                "inside a module definition.",
+                "Expecting module keyword, comment or docstrings inside a module definition.",
                 token,
             )
 
@@ -1287,8 +1255,7 @@ class UseRule(GlobalKeywordState):
             )
         else:
             self.error(
-                "Expecting rule keyword, comment or docstrings "
-                "inside a 'use rule ... with:' statement.",
+                "Expecting rule keyword, comment or docstrings inside a 'use rule ... with:' statement.",
                 token,
             )
 

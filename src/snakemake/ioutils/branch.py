@@ -46,13 +46,17 @@ def branch(
         try:
             selected_case = cases[res]
         except KeyError:
+            if otherwise is not None:
+                return handle_callable(otherwise, wildcards)
             raise KeyError(f"Key {res} not found in given cases of branch function")
         return handle_callable(selected_case, wildcards)
 
     do_branch = do_branch_then_otherwise
     if cases is not None:
-        if otherwise is not None or then is not None:
-            raise ValueError("Cannot use cases together with then or otherwise.")
+        if then is not None:
+            raise ValueError(
+                "Cannot use 'cases' together with 'then' in 'branch' function."
+            )
         do_branch = do_branch_cases
 
     if any(isinstance(value, Callable) for value in (condition, then, otherwise)):
