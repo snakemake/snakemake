@@ -224,26 +224,28 @@ class RuntimeDependencyManager:
                     )
                     # remove old packages that are not needed anymore.
                     # get all packages in the prefix and remove those that are not in the dryrun result
-                    sp.run(
-                        [
-                            self.uv_exec,
-                            "pip",
-                            "uninstall",
-                            "-y",
-                            "--target",
-                            str(prefix),
-                            "--python",
-                            sys.executable,
-                        ]
-                        + [
-                            str(pkg)
-                            for pkg in self.get_packages_in_prefix(prefix)
-                            if pkg not in posterior_packages
-                        ],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
+                    to_uninstall = [
+                        str(pkg)
+                        for pkg in self.get_packages_in_prefix(prefix)
+                        if pkg not in posterior_packages
+                    ]
+                    if to_uninstall:
+                        sp.run(
+                            [
+                                self.uv_exec,
+                                "pip",
+                                "uninstall",
+                                "-y",
+                                "--target",
+                                str(prefix),
+                                "--python",
+                                sys.executable,
+                            ]
+                            + to_uninstall,
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                        )
                     # install the new packages that are needed according to the dryrun result
                     sp.run(
                         [
