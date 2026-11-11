@@ -569,6 +569,21 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
+    def items(self):
+        for name in (
+            "input",
+            "output",
+            "wildcards",
+            "threads",
+            "resources",
+            "log",
+            "config",
+            "rule",
+            "bench_iteration",
+            "scriptdir",
+        ):
+            yield name, getattr(self, name)
+
     def report_href(self, path: Union[str, Path]) -> ReportHref:
         """Return an href to the given path in the report context, assuming that the
         path is given as it is given to the report marker in the workflow.
@@ -677,12 +692,13 @@ class Snakemake:
     @property
     def params(self):
         if self._params is None:
-            self._params = Params(toclone=list(self._params_store))
+            params = Params(toclone=list(self._params_store))
             for i, value in enumerate(self._params):
                 if isinstance(value, ParamStore):
-                    self._params[i] = value.unpack()
+                    params[i] = value.unpack()
 
-            self._params._take_names(self._params_store._get_names())
+            params._take_names(self._params_store._get_names())
+            self._params = params
         return self._params
 
     def _safely_store_params(self, params: Params):
