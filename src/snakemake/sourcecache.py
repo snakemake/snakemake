@@ -592,7 +592,11 @@ class HostingProviderFile(SourceFile):
 
         try:
             return io.BytesIO(
-                self.hosted_repo.repo.git.show(f"{self.ref}:{self.path}").encode()
+                self.hosted_repo.repo.git.show(
+                    f"{self.ref}:{self.path}",
+                    stdout_as_string=False,
+                    strip_newline_in_stdout=False,
+                )
             )
         except git.GitCommandError as e:
             msg = f"Failed to get git source file {self.repo}:{self.path}: {e}. "
@@ -879,9 +883,11 @@ class SourceCache:
 
             try:
                 return io.BytesIO(
-                    git.Repo(source_file.repo_path)
-                    .git.show(f"{source_file.ref}:{source_file.path}")
-                    .encode()
+                    git.Repo(source_file.repo_path).git.show(
+                        f"{source_file.ref}:{source_file.path}",
+                        stdout_as_string=False,
+                        strip_newline_in_stdout=False,
+                    )
                 )
             except git.GitCommandError as e:
                 raise WorkflowError(
