@@ -1,13 +1,9 @@
-import re
-
-from snakemake.common.constants import UUID_NAMESPACE
-from snakemake.common.constants import ON_WINDOWS
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import re
 import contextlib
 import itertools
 import math
@@ -27,9 +23,12 @@ from typing import Union
 from urllib.parse import urlsplit
 from typing import TYPE_CHECKING
 
+from snakemake.common.constants import UUID_NAMESPACE
+from snakemake.common.constants import ON_WINDOWS
 from snakemake.common.tbdstring import TBDString
 from snakemake import __version__
 from snakemake.exceptions import NestedCoroutineError
+from snakemake.iocontainers import is_namedtuple_instance
 
 if TYPE_CHECKING:
     from snakemake_interface_software_deployment_plugins import EnvBase
@@ -440,14 +439,6 @@ def set_env(**environ):
 def expand_vars_and_user(value):
     if value is not None:
         return os.path.expanduser(os.path.expandvars(value))
-
-
-# Taken from https://stackoverflow.com/a/62692640
-# Thanks to techkuz.
-def is_namedtuple_instance(obj: Any) -> bool:
-    return (
-        isinstance(obj, tuple) and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
-    )
 
 
 def copy_permission_safe(src: str, dst: str):
