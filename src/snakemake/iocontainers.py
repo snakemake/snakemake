@@ -576,6 +576,7 @@ class Snakemake:
             "wildcards",
             "threads",
             "resources",
+            "params",
             "log",
             "config",
             "rule",
@@ -693,7 +694,7 @@ class Snakemake:
     def params(self):
         if self._params is None:
             params = Params(toclone=list(self._params_store))
-            for i, value in enumerate(self._params):
+            for i, value in enumerate(params):
                 if isinstance(value, ParamStore):
                     params[i] = value.unpack()
 
