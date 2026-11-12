@@ -129,6 +129,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.finish_callback = self._proceed
         self._run_performed = None
         self._input_sizes = {}
+        self._rate_limited = False
+        self._pending_reevaluations = set()
 
         if workflow.remote_execution_settings.immediate_submit:
             self.submit_callback = self._proceed
@@ -297,7 +299,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         logger.info("Waiting for queue input...")
                         # schedule a reevaluation in 10 seconds
                         self._schedule_reevalutation(
-                            self.workflow.execution_settings.queue_input_wait_time
+                            "queue_input",
+                            self.workflow.execution_settings.queue_input_wait_time,
                         )
                     continue
 
@@ -401,10 +404,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                             logger.debug("Waiting for running jobs to complete.")
                         else:
                             logger.debug("Waiting for more resources.")
-                    if self.job_rate_limiter is not None:
-                        # need to reevaluate because after the timespan we can
-                        # schedule more jobs again
-                        self._schedule_reevalutation(self.job_rate_limiter.timespan)
+                    if self._rate_limited:
+                        # need to reevaluate because once the oldest submission
+                        # leaves the timespan we can schedule more jobs again
+                        self._schedule_reevalutation(
+                            "rate_limit", self.job_rate_limiter.time_until_free()
+                        )
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -417,11 +422,26 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor.cancel()
             raise e
 
-    def _schedule_reevalutation(self, delay: int) -> None:
-        threading.Timer(
-            delay,
-            lambda: self._open_jobs.release(),
-        ).start()
+    def _schedule_reevalutation(self, reason: str, delay: float) -> None:
+        """Wake up the scheduler after the given delay.
+
+        At most one wake-up per reason is pending, as each scheduling round
+        would otherwise start its own chain of timers.
+        """
+        with self._lock:
+            if reason in self._pending_reevaluations:
+                return
+            timer = threading.Timer(delay, self._reevaluate, args=(reason,))
+            # do not keep the process alive once the workflow is done
+            timer.daemon = True
+            timer.start()
+            self._pending_reevaluations.add(reason)
+
+    def _reevaluate(self, reason: str) -> None:
+        """Release the scheduler, allowing to schedule a new wake-up first."""
+        with self._lock:
+            self._pending_reevaluations.discard(reason)
+        self._open_jobs.release()
 
     def _finish_jobs(self):
         """Postprocess the jobs that finished since the last scheduling round."""
@@ -596,6 +616,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._open_jobs.release()
 
     def job_selector(self, jobs):
+        """Select the jobs to run, within the free resources and the rate limit."""
         for job in jobs:
             self.validate_job(job)
 
@@ -624,6 +645,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             return run_selector(self._job_selector)
         n_free_jobs = self.job_rate_limiter.get_free_jobs()
         if n_free_jobs == 0:
+            self._rate_limited = True
             logger.info("Job rate limit reached, waiting for free slots.")
             return set()
         else:
@@ -631,6 +653,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             selected = run_selector(self._job_selector)
             # update job rate limiter
             self.job_rate_limiter.register_jobs(len(selected))
+            self._rate_limited = len(selected) >= n_free_jobs
             return selected
 
     def update_available_resources(self, selected_jobs):
@@ -701,6 +724,12 @@ class JobRateLimiter:
     def register_jobs(self, n_jobs: int):
         currtime = time.time()
         self._jobs.extend(repeat(currtime, n_jobs))
+
+    def time_until_free(self) -> float:
+        """Return the seconds until the oldest registered job leaves the timespan."""
+        if not self._jobs:
+            return self.timespan
+        return max(self._jobs[0] + self.timespan - time.time(), 0)
 
     def get_free_jobs(self):
         # get the index of the last element that is older than the timespan
