@@ -46,19 +46,20 @@ def is_namedtuple_instance(obj: Any) -> bool:
 
 
 def canonicalize_numeric_value(value: Any) -> Any:
-    if isinstance(value, Integral):
+    if isinstance(value, bool):
+        return value
+    elif isinstance(value, Integral):
+        # convert e.g. numpy ints
         return int(value)
     elif isinstance(value, Real):
+        # convert e.g. numpy floats
         if value == float("inf"):
             return math.inf
         elif value == float("-inf"):
             return -math.inf
         elif math.isnan(value):
             return math.nan
-        else:
-            return f"{value}"
-    else:
-        return value
+    return value
 
 
 class ReportHref:
