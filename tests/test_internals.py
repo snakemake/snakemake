@@ -1,6 +1,8 @@
 import asyncio
 import os
+import threading
 from collections import Counter
+from functools import partial
 from types import SimpleNamespace
 
 from snakemake.cli import parse_set_resources
@@ -15,7 +17,9 @@ from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import Wildcards, InputFiles
 from snakemake.io import _IOFile
-from snakemake.scheduling.job_scheduler import JobScheduler
+from snakemake.scheduling import job_scheduler
+from snakemake.scheduling.job_scheduler import JobRateLimiter, JobScheduler
+from snakemake.settings.types import MaxJobsPerTimespan
 from snakemake_interface_common.exceptions import WorkflowError
 
 
@@ -232,3 +236,57 @@ def test_update_input_sizes_eviction_keeps_current_inputs(tmp_path):
 
     assert scheduler._input_sizes == {str(tmp_path / "a"): 3, str(tmp_path / "b"): 2}
     assert _CountingIOFile.calls == {str(tmp_path / "a"): 1, str(tmp_path / "b"): 1}
+
+
+class _FakeTimer:
+    """Records timers instead of starting threads."""
+
+    started = []
+
+    def __init__(self, delay, function, args=()):
+        self.delay, self.function, self.args = delay, function, args
+
+    def start(self):
+        _FakeTimer.started.append(self)
+
+
+def test_schedule_reevaluation_keeps_one_pending_timer_per_reason(monkeypatch):
+    monkeypatch.setattr(job_scheduler.threading, "Timer", _FakeTimer)
+    _FakeTimer.started = []
+    scheduler = SimpleNamespace(
+        _lock=threading.Lock(),
+        _open_jobs=threading.Semaphore(0),
+        _pending_reevaluations=set(),
+    )
+    scheduler._reevaluate = partial(JobScheduler._reevaluate, scheduler)
+    schedule = partial(JobScheduler._schedule_reevalutation, scheduler)
+
+    schedule("rate_limit", 1)
+    schedule("rate_limit", 1)
+    schedule("queue_input", 10)
+    assert [t.delay for t in _FakeTimer.started] == [1, 10]
+
+    # once the timer fired, the woken up round can schedule the next one
+    timer = _FakeTimer.started[0]
+    timer.function(*timer.args)
+    assert scheduler._open_jobs.acquire(blocking=False)
+    assert not scheduler._open_jobs.acquire(blocking=False)
+    schedule("rate_limit", 0.5)
+    assert [t.delay for t in _FakeTimer.started] == [1, 10, 0.5]
+
+
+def test_job_rate_limiter_time_until_free(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(job_scheduler, "time", SimpleNamespace(time=lambda: now[0]))
+    limiter = JobRateLimiter(MaxJobsPerTimespan(2, "10s"))
+    assert limiter.time_until_free() == 10
+
+    limiter.register_jobs(1)
+    now[0] = 104.0
+    limiter.register_jobs(1)
+    assert limiter.get_free_jobs() == 0
+    # the first job leaves the timespan at 110
+    assert limiter.time_until_free() == 6
+    now[0] = 110.0
+    assert limiter.get_free_jobs() == 1
+    assert limiter.time_until_free() == 4
