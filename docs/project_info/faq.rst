@@ -536,7 +536,7 @@ Snakemake calculates a checksum of the file content and only reruns the rule if 
 even if the timestamp of the input file is newer than the output file(s).
 To rely on file modification dates exclusively, set ``--max-checksum-file-size=0``.
 
-If your job is triggered by newer input files, but you are sure that the input files did not change on a semantic level (i.e. won't yield different results), you can mark those input files as ancient via the command line, or (usually better) via a :ref:`workflow specific profile <profiles>`.
+If your job is triggered by newer input files, but you are sure that the input files did not change on a semantic level (i.e. won't yield different results), you can mark those input files as ancient via the command line, or (usually better) via a :ref:`workflow specific profile <executing-profiles>`.
 Let us assume you have the following rule from which such an unwanted job is triggered:
 
 .. code-block:: python
@@ -665,6 +665,8 @@ Executing snakemake as above then leads to the shell script accessing only node-
 Developer Experience
 --------------------
 
+.. _snakefiles-format:
+
 How should Snakefiles be formatted?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -723,7 +725,7 @@ In which order are resource definitions prioritized?
 ----------------------------------------------------
 
 All snakemake command-line arguments, such as ``resources`` and ``threads``, can be defined in different places.
-For resources and threads, this can be in the rule definition (see :ref:`snakefiles-threads` and :ref:`snakefiles-resources`), in a profile (see :ref:`profiles`), or via the command line (see :ref:`all_options`).
+For resources and threads, this can be in the rule definition (see :ref:`snakefiles-threads` and :ref:`snakefiles-resources`), in a profile (see :ref:`executing-profiles`), or via the command line (see :ref:`all_options`).
 Resources are gathered in the following order, where later definitions overwrite previous ones:
 
 1. Rule definition (for details refer to :ref:`snakefiles-threads` and :ref:`snakefiles-resources`)
