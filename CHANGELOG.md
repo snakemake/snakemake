@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [9.27.2](https://github.com/snakemake/snakemake/compare/v9.27.1...v9.27.2) (2026-11-13)
+
+
+### Documentation
+
+* Replace Gitpod with GitHub Codespaces in tutorial setup ([#4390](https://github.com/snakemake/snakemake/issues/4390)) ([a176284](https://github.com/snakemake/snakemake/commit/a176284a15e79c62f8a58f2d9011fa32a42b7f26))
+
 ## [9.27.1](https://github.com/snakemake/snakemake/compare/v9.27.0...v9.27.1) (2026-10-21)
 
 
