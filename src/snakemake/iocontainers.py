@@ -37,7 +37,6 @@ if TYPE_CHECKING:
     from typing import Self
 
 
-
 # Taken from https://stackoverflow.com/a/62692640
 # Thanks to techkuz.
 def is_namedtuple_instance(obj: Any) -> bool:
@@ -62,6 +61,7 @@ def canonicalize_value(value: Any) -> Any:
             return math.nan
     try:
         import pandas as pd
+
         if pd is not None and pd.isna(value):
             return None
     except (ModuleNotFoundError, ImportError):
