@@ -37,6 +37,22 @@ if TYPE_CHECKING:
     from typing import Self
 
 
+# Import libs, if they are not present, we can't get
+# values of their types, so that we can ignore them.
+try:
+    import pandas as pd
+except ModuleNotFoundError:
+    pd = None  # type: ignore[assignment]
+try:
+    import numpy as np
+except ModuleNotFoundError:
+    np = None  # type: ignore[assignment]
+try:
+    import polars as pl
+except ModuleNotFoundError:
+    pl = None  # type: ignore[assignment]
+
+
 # Taken from https://stackoverflow.com/a/62692640
 # Thanks to techkuz.
 def is_namedtuple_instance(obj: Any) -> bool:
@@ -45,7 +61,7 @@ def is_namedtuple_instance(obj: Any) -> bool:
     )
 
 
-def canonicalize_numeric_value(value: Any) -> Any:
+def canonicalize_value(value: Any) -> Any:
     if isinstance(value, bool):
         return value
     elif isinstance(value, Integral):
@@ -59,6 +75,8 @@ def canonicalize_numeric_value(value: Any) -> Any:
             return -math.inf
         elif math.isnan(value):
             return math.nan
+    elif pd is not None and pd.isna(value):
+        return None
     return value
 
 
@@ -426,21 +444,6 @@ class ParamStore:
 
     @classmethod
     def from_value(cls, data: Any) -> Any:
-        # Import libs, if they are not present, we can't get
-        # values of their types, so that we can ignore them.
-        try:
-            import pandas as pd
-        except ModuleNotFoundError:
-            pd = None  # type: ignore[assignment]
-        try:
-            import numpy as np
-        except ModuleNotFoundError:
-            np = None  # type: ignore[assignment]
-        try:
-            import polars as pl
-        except ModuleNotFoundError:
-            pl = None  # type: ignore[assignment]
-
         if is_namedtuple_instance(data):
             return ParamStore(
                 data={
@@ -481,7 +484,7 @@ class ParamStore:
                 dtype=ParamType.POLARS_LAZYFRAME,
             )
         else:
-            return canonicalize_numeric_value(data)
+            return canonicalize_value(data)
 
     def unpack(self) -> Any:
         def recurse(data):
