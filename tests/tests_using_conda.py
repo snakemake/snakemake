@@ -57,6 +57,21 @@ def test_conda():
 
 
 @conda_plugin
+def test_conda_requirements_txt():
+    run(dpath("test_conda_requirements_txt"), deployment_method={"conda"})
+
+
+@conda_plugin
+def test_conda_requirements_txt_nested():
+    run(dpath("test_conda_requirements_txt_nested"), deployment_method={"conda"})
+
+
+@conda_plugin
+def test_conda_requirements_txt_full():
+    run(dpath("test_conda_requirements_txt_full"), deployment_method={"conda"})
+
+
+@conda_plugin
 def test_list_software_envs():
     run(dpath("test_conda"), list_software_envs=True, check_results=False)
 

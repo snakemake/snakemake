@@ -1,0 +1,7 @@
+rule all:
+    output:
+        "test.out"
+    conda:
+        "test-env.yaml"
+    shell:
+        "python -c 'import numpy as np; np.savetxt(\"{output}\", np.arange(5), fmt=\"%d\")'"
