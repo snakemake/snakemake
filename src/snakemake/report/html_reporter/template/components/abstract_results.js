@@ -31,7 +31,13 @@ class ToggleViewManager extends AbstractViewManager {
             resultPath: resultPath
         });
     }
-
+    handleVega(entry, resultPath) {
+        this.app.setView({
+            content: "vega",
+            contentPath: entry.data_uri,
+            resultPath: resultPath
+        });
+    }
     handleDefault(entry, resultPath) {
         // do nothing in this case
     }

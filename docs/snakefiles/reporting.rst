@@ -254,6 +254,24 @@ Further, using ``url_args()`` you can add URL arguments and using ``anchor()`` y
             file=f,
         )
 
+Vega and Vega-Lite plots
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Results whose file name ends with ``.vl.json`` (`Vega-Lite <https://vega.github.io/vega-lite/>`_) or ``.vg.json`` (`Vega <https://vega.github.io/vega/>`_) are rendered as interactive plots in the report, using `vega-embed <https://github.com/vega/vega-embed>`_.
+The size of a plot can be changed with the slider in the "..." menu of the plot.
+The plot specifications are compressed with `lz-string <https://github.com/pieroxy/lz-string>`_ and stored inside the report, in the HTML as well as in the ZIP variant.
+This requires the Python package ``lzstring``, which is installed together with the ``reports`` extra (``pip install snakemake[reports]``).
+
+.. code-block:: python
+
+    rule plot:
+        input:
+            "spec.vl.json"
+        output:
+            report("plot.vl.json", caption="caption.rst", category="Plots"),
+        shell:
+            "cp {input} {output}"
+
 .. _snakefiles-rendering_reports:
 
 Rendering reports

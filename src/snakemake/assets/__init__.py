@@ -83,6 +83,16 @@ class Assets:
             sha256="21758ed084cd0e37e735722ee4f3957ea960628a29dfa6c3ce1a1d47a2d6e4f7",
             version="18.2.0",
         ),
+        "lz-string/lz-string.min.js": Asset(
+            url="https://cdnjs.cloudflare.com/ajax/libs/lz-string/{version}/lz-string.min.js",
+            sha256="95f4d1cbf099f57161b664bc048426ec3df92637801a4c79116e83315aa787e7",
+            version="1.5.0",
+        ),
+        "lz-string/LICENSE": Asset(
+            url="https://raw.githubusercontent.com/pieroxy/lz-string/refs/tags/{version}/LICENSE",
+            sha256="433fc9dfe659dbfb1e91eed8351f13651e97bfa3ac6d03394c3d63f61d4bbc80",
+            version="1.5.0",
+        ),
         "vega/vega.js": Asset(
             url="https://cdnjs.cloudflare.com/ajax/libs/vega/{version}/vega.js",
             sha256="b34c43055ef5d39a093e937522955dc359fbaec6c5b0259ae2de4c9da698e9fe",
