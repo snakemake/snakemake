@@ -8,18 +8,18 @@ Setup
 .. _Pixi: https://pixi.sh/
 
 
-.. _tutorial-free-on-gitpod:
+.. _tutorial-free-on-codespaces:
 
-Run tutorial for free in the cloud via Gitpod
----------------------------------------------
+Run tutorial for free in the cloud via GitHub Codespaces
+--------------------------------------------------------
 
-The easiest way to run this tutorial is to use Gitpod, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
-In order to do this, simply open the predefined `snakemake-tutorial GitPod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser.
-GitPod provides you with a `Theia development environment <https://theia-ide.org/docs>`_, which you can learn about in the linked documentation.
+The easiest way to run this tutorial is to use GitHub Codespaces, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
+In order to do this, simply open the predefined `snakemake-tutorial GitHub Codespace <https://codespaces.new/snakemake/snakemake-tutorial-data>`_ in your browser.
+The Codespace provides you with a `Visual Studio Code <https://code.visualstudio.com>`_ development environment, which you can learn about in the linked documentation.
 Once you have a basic understanding of this environment, you can go on directly with :ref:`tutorial-basics`.
 
 .. note::
-    A common thing to happen while using the development environment in GitPod is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
+    A common thing to happen while using the development environment in GitHub Codespaces is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
     This will freeze your terminal.
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
