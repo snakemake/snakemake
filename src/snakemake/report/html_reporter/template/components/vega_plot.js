@@ -12,13 +12,17 @@ class VegaPlot extends React.Component {
         this.baseHeight = null;
         this.scale = 100;
         this.showLegend = true;
-        // "?vega_size=container" in the report URL makes container sizing the default
-        this.fit = new URLSearchParams(window.location.search).get("vega_size") === "container";
+        // by default, the plot is scaled up to use the available space
+        this.fit = true;
+        this.fitCheckbox = null;
+        this.resizeFrame = null;
         this.state = { error: null };
         this.showError = this.showError.bind(this);
+        this.onWindowResize = this.onWindowResize.bind(this);
     }
 
     componentDidMount() {
+        window.addEventListener("resize", this.onWindowResize);
         const result = results[this.props.resultPath];
         const specPromise = result.vega_spec
             ? Promise.resolve(
@@ -31,15 +35,16 @@ class VegaPlot extends React.Component {
                 this.isVegaLite = /vega-lite/.test(spec.$schema || "");
                 const legends = this.compiledSpec(spec).legends;
                 this.hasLegend = Array.isArray(legends) && legends.length > 0;
-                if (!this.isVegaLite) {
-                    this.fit = false;
-                }
                 return this.renderPlot();
             })
             .catch(this.showError);
     }
 
     componentWillUnmount() {
+        window.removeEventListener("resize", this.onWindowResize);
+        if (this.resizeFrame !== null) {
+            cancelAnimationFrame(this.resizeFrame);
+        }
         if (this.embedded && this.embedded.finalize) {
             this.embedded.finalize();
         }
@@ -49,6 +54,16 @@ class VegaPlot extends React.Component {
         this.setState({ error: "Could not render plot: " + err });
     }
 
+    onWindowResize() {
+        if (!this.fit || !this.embedded || this.resizeFrame !== null) {
+            return;
+        }
+        this.resizeFrame = requestAnimationFrame(() => {
+            this.resizeFrame = null;
+            this.fitToWindow().catch(this.showError);
+        });
+    }
+
     // plain Vega version of a spec (a copy)
     compiledSpec(spec) {
         return this.isVegaLite
@@ -56,17 +71,16 @@ class VegaPlot extends React.Component {
             : JSON.parse(JSON.stringify(spec));
     }
 
-    // spec and options for the current settings (legend shown or hidden, container size)
+    // spec and options for the current settings (legend shown or hidden)
     embedArguments() {
-        const spec = this.fit ? { ...this.spec, width: "container" } : this.spec;
         const options = {
             actions: { export: false, source: true, compiled: true, editor: true },
             forceActionsMenu: true
         };
         if (this.showLegend) {
-            return [spec, options];
+            return [this.spec, options];
         }
-        const vgSpec = this.compiledSpec(spec);
+        const vgSpec = this.compiledSpec(this.spec);
         delete vgSpec.legends;
         return [vgSpec, { ...options, mode: "vega" }];
     }
@@ -76,15 +90,14 @@ class VegaPlot extends React.Component {
         if (this.embedded && this.embedded.finalize) {
             this.embedded.finalize();
         }
-        // (the report centers its content in a flex box, so the wrapper must be widened too)
-        el.style.display = this.fit ? "block" : "";
-        el.style.width = this.fit ? "100%" : "";
-        el.parentElement.style.width = this.fit ? "100%" : "";
         const [spec, options] = this.embedArguments();
         return vegaEmbed(el, spec, options).then((embedded) => {
             this.embedded = embedded;
             this.baseWidth = embedded.view.width();
             this.baseHeight = embedded.view.height();
+            if (this.fit) {
+                return this.fitToWindow().then(() => this.addMenuControls(el));
+            }
             if (this.scale !== 100) {
                 this.applyScale();
             }
@@ -99,9 +112,51 @@ class VegaPlot extends React.Component {
             .run();
     }
 
-    // the view to save: with container size and no manual resizing, the original size
+    applyScaleAsync() {
+        return this.embedded.view
+            .width(this.baseWidth * this.scale / 100)
+            .height(this.baseHeight * this.scale / 100)
+            .runAsync();
+    }
+
+    // scale the plot up or down so that it uses as much of the available space as
+    // possible, keeping its aspect ratio
+    async fitToWindow() {
+        const el = this.container.current;
+        const view = this.embedded.view;
+        const area = el.parentElement.parentElement;  // the content area of the report
+        const drawing = el.querySelector("canvas, svg");
+        if (!drawing) {
+            return;
+        }
+        // measure with a tiny plot, because a large plot would itself push the layout
+        // and change the available space (no repaint happens in between)
+        await view.width(10).height(10).runAsync();
+        const padding = 32;
+        const availableWidth = area.clientWidth - padding;
+        const availableHeight = area.clientHeight - padding;
+        // axes, legend and padding around the plot area keep their size when scaling
+        const rect = drawing.getBoundingClientRect();
+        const extraWidth = rect.width - 10;
+        const extraHeight = rect.height - 10;
+        const factor = Math.max(
+            0.1,
+            Math.min(
+                (availableWidth - extraWidth) / this.baseWidth,
+                (availableHeight - extraHeight) / this.baseHeight
+            )
+        );
+        this.scale = factor * 100;
+        await this.applyScaleAsync();
+        if (this.sizeSlider) {
+            this.sizeSlider.value = Math.round(this.scale / 5) * 5;
+            this.sizeValue.textContent = Math.round(this.scale) + "%";
+        }
+    }
+
+    // the view to save: with "fit to window", the original size
     exportView() {
-        if (this.fit && this.scale === 100) {
+        if (this.fit) {
             const vgSpec = this.compiledSpec(this.spec);
             if (!this.showLegend) {
                 delete vgSpec.legends;
@@ -157,9 +212,7 @@ class VegaPlot extends React.Component {
         menu.prepend(saveItem("Save as PNG", () => this.savePng()));
         menu.prepend(saveItem("Save as SVG", () => this.saveSvg()));
         menu.append(this.sizeRow());
-        if (this.isVegaLite) {
-            menu.append(this.fitRow());
-        }
+        menu.append(this.fitRow());
         if (this.hasLegend) {
             menu.append(this.legendRow());
         }
@@ -184,7 +237,7 @@ class VegaPlot extends React.Component {
         checkbox.addEventListener("change", () => onChange(checkbox.checked));
         label.append(checkbox, text);
         row.append(label);
-        return row;
+        return [row, checkbox];
     }
 
     sizeRow() {
@@ -196,21 +249,23 @@ class VegaPlot extends React.Component {
         slider.min = 25;
         slider.max = 300;
         slider.step = 5;
-        slider.value = this.scale;
+        slider.value = Math.round(this.scale / 5) * 5;
         const value = document.createElement("span");
-        value.textContent = this.scale + "%";
+        value.textContent = Math.round(this.scale) + "%";
+        this.sizeSlider = slider;
+        this.sizeValue = value;
 
         // while dragging, only update the label
         slider.addEventListener("input", () => {
             value.textContent = slider.value + "%";
         });
-        // re-render once, when the mouse button is released, and only if the size changed
+        // re-render once, when the mouse button is released; setting the size by hand
+        // switches "fit to window" off
         slider.addEventListener("change", () => {
-            const scale = Number(slider.value);
-            if (scale !== this.scale) {
-                this.scale = scale;
-                this.applyScale();
-            }
+            this.fit = false;
+            this.fitCheckbox.checked = false;
+            this.scale = Number(slider.value);
+            this.applyScale();
         });
 
         row.append(label, slider, value);
@@ -218,18 +273,28 @@ class VegaPlot extends React.Component {
     }
 
     fitRow() {
-        return this.checkboxRow("Fit to container", this.fit, (checked) => {
+        const [row, checkbox] = this.checkboxRow("Fit to window", this.fit, (checked) => {
             this.fit = checked;
-            this.scale = 100;
-            this.renderPlot().catch(this.showError);
+            if (checked) {
+                this.fitToWindow().catch(this.showError);
+            } else {
+                // back to the original size
+                this.scale = 100;
+                this.applyScale();
+                this.sizeSlider.value = 100;
+                this.sizeValue.textContent = "100%";
+            }
         });
+        this.fitCheckbox = checkbox;
+        return row;
     }
 
     legendRow() {
-        return this.checkboxRow("Legend", this.showLegend, (checked) => {
+        const [row] = this.checkboxRow("Legend", this.showLegend, (checked) => {
             this.showLegend = checked;
             this.renderPlot().catch(this.showError);
         });
+        return row;
     }
 
     render() {
