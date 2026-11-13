@@ -11,6 +11,8 @@ import subprocess as sp
 import re
 from pathlib import Path
 import tempfile
+import threading
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -23,7 +25,7 @@ from snakemake.resources import GroupResources, is_ordinary_string, Resources
 from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
-from snakemake.settings.types import Batch
+from snakemake.settings.types import Batch, MaxJobsPerTimespan
 from snakemake.shell import shell
 from snakemake.exceptions import AmbiguousRuleException, WorkflowError
 
@@ -2352,6 +2354,123 @@ def test_max_jobs_per_timespan():
     run(dpath("test01"), shellcmd="snakemake --max-jobs-per-timespan 2/1s --cores 3")
 
 
+@skip_on_windows
+def test_max_jobs_per_timespan_single_timer(monkeypatch):
+    # each scheduling round used to start its own chain of reevaluation timers
+    from snakemake.scheduling import job_scheduler
+
+    lock = threading.Lock()
+    pending = max_pending = 0
+
+    class Timer(threading.Timer):
+        def __init__(self, interval, function, args=None, kwargs=None):
+            def fire(*args, **kwargs):
+                nonlocal pending
+                with lock:
+                    pending -= 1
+                function(*args, **kwargs)
+
+            super().__init__(interval, fire, args, kwargs)
+
+        def start(self):
+            nonlocal pending, max_pending
+            with lock:
+                pending += 1
+                max_pending = max(max_pending, pending)
+            super().start()
+
+    monkeypatch.setattr(job_scheduler.threading, "Timer", Timer)
+    run(
+        dpath("test_max_jobs_per_timespan_single_timer"),
+        cores=2,
+        max_jobs_per_timespan=MaxJobsPerTimespan(3, "1s"),
+    )
+    # the limit was reached, and a single wake-up was pending at a time
+    assert max_pending == 1
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_sliding_window(monkeypatch):
+    """No more than max_jobs jobs are registered within any timespan."""
+    # use the limiter's recorded times, as job starts are slightly later
+    from snakemake.scheduling.job_scheduler import JobRateLimiter
+
+    registered = []
+    limit = MaxJobsPerTimespan(3, "1s")
+    register_jobs = JobRateLimiter.register_jobs
+
+    def record_register_jobs(self, n_jobs):
+        """Register the jobs, then record the times the limiter stored for them."""
+        register_jobs(self, n_jobs)
+        if n_jobs:
+            registered.extend(list(self._jobs)[-n_jobs:])
+
+    monkeypatch.setattr(JobRateLimiter, "register_jobs", record_register_jobs)
+    run(
+        dpath("test_max_jobs_per_timespan_single_timer"),
+        cores=2,
+        max_jobs_per_timespan=limit,
+    )
+    # all twelve work jobs and the final rule are counted by the limiter
+    assert len(registered) == 13
+    # the limiter expires timestamps at the left boundary of (t - timespan, t]
+    for first, last in zip(registered, registered[limit.max_jobs :]):
+        assert first <= last - limit.timespan, (
+            f"More than {limit.max_jobs} jobs registered within {limit.timespan}s: "
+            f"{registered}"
+        )
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_wakeup(monkeypatch):
+    """Jobs held back by the limit start once the timespan is over.
+
+    They do not wait for a running job to finish (#3019).
+    """
+    from snakemake.scheduling.job_scheduler import JobScheduler
+
+    submitted, finished = [], []
+    orig_run, orig_proceed = JobScheduler.run, JobScheduler._proceed
+
+    def record_run(self, jobs, executor=None):
+        """Submit the jobs, record when, and release them after the fourth."""
+        result = orig_run(self, jobs, executor=executor)
+        submitted.extend(time.time() for job in jobs if job.rule.name == "work")
+        if len(submitted) == 4:
+            # let the jobs finish (they wait for this file in the workdir)
+            Path("released").touch()
+        return result
+
+    def record_proceed(self, job):
+        """Record when a work job finished, then proceed."""
+        if job.rule.name == "work":
+            finished.append(time.time())
+        return orig_proceed(self, job)
+
+    monkeypatch.setattr(JobScheduler, "run", record_run)
+    monkeypatch.setattr(JobScheduler, "_proceed", record_proceed)
+    run(
+        dpath("test_max_jobs_per_timespan_wakeup"),
+        cores=8,
+        # the fourth job is held back, and the final rule gets a slot even
+        # when jobs are only submitted once a running one finished
+        max_jobs_per_timespan=MaxJobsPerTimespan(3, "1s"),
+    )
+    assert len(submitted) == 4
+    assert max(submitted) < min(finished)
+
+
+@skip_on_windows
+def test_max_jobs_per_timespan_exit():
+    # a pending reevaluation timer does not keep the process alive
+    start = time.time()
+    run(
+        dpath("test_max_jobs_per_timespan_exit"),
+        shellcmd="snakemake --max-jobs-per-timespan 2/1m --cores 1",
+    )
+    assert time.time() - start < 30
+
+
 def test_touch_pipeline_with_temp_dir():
     # Issue #1028
     run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, executor="touch")
@@ -2379,6 +2498,23 @@ def test_ancient_dag():
 @skip_on_windows
 def test_checkpoint_allowed_rules():
     run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
+
+
+@skip_on_windows
+def test_checkpoint_allowed_rules_target_jobs():
+    # Emulates the job step of rule c, as executor plugins run it.
+    # Rule b would produce the missing input of c, but it is not allowed to run.
+    path = dpath("test_checkpoint_allowed_rules_target_jobs")
+    with prepare_tmpdir(path) as tmpdir:
+        run(
+            path,
+            shellcmd="snakemake --target-jobs c: --allowed-rules c --force "
+            "--cores 1 --latency-wait 0 --mode remote",
+            shouldfail=True,
+            tmpdir=tmpdir,
+            cleanup=False,
+        )
+        assert not (Path(tmpdir) / "b.txt").exists()
 
 
 @skip_on_windows
@@ -3756,6 +3892,20 @@ def test_github_issue_4039_runtime_no_override():
         cleanup=False,
     )
     shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+@connected
+def test_github_issue4376():
+    """Test report generation after workflow including a defined software env (conda).
+    Test for https://github.com/snakemake/snakemake/issues/4376"""
+    run(
+        dpath("test_github_issue4376"),
+        report="report.html",
+        report_after_run=True,
+        check_md5=False,
+        deployment_method={"conda"},
+    )
 
 
 @skip_on_windows

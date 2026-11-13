@@ -5,6 +5,10 @@
 # Python 3.7 compatible should be imported here (except for methods
 # that are only called by Snakemake itself)!
 
+from collections import namedtuple
+from enum import Enum
+import math
+from numbers import Integral, Real
 import os
 import urllib.parse
 from pathlib import Path
@@ -31,6 +35,31 @@ FILE_HASH_PREFIX_LEN = 16
 
 if TYPE_CHECKING:
     from typing import Self
+
+
+# Taken from https://stackoverflow.com/a/62692640
+# Thanks to techkuz.
+def is_namedtuple_instance(obj: Any) -> bool:
+    return (
+        isinstance(obj, tuple) and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
+    )
+
+
+def canonicalize_numeric_value(value: Any) -> Any:
+    if isinstance(value, bool):
+        return value
+    elif isinstance(value, Integral):
+        # convert e.g. numpy ints
+        return int(value)
+    elif isinstance(value, Real):
+        # convert e.g. numpy floats
+        if value == float("inf"):
+            return math.inf
+        elif value == float("-inf"):
+            return -math.inf
+        elif math.isnan(value):
+            return math.nan
+    return value
 
 
 class ReportHref:
@@ -378,6 +407,136 @@ class Log(Namedlist):
     pass
 
 
+class ParamType(Enum):
+    NAMEDTUPLE = 0
+    NUMPY_ARRAY = 1
+    PANDAS_SERIES = 2
+    PANDAS_DATAFRAME = 3
+    POLARS_SERIES = 4
+    POLARS_DATAFRAME = 5
+    POLARS_LAZYFRAME = 6
+    LIST = 7
+    TUPLE = 8
+
+
+class ParamStore:
+    def __init__(self, data: Any, dtype: ParamType) -> None:
+        self.data = data
+        self.dtype = dtype
+
+    @classmethod
+    def from_value(cls, data: Any) -> Any:
+        # Import libs, if they are not present, we can't get
+        # values of their types, so that we can ignore them.
+        try:
+            import pandas as pd
+        except ModuleNotFoundError:
+            pd = None  # type: ignore[assignment]
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            np = None  # type: ignore[assignment]
+        try:
+            import polars as pl
+        except ModuleNotFoundError:
+            pl = None  # type: ignore[assignment]
+
+        if is_namedtuple_instance(data):
+            return ParamStore(
+                data={
+                    "fields": data._fields,
+                    "values": [ParamStore.from_value(val) for val in data],
+                },
+                dtype=ParamType.NAMEDTUPLE,
+            )
+        elif isinstance(data, list):
+            return ParamStore(
+                data=[ParamStore.from_value(val) for val in data], dtype=ParamType.LIST
+            )
+        elif isinstance(data, tuple):
+            return ParamStore(
+                data=[ParamStore.from_value(val) for val in data], dtype=ParamType.TUPLE
+            )
+        elif np and isinstance(data, np.ndarray):
+            return ParamStore(data=data.tolist(), dtype=ParamType.NUMPY_ARRAY)
+        elif pd and isinstance(data, pd.Series):
+            return ParamStore(data=data.to_dict(), dtype=ParamType.PANDAS_SERIES)
+        elif pd and isinstance(data, pd.DataFrame):
+            return ParamStore(data=data.to_dict(), dtype=ParamType.PANDAS_DATAFRAME)
+        elif pl and isinstance(data, pl.Series):
+            return ParamStore(
+                data={
+                    "name": data.name,
+                    "values": data.to_list(),
+                },
+                dtype=ParamType.POLARS_SERIES,
+            )
+        elif pl and isinstance(data, pl.DataFrame):
+            return ParamStore(
+                data=data.to_dict(as_series=False), dtype=ParamType.POLARS_DATAFRAME
+            )
+        elif pl and isinstance(data, pl.LazyFrame):
+            return ParamStore(
+                data=data.collect().to_dict(as_series=False),
+                dtype=ParamType.POLARS_LAZYFRAME,
+            )
+        else:
+            return canonicalize_numeric_value(data)
+
+    def unpack(self) -> Any:
+        def recurse(data):
+            if isinstance(data, ParamStore):
+                return data.unpack()
+            elif isinstance(data, list):
+                return [recurse(val) for val in data]
+            else:
+                return data
+
+        try:
+            if self.dtype == ParamType.NAMEDTUPLE:
+                ntcls = namedtuple("SnakemakeNamedTuple", self.data["fields"])
+                return ntcls(recurse(self.data["values"]))
+            elif self.dtype == ParamType.NUMPY_ARRAY:
+                import numpy as np
+
+                return np.array(self.data)
+            elif self.dtype == ParamType.PANDAS_SERIES:
+                import pandas as pd
+
+                return pd.Series(self.data)
+            elif self.dtype == ParamType.PANDAS_DATAFRAME:
+                import pandas as pd
+
+                return pd.DataFrame.from_dict(
+                    {col: vals for col, vals in self.data.items()}
+                )
+            elif self.dtype == ParamType.POLARS_SERIES:
+                import polars as pl
+
+                return pl.Series(**self.data)
+            elif self.dtype == ParamType.POLARS_DATAFRAME:
+                import polars as pl
+
+                return pl.from_dict(self.data)
+            elif self.dtype == ParamType.POLARS_LAZYFRAME:
+                import polars as pl
+
+                return pl.from_dict(self.data).lazy()
+            elif self.dtype == ParamType.LIST:
+                return [recurse(val) for val in self.data]
+            elif self.dtype == ParamType.TUPLE:
+                return tuple(recurse(val) for val in self.data)
+            else:
+                raise ValueError(f"Unsupported ParamType: {self.dtype}")
+        except (ImportError, ModuleNotFoundError) as e:
+            raise ImportError(
+                "Failed to import required module for loading rule params. "
+                "Make sure that the respective package (numpy, pandas, polars) "
+                "is available in the software environment in which the "
+                f"script/wrapper/notebook is executed: {e}"
+            )
+
+
 class Snakemake:
     def __init__(
         self,
@@ -397,7 +556,11 @@ class Snakemake:
         # be pickled
         self.input = input_._plainstrings()
         self.output = output._plainstrings()
+
+        self._params_store: Optional[Namedlist] = None
+        self._params: Optional[Namedlist] = None
         self._safely_store_params(params)
+
         self.wildcards = wildcards
         self.threads = threads
         self.resources = resources
@@ -406,6 +569,22 @@ class Snakemake:
         self.rule = rulename
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
+
+    def items(self):
+        for name in (
+            "input",
+            "output",
+            "wildcards",
+            "threads",
+            "resources",
+            "params",
+            "log",
+            "config",
+            "rule",
+            "bench_iteration",
+            "scriptdir",
+        ):
+            yield name, getattr(self, name)
 
     def report_href(self, path: Union[str, Path]) -> ReportHref:
         """Return an href to the given path in the report context, assuming that the
@@ -514,86 +693,21 @@ class Snakemake:
 
     @property
     def params(self):
-        params = Params(toclone=list(self._params_store))
-        try:
+        if self._params is None:
+            params = Params(toclone=list(self._params_store))
             for i, value in enumerate(params):
-                param_type = self._params_types.get(i)
-                if param_type is None:
-                    # nothing to convert
-                    continue
-                if param_type.startswith("pd."):
-                    import pandas as pd
+                if isinstance(value, ParamStore):
+                    params[i] = value.unpack()
 
-                    if param_type == "pd.DataFrame":
-                        params[i] = pd.DataFrame.from_dict(value)
-                    elif param_type == "pd.Series":
-                        params[i] = pd.Series(value)
-                elif param_type.startswith("np."):
-                    import numpy as np
-
-                    if param_type == "np.ndarray":
-                        params[i] = np.array(value)
-                elif param_type.startswith("pl."):
-                    import polars as pl
-
-                    if param_type == "pl.LazyFrame":
-                        params[i] = pl.from_dict(value).lazy()
-                    elif param_type == "pl.DataFrame":
-                        params[i] = pl.from_dict(value)
-                    elif param_type == "pl.Series":
-                        params[i] = pl.Series(**value)
-        except ImportError as e:
-            raise ImportError(
-                "Failed to import required module for loading rule params. "
-                "Make sure that the respective package (numpy, pandas, polars) "
-                "is available in the software environment in which the "
-                f"script/wrapper/notebook is executed: {e}"
-            )
-
-        params._take_names(self._params_store._get_names())
-        return params
+            params._take_names(self._params_store._get_names())
+            self._params = params
+        return self._params
 
     def _safely_store_params(self, params: Params):
-        try:
-            import pandas as pd
-        except ModuleNotFoundError:
-            pd = None  # type: ignore[assignment]
-        try:
-            import numpy as np
-        except ModuleNotFoundError:
-            np = None  # type: ignore[assignment]
-        try:
-            import polars as pl
-        except ModuleNotFoundError:
-            pl = None  # type: ignore[assignment]
-
         self._params_store = Params(toclone=list(params))
         self._params_types = dict()
         for i, value in enumerate(params):
-            if pd:
-                if isinstance(value, pd.DataFrame):
-                    self._params_store[i] = value.to_dict()
-                    self._params_types[i] = "pd.DataFrame"
-                elif isinstance(value, pd.Series):
-                    self._params_store[i] = value.to_dict()
-                    self._params_types[i] = "pd.Series"
-            if np and isinstance(value, np.ndarray):
-                self._params_store[i] = value.tolist()
-                self._params_types[i] = "np.ndarray"
-            if pl:
-                if isinstance(value, pl.LazyFrame):
-                    self._params_store[i] = value.collect().to_dict(as_series=False)
-                    self._params_types[i] = "pl.LazyFrame"
-                if isinstance(value, pl.DataFrame):
-                    self._params_store[i] = value.to_dict(as_series=False)
-                    self._params_types[i] = "pl.DataFrame"
-                elif isinstance(value, pl.Series):
-                    self._params_store[i] = {
-                        "name": value.name,
-                        "values": value.to_list(),
-                    }
-                    self._params_types[i] = "pl.Series"
-
+            self._params_store[i] = ParamStore.from_value(value)
         self._params_store._take_names(params._get_names())
 
 

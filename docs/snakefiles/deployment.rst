@@ -246,6 +246,41 @@ Therefore, the repository structure should comply with:
 Integrated Package Management
 -----------------------------
 
+Auxiliary packages for Snakemake and workflows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``--with-pkgs`` and ``--workflow-with-pkgs`` options let Snakemake automatically install auxiliary Python packages using pip-compatible package specifications.
+Use ``--with-pkgs`` for packages needed by Snakemake itself, such as executor or storage plugins.
+These packages are installed in an auxiliary environment in the user's cache and can be shared across workflows.
+
+Use ``--workflow-with-pkgs`` for packages specific to a workflow, including libraries needed by the workflow code outside of rules.
+For example, a workflow can use ``pandas`` to parse a configuration sheet when the Snakefile is evaluated.
+These packages are installed in the software deployment prefix (``--software-deployment-prefix``) and kept separate for different profiles via a hash of the requested packages.
+Packages needed by jobs inside rules should instead be specified in rule-specific environments, for example with the ``software`` directive.
+
+Both options can be set on the command line, but we recommend persisting them in profiles: put ``with-pkgs`` in a :ref:`global profile <global-profiles>` and ``workflow-with-pkgs`` in a :ref:`workflow-specific profile <workflow-specific-profile>`.
+For example, a global profile can contain:
+
+.. code-block:: yaml
+
+    with-pkgs:
+      - snakemake-executor-plugin-slurm ==2.8.0
+
+The workflow-specific profile can then contain:
+
+.. code-block:: yaml
+
+    workflow-with-pkgs:
+      - pandas >=3.1.1,<4.0
+
+Snakemake deploys the packages automatically when the workflow is run.
+It is recommended to always specify a concrete pinned version (for global packages) or version range (for workflow-specific packages).
+This allows to enforce updates by changing the profile.
+When using remote execution (like with SLURM) the respective global plugin packages should have a pinned version because they need to remain consistent between nodes.
+
+Per-rule software deployment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 It is possible (and highly encouraged, see :ref:`snakefiles-best_practices`) to define isolated software environments per rule.
 Upon execution of a workflow, the `Conda package manager <https://conda.pydata.org>`_ is used to obtain and deploy the defined software packages in the specified versions. Packages will be installed into your working directory, without requiring any admin/root privileges.
 Given that conda is available on your system (see `Miniconda <https://conda.pydata.org/miniconda.html>`_), to use the Conda integration, add the ``--software-deployment-method conda`` option (``--sdm`` for short) to your workflow execution command, e.g. ``snakemake --cores 8 --sdm conda``.
