@@ -336,7 +336,14 @@ class InputFiles(Namedlist):
             return [res for res in sizes if res is not None]
 
         # the async_run method is expected to be provided through the eval context
-        return globals().get("async_run", async_run_fallback)(sizes())
+        coroutine = sizes()
+        try:
+            return globals().get("async_run", async_run_fallback)(coroutine)
+        except BaseException:
+            # if an exception occurs, ensure the coroutine is still properly closed
+            # needed because the exception can be a NestedCoroutineError
+            coroutine.close()
+            raise
 
     @property
     def size_files(self):
