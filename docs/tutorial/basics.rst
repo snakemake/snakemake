@@ -285,7 +285,7 @@ The rendered DAG is piped into the file ``dag.svg`` and will look similar to thi
    :align: center
 
 .. note::
-    If you went with: :ref:`tutorial-free-on-gitpod`, you can easily view the resulting ``dag.svg`` by right-clicking on the file in the explorer panel on the left and selecting ``Open With -> Preview``.
+    If you went with: :ref:`tutorial-free-on-codespaces`, you can easily view the resulting ``dag.svg`` by clicking on the file in the explorer panel on the left.
 
 The DAG contains a node for each job with the edges connecting them representing the dependencies.
 The frames of jobs that don't need to be run (because their output is up-to-date) are dashed.
