@@ -1,8 +1,8 @@
-
 rule a:
     output:
-        "test.out"
-    software: conda(envfile="test-env.yaml", within=container(image="docker://continuumio/miniconda3"))
+        "test.out",
+    software: conda(envfile="test-env.yaml", within=container(image_uri="docker://continuumio/miniconda3"))
     shell:
-        "ls /singularity; "
-        "bwa 2> {output} || true"
+        # bwa comes from the conda env, /opt/conda only exists in the image
+        "(bwa 2>&1 || true) | grep -o 'Program: bwa' > {output}; "
+        "test -d /opt/conda && echo in-container >> {output}"

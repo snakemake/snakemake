@@ -93,69 +93,85 @@ class SoftwareDeploymentManager:
             ):
                 self.get_env_from_job(job)
 
-    async def cache_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
-        shared_cache = (
+    async def prepare_envs(
+        self, jobs: Iterable["snakemake.jobs.Job"], deploy: bool = True
+    ) -> None:
+        """Cache the assets of and deploy the software envs of the given jobs.
+
+        Envs are handled in deployment order, such that an env is deployed
+        before anything of an env nested within it runs. A dryrun only reports
+        what would be done; it does not call into the envs, since e.g.
+        determining cache assets may require network access.
+        """
+        cache = (
             SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
             in self.workflow.storage_settings.shared_fs_usage
+            or self.workflow.remote_exec
         )
-        if not shared_cache and not self.workflow.remote_exec:
-            return
-
-        assets = {}
-        for job in jobs:
-            env = job.software_env
-            if env is not None and env.is_cacheable():
-                for asset in await env.get_cache_assets():
-                    if (env.cache_path / asset).exists():
-                        continue
-                    # if multiple envs share the same asset, we can simply cache
-                    # it for one of them, so we do not check for duplicates here.
-                    assets[asset] = env
-
-        if self.workflow.dryrun and assets:
-            logger.info(
-                f"Will cache {len(assets)} software environment assets.",
-                extra={"quietness": Quietness.RULES},
-            )
-        elif assets:
-            logger.info(
-                f"Caching {len(assets)} software environment assets.",
-                extra={"quietness": Quietness.RULES},
-            )
-
-            for asset, env in assets.items():
-                await env.managed_cache_asset(asset)
-
-    async def deploy_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
-        shared_deploy = (
+        deploy = deploy and (
             SharedFSUsage.SOFTWARE_DEPLOYMENT
             in self.workflow.storage_settings.shared_fs_usage
+            or self.workflow.remote_exec
         )
-        if not shared_deploy and not self.workflow.remote_exec:
+        if not cache and not deploy:
             return
 
-        envs = set()
-        for job in jobs:
-            env = job.software_env
-            if (
-                env is not None
-                and env.is_deployable()
-                and not env.deployment_path.exists()
-            ):
-                envs.add(env)
+        envs = self._collect_envs(jobs)
 
-        if self.workflow.dryrun and envs:
-            logger.info(
-                f"Will deploy {len(envs)} software environments.",
-                extra={"quietness": Quietness.RULES},
-            )
-        elif envs:
-            logger.info(
-                f"Deploying {len(envs)} software environments.",
-                extra={"quietness": Quietness.RULES},
-            )
-            for env in envs:
+        if self.workflow.dryrun:
+            n_cache = sum(env.is_cacheable() for env in envs) if cache else 0
+            n_deploy = sum(self._needs_deployment(env) for env in envs) if deploy else 0
+            if n_cache:
+                self._log(f"Will cache assets of {n_cache} software environments.")
+            if n_deploy:
+                self._log(f"Will deploy {n_deploy} software environments.")
+            return
+
+        for env in envs:
+            if cache and env.is_cacheable():
+                await self._cache_env(env)
+            if deploy and self._needs_deployment(env):
+                self._log(f"Deploying software environment {env.spec}.")
                 await env.managed_deploy()
+
+    def _needs_deployment(self, env: EnvBase) -> bool:
+        return env.is_deployable() and not env.deployment_path.exists()
+
+    async def _cache_env(self, env: EnvBase) -> None:
+        assets = [
+            asset
+            for asset in await env.get_cache_assets()
+            if not (env.cache_path / asset).exists()
+        ]
+        if assets:
+            self._log(
+                f"Caching {len(assets)} assets of software environment {env.spec}."
+            )
+            for asset in assets:
+                await env.managed_cache_asset(asset)
+
+    def _log(self, msg: str) -> None:
+        logger.info(msg, extra={"quietness": Quietness.RULES})
+
+    def _collect_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> List[EnvBase]:
+        """Return the software envs of the given jobs in deployment order: each
+        env after the envs it runs within. Jobs share envs, so each env is
+        listed once."""
+        envs: List[EnvBase] = []
+        seen: Set[EnvBase] = set()
+
+        def collect(env: EnvBase) -> None:
+            if env in seen:
+                return
+            seen.add(env)
+            if env.within is not None:
+                collect(env.within)
+            envs.append(env)
+
+        for job in jobs:
+            if job.software_env is not None:
+                collect(job.software_env)
+        return envs
 
     async def cleanup_envs(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         for job in jobs:
