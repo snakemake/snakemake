@@ -598,12 +598,9 @@ class Job(
         if self.wildcards is not None or self.params is not None:
             # parse wildcards and params to get the correct script name
             path = format(path, wildcards=self.wildcards, params=self.params)
-        path = infer_source_file(path)
-        if isinstance(path, LocalSourceFile) and self.rule.basedir:
-            # needed if rule is included from another subdirectory
-            path = self.rule.basedir.join(path)
-
-        return path
+        # Relative local paths are resolved against the rule's basedir (needed if
+        # the rule is included from another subdirectory or loaded from a module).
+        return infer_source_file(path, basedir=self.rule.basedir)
 
     @property
     def is_shell(self) -> bool:
