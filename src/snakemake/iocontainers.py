@@ -500,7 +500,7 @@ class ParamStore:
         try:
             if self.dtype == ParamType.NAMEDTUPLE:
                 ntcls = namedtuple("SnakemakeNamedTuple", self.data["fields"])
-                return ntcls(recurse(self.data["values"]))
+                return ntcls(*recurse(self.data["values"]))
             elif self.dtype == ParamType.NUMPY_ARRAY:
                 import numpy as np
 
