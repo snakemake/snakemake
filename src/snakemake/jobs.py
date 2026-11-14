@@ -22,6 +22,7 @@ from snakemake import wrapper
 from snakemake.rules import Rule
 
 from snakemake.common.misc import is_conda_env
+from snakemake.deployment import get_deployment_done_file
 from snakemake.deployment.containerize import get_containerized_path
 from snakemake.template_rendering import check_template_output
 from snakemake_interface_common.utils import lazy_property
@@ -1115,7 +1116,7 @@ class Job(
                 in self.dag.workflow.storage_settings.shared_fs_usage
                 and self.software_env.is_deployable()
             ):
-                wait_for_files.append(self.software_env.deployment_path)
+                wait_for_files.append(str(get_deployment_done_file(self.software_env)))
             elif (
                 SharedFSUsage.SOFTWARE_DEPLOYMENT_CACHE
                 in self.dag.workflow.storage_settings.shared_fs_usage
