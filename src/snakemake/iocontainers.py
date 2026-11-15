@@ -45,7 +45,7 @@ def is_namedtuple_instance(obj: Any) -> bool:
     )
 
 
-def canonicalize_numeric_value(value: Any) -> Any:
+def canonicalize_value(value: Any) -> Any:
     if isinstance(value, bool):
         return value
     elif isinstance(value, Integral):
@@ -59,6 +59,13 @@ def canonicalize_numeric_value(value: Any) -> Any:
             return -math.inf
         elif math.isnan(value):
             return math.nan
+    try:
+        import pandas as pd
+
+        if pd is not None and pd.isna(value):
+            return None
+    except (ModuleNotFoundError, ImportError):
+        pass
     return value
 
 
@@ -426,8 +433,6 @@ class ParamStore:
 
     @classmethod
     def from_value(cls, data: Any) -> Any:
-        # Import libs, if they are not present, we can't get
-        # values of their types, so that we can ignore them.
         try:
             import pandas as pd
         except ModuleNotFoundError:
@@ -481,7 +486,7 @@ class ParamStore:
                 dtype=ParamType.POLARS_LAZYFRAME,
             )
         else:
-            return canonicalize_numeric_value(data)
+            return canonicalize_value(data)
 
     def unpack(self) -> Any:
         def recurse(data):
@@ -495,7 +500,7 @@ class ParamStore:
         try:
             if self.dtype == ParamType.NAMEDTUPLE:
                 ntcls = namedtuple("SnakemakeNamedTuple", self.data["fields"])
-                return ntcls(recurse(self.data["values"]))
+                return ntcls(*recurse(self.data["values"]))
             elif self.dtype == ParamType.NUMPY_ARRAY:
                 import numpy as np
 
