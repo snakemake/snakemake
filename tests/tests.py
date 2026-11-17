@@ -2173,6 +2173,12 @@ def test_modules_dynamic_no_as():
     run(dpath("test_modules_dynamic_no_as"), targets=["all"])
 
 
+def test_module_import_shadow():
+    # a Snakefile import that collides with a snakemake internal name
+    # (e.g. a package named parse) must not break the module keyword
+    run(dpath("test_module_import_shadow"), targets=["all"])
+
+
 def test_module_nested():
     run(dpath("test_module_nested"))
     run(
