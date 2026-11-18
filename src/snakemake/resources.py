@@ -620,7 +620,7 @@ class Resource:
         ======
         ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
-            str/None).
+            str).
         """
         return self.__class__(
             f"{self.name.removesuffix('_mb')}_mib",
@@ -644,7 +644,7 @@ class Resource:
         ======
         ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
-            str/None).
+            str).
         """
         if self.is_evaluable():
             # Use builtin error type as this should not happen
@@ -672,7 +672,8 @@ class Resource:
         @ft.wraps(self._evaluator)
         def inner(*args: Any, **kwargs: Any):
             result = self._evaluator(*args, **kwargs)  # type: ignore (self._evaluator should never change)
-            if isinstance(result, TBDString):
+            # None leaves the resource unset, and a callable may return it
+            if isinstance(result, TBDString) or result is None:
                 return result
             if not isinstance(result, (int, float)):
                 raise ResourceConversionError.format_evaluated(self.name, result)
@@ -694,7 +695,7 @@ class Resource:
         ======
         ResourceTypeError:
             if conversion is attempted on a str resource (or a callable that returns a
-            str/None).
+            str).
         """
         if self.name.endswith("_mb"):
             # using _convert_units with the identity lets us validate that the resource
