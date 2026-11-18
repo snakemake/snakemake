@@ -7,10 +7,12 @@ __license__ = "MIT"
 
 import os
 import shutil
+import signal
 import sys
 import subprocess as sp
 from pathlib import Path
 import tempfile
+import time
 
 import pytest
 
@@ -489,3 +491,134 @@ def test_github_issue2213():
         deployment_method={"conda"},
         check_results=False,
     )
+
+
+# Parallel deployment tests. Each run has its own working directory, but all
+# runs share one software deployment prefix, as on a cluster.
+PARALLEL_DEPLOY_TIMEOUT = 900
+
+
+def _start_parallel_deploy_run(base: Path, name: str) -> sp.Popen:
+    workdir = base / name
+    workdir.mkdir()
+    log = open(base / f"{name}.log", "w")
+    # A new session, so that the test can kill all child processes.
+    return sp.Popen(
+        [
+            sys.executable,
+            "-m",
+            "snakemake",
+            "--snakefile",
+            str(dpath("test_conda_parallel_deploy/Snakefile")),
+            "--directory",
+            str(workdir),
+            "--cores",
+            "1",
+            "--sdm",
+            "conda",
+            "--sdm-prefix",
+            str(base / "envs"),
+            "--sdm-cache-prefix",
+            str(base / "cache"),
+        ],
+        stdout=log,
+        stderr=sp.STDOUT,
+        start_new_session=True,
+    )
+
+
+def _wait_parallel_deploy_run(proc: sp.Popen) -> int:
+    try:
+        return proc.wait(timeout=PARALLEL_DEPLOY_TIMEOUT)
+    except sp.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        raise
+
+
+def _parallel_deploy_env_dirs(base: Path):
+    prefix = base / "envs" / "conda"
+    if not prefix.exists():
+        return []
+    return [p for p in prefix.iterdir() if p.is_dir() and p.name != "staged_packages"]
+
+
+def _wait_for_deployment_start(base: Path, proc: sp.Popen) -> Path:
+    """Wait until run A holds the lock and has made the environment directory."""
+    deadline = time.time() + PARALLEL_DEPLOY_TIMEOUT
+    while time.time() < deadline:
+        env_dirs = _parallel_deploy_env_dirs(base)
+        if env_dirs and env_dirs[0].with_name(f"{env_dirs[0].name}.lock").exists():
+            return env_dirs[0]
+        if proc.poll() is not None:
+            pytest.fail(
+                "Run A ended before it started the deployment:\n"
+                + (base / "run_a.log").read_text()
+            )
+        time.sleep(0.05)
+    os.killpg(proc.pid, signal.SIGKILL)
+    pytest.fail("Run A did not start the deployment in time.")
+
+
+def _check_parallel_deploy_run(base: Path, name: str, returncode: int) -> str:
+    log = (base / f"{name}.log").read_text()
+    assert returncode == 0, log
+    assert (base / name / "sum.txt").read_text().strip() == "55"
+    assert (base / name / "mean.txt").read_text().strip() == "2.5"
+    return log
+
+
+@skip_on_windows
+@connected
+@conda_plugin
+def test_conda_parallel_deploy(tmp_path):
+    run_a = _start_parallel_deploy_run(tmp_path, "run_a")
+    env_dir = _wait_for_deployment_start(tmp_path, run_a)
+    run_b = _start_parallel_deploy_run(tmp_path, "run_b")
+    rc_a = _wait_parallel_deploy_run(run_a)
+    rc_b = _wait_parallel_deploy_run(run_b)
+    _check_parallel_deploy_run(tmp_path, "run_a", rc_a)
+    _check_parallel_deploy_run(tmp_path, "run_b", rc_b)
+    assert env_dir.with_name(f"{env_dir.name}.done").exists()
+    assert not env_dir.with_name(f"{env_dir.name}.lock").exists()
+
+
+@skip_on_windows
+@connected
+@conda_plugin
+def test_conda_killed_deploy(tmp_path):
+    run_a = _start_parallel_deploy_run(tmp_path, "run_a")
+    env_dir = _wait_for_deployment_start(tmp_path, run_a)
+    os.killpg(run_a.pid, signal.SIGKILL)
+    run_a.wait()
+    # The lock of the dead run stays until its lifetime ends.
+    assert env_dir.with_name(f"{env_dir.name}.lock").exists()
+    assert not env_dir.with_name(f"{env_dir.name}.done").exists()
+
+    run_b = _start_parallel_deploy_run(tmp_path, "run_b")
+    log = _check_parallel_deploy_run(
+        tmp_path, "run_b", _wait_parallel_deploy_run(run_b)
+    )
+    assert "Waiting for parallel deployment to finish" in log
+    assert env_dir.with_name(f"{env_dir.name}.done").exists()
+
+
+@skip_on_windows
+@connected
+@conda_plugin
+def test_conda_partial_deploy_is_repaired(tmp_path):
+    run_a = _start_parallel_deploy_run(tmp_path, "run_a")
+    _check_parallel_deploy_run(tmp_path, "run_a", _wait_parallel_deploy_run(run_a))
+    (env_dir,) = _parallel_deploy_env_dirs(tmp_path)
+
+    # Make a partial environment without a lock and without a done flag.
+    env_dir.with_name(f"{env_dir.name}.done").unlink()
+    (env_dir / "bin" / "datamash").unlink()
+
+    run_b = _start_parallel_deploy_run(tmp_path, "run_b")
+    log = _check_parallel_deploy_run(
+        tmp_path, "run_b", _wait_parallel_deploy_run(run_b)
+    )
+    assert "Removing incomplete deployment" in log
+    assert (env_dir / "bin" / "datamash").exists()
+    assert env_dir.with_name(f"{env_dir.name}.done").exists()

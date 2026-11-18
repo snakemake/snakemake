@@ -1,0 +1,29 @@
+# Used by the parallel deployment tests in tests_using_conda.py. Two rules use
+# one conda environment. The jobs run datamash, which is normally not on the
+# host, so a job fails if the environment is not complete.
+
+shell.executable("bash")
+
+
+rule all:
+    input:
+        "sum.txt",
+        "mean.txt",
+
+
+rule sum:
+    output:
+        "sum.txt",
+    conda:
+        "test-env.yaml"
+    shell:
+        "seq 1 10 | datamash sum 1 > {output}"
+
+
+rule mean:
+    output:
+        "mean.txt",
+    conda:
+        "test-env.yaml"
+    shell:
+        "seq 1 4 | datamash mean 1 > {output}"
