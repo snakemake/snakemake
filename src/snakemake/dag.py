@@ -2292,10 +2292,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all software envs
             # are deployed.
-            await self.workflow.software_deployment_manager.cache_envs(
-                self.needrun_jobs()
-            )
-            await self.workflow.software_deployment_manager.deploy_envs(
+            await self.workflow.software_deployment_manager.prepare_envs(
                 self.needrun_jobs()
             )
             potential_new_ready_jobs = True
@@ -3020,7 +3017,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if path.exists():
             raise WorkflowError(f"Archive already exists:\n{path}")
 
-        await self.workflow.software_deployment_manager.cache_envs(self.jobs)
+        await self.workflow.software_deployment_manager.prepare_envs(
+            self.jobs, deploy=False
+        )
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
