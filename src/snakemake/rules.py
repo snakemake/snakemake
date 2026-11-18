@@ -405,7 +405,7 @@ class Rule(RuleInterface):
 
     def apply_path_modifier(self, item, path_modifier, property=None):
         assert path_modifier is not None
-        apply = partial(path_modifier.modify, property=property)
+        apply = partial(path_modifier.modify, property=property, pathvars=self.pathvars)
 
         assert not callable(item)
         if isinstance(item, dict):
