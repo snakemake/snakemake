@@ -106,6 +106,9 @@ snakemake = { path = ".", editable = true, extras = ["all"] }
 #snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
 #snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
 
+[tool.pixi.dependencies]
+gcc = "*" # for building wheels
+
 [tool.pixi.environments]
 dev = { features = ["test", "docs", "style"] }
 
