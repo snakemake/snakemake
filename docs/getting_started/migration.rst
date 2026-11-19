@@ -11,6 +11,25 @@ Sometimes, new features are added that do not require, but make it strongly advi
 
 Below are migration hints for particular Snakemake versions.
 
+Migrating to Snakemake 10
+-------------------------
+
+Software deployment is now handled by plugins.
+The former built-in ``apptainer`` deployment method is replaced by the ``container`` plugin, which supports several container runtimes.
+Use ``--software-deployment-method container --sdm-container-runtime apptainer`` (or ``--sdm container --sdm-container-runtime apptainer``) where you used ``--software-deployment-method apptainer`` before, and ``--sdm conda container --sdm-container-runtime apptainer`` instead of ``--sdm conda apptainer``.
+
+The plugins are separate packages and have to be installed into the same environment as Snakemake, e.g.:
+
+.. code-block:: bash
+
+    pip install snakemake-software-deployment-plugin-container snakemake-software-deployment-plugin-conda
+
+The options ``--apptainer-prefix`` and ``--apptainer-args`` (and their aliases ``--singularity-prefix`` and ``--singularity-args``) have been removed.
+udocker stores pulled images below ``--sdm-prefix``.
+Apptainer stores the pulled image file below the software deployment prefixes, but also keeps its own image cache, which defaults to ``~/.apptainer/cache`` and can be moved via ``APPTAINER_CACHEDIR``.
+The container plugin does not pass arbitrary arguments to the container runtime, it only offers dedicated settings such as additional mount points (``--sdm-container-mountpoints HOSTPATH:CONTAINERPATH ...``).
+Apptainer options without such a setting can be set via environment variables instead, e.g. ``APPTAINER_CLEANENV=1`` instead of ``--cleanenv``.
+
 Migrating to Snakemake 9
 ------------------------
 
