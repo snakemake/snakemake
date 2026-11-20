@@ -8,9 +8,11 @@ class VegaPlot extends React.Component {
         this.spec = null;
         this.isVegaLite = false;
         this.hasLegend = false;
-        this.baseWidth = null;
-        this.baseHeight = null;
+        this.sizeSignals = [];
+        this.fixedWidth = null;
+        this.fixedHeight = null;
         this.scale = 100;
+        this.fontScale = 100;
         this.showLegend = true;
         // by default, the plot is scaled up to use the available space
         this.fit = true;
@@ -67,15 +69,28 @@ class VegaPlot extends React.Component {
     // plain Vega version of a spec (a copy)
     compiledSpec(spec) {
         return this.isVegaLite
-            ? vegaLite.compile(spec).spec
+            ? vegaLite.compile(spec, { config: this.fontConfig() }).spec
             : JSON.parse(JSON.stringify(spec));
     }
 
-    // spec and options for the current settings (legend shown or hidden)
+    // font sizes of the plot (the Vega-Lite defaults, multiplied by the font scale)
+    fontConfig() {
+        const f = this.fontScale / 100;
+        return {
+            axis: { labelFontSize: 10 * f, titleFontSize: 11 * f },
+            legend: { labelFontSize: 10 * f, titleFontSize: 11 * f },
+            title: { fontSize: 13 * f, subtitleFontSize: 12 * f },
+            header: { labelFontSize: 10 * f, titleFontSize: 10 * f },
+            text: { fontSize: 11 * f }
+        };
+    }
+
+    // spec and options for the current settings (legend shown or hidden, font size)
     embedArguments() {
         const options = {
             actions: { export: false, source: true, compiled: true, editor: true },
-            forceActionsMenu: true
+            forceActionsMenu: true,
+            config: this.fontConfig()
         };
         if (this.showLegend) {
             return [this.spec, options];
@@ -90,64 +105,102 @@ class VegaPlot extends React.Component {
         if (this.embedded && this.embedded.finalize) {
             this.embedded.finalize();
         }
+        const details = el.querySelector("details");
+        const menuWasOpen = details !== null && details.hasAttribute("open");
         const [spec, options] = this.embedArguments();
         return vegaEmbed(el, spec, options).then((embedded) => {
             this.embedded = embedded;
-            this.baseWidth = embedded.view.width();
-            this.baseHeight = embedded.view.height();
+            this.collectSizes(embedded.vgSpec);
+            const finish = () => {
+                this.addMenuControls(el);
+                if (menuWasOpen) {
+                    el.querySelector("details").setAttribute("open", "");
+                }
+            };
             if (this.fit) {
-                return this.fitToWindow().then(() => this.addMenuControls(el));
+                return this.fitToWindow().then(finish);
             }
             if (this.scale !== 100) {
-                this.applyScale();
+                this.setScale(this.scale / 100);
             }
-            this.addMenuControls(el);
+            finish();
         });
     }
 
-    applyScale() {
-        this.embedded.view
-            .width(this.baseWidth * this.scale / 100)
-            .height(this.baseHeight * this.scale / 100)
-            .run();
+    // Everything that sets the size of the plot area in the compiled Vega spec:
+    // plain width and height, and the sizes of discrete axes ("step") and of
+    // facets or concatenated plots (e.g. x_step, child_width, concat_0_width)
+    collectSizes(vgSpec) {
+        this.sizeSignals = (vgSpec.signals || [])
+            .filter((signal) => typeof signal.value === "number" && /(width|height|step)$/i.test(signal.name))
+            .map((signal) => ({ name: signal.name, value: signal.value }));
+        this.fixedWidth = typeof vgSpec.width === "number" ? vgSpec.width : null;
+        this.fixedHeight = typeof vgSpec.height === "number" ? vgSpec.height : null;
     }
 
-    applyScaleAsync() {
-        return this.embedded.view
-            .width(this.baseWidth * this.scale / 100)
-            .height(this.baseHeight * this.scale / 100)
-            .runAsync();
+    // set the size of the plot area to factor times the original size
+    setScale(factor) {
+        const view = this.embedded.view;
+        for (const signal of this.sizeSignals) {
+            view.signal(signal.name, signal.value * factor);
+        }
+        if (this.fixedWidth !== null) {
+            view.width(this.fixedWidth * factor);
+        }
+        if (this.fixedHeight !== null) {
+            view.height(this.fixedHeight * factor);
+        }
+        // faceted and concatenated plots only change their size after a resize
+        return view.resize().runAsync();
     }
 
     // scale the plot up or down so that it uses as much of the available space as
     // possible, keeping its aspect ratio
     async fitToWindow() {
         const el = this.container.current;
-        const view = this.embedded.view;
         const area = el.parentElement.parentElement;  // the content area of the report
         const drawing = el.querySelector("canvas, svg");
         if (!drawing) {
             return;
         }
-        // measure with a tiny plot, because a large plot would itself push the layout
-        // and change the available space (no repaint happens in between)
-        await view.width(10).height(10).runAsync();
+        const measure = () => {
+            const rect = drawing.getBoundingClientRect();
+            return [rect.width, rect.height];
+        };
+        // Axes, legend and padding keep their size when the plot area is scaled, so
+        // the total size is roughly (fixed part) + factor * (scaled part). Measure it
+        // at the original size and at a small size (this also keeps a large plot from
+        // pushing the layout while the available space is measured), then correct the
+        // estimate a few times, because e.g. axis labels can change with the size.
+        const points = [];
+        for (const factor of [1, 0.2]) {
+            await this.setScale(factor);
+            points.push({ factor, size: measure() });
+        }
         const padding = 32;
-        const availableWidth = area.clientWidth - padding;
-        const availableHeight = area.clientHeight - padding;
-        // axes, legend and padding around the plot area keep their size when scaling
-        const rect = drawing.getBoundingClientRect();
-        const extraWidth = rect.width - 10;
-        const extraHeight = rect.height - 10;
-        const factor = Math.max(
-            0.1,
-            Math.min(
-                (availableWidth - extraWidth) / this.baseWidth,
-                (availableHeight - extraHeight) / this.baseHeight
-            )
-        );
+        const available = [area.clientWidth - padding, area.clientHeight - padding];
+        let factor = 1;
+        for (let i = 0; i < 4; i++) {
+            const [a, b] = points.slice(-2);
+            const estimates = [0, 1].map((dim) => {
+                const slope = (a.size[dim] - b.size[dim]) / (a.factor - b.factor);
+                return slope > 0.5 ? a.factor + (available[dim] - a.size[dim]) / slope : Infinity;
+            });
+            factor = Math.max(0.1, Math.min(...estimates));
+            if (!isFinite(factor)) {
+                factor = 1;
+                break;
+            }
+            await this.setScale(factor);
+            const size = measure();
+            points.push({ factor, size });
+            const fits = size[0] <= available[0] + 1 && size[1] <= available[1] + 1;
+            const full = size[0] >= available[0] - 4 || size[1] >= available[1] - 4;
+            if (fits && full) {
+                break;
+            }
+        }
         this.scale = factor * 100;
-        await this.applyScaleAsync();
         if (this.sizeSlider) {
             this.sizeSlider.value = Math.round(this.scale / 5) * 5;
             this.sizeValue.textContent = Math.round(this.scale) + "%";
@@ -161,7 +214,7 @@ class VegaPlot extends React.Component {
             if (!this.showLegend) {
                 delete vgSpec.legends;
             }
-            const view = new vega.View(vega.parse(vgSpec), { renderer: "none" });
+            const view = new vega.View(vega.parse(vgSpec, this.fontConfig()), { renderer: "none" });
             return view.runAsync().then(() => view);
         }
         return Promise.resolve(this.embedded.view);
@@ -212,6 +265,7 @@ class VegaPlot extends React.Component {
         menu.prepend(saveItem("Save as PNG", () => this.savePng()));
         menu.prepend(saveItem("Save as SVG", () => this.saveSvg()));
         menu.append(this.sizeRow());
+        menu.append(this.fontRow());
         menu.append(this.fitRow());
         if (this.hasLegend) {
             menu.append(this.legendRow());
@@ -265,9 +319,33 @@ class VegaPlot extends React.Component {
             this.fit = false;
             this.fitCheckbox.checked = false;
             this.scale = Number(slider.value);
-            this.applyScale();
+            this.setScale(this.scale / 100);
         });
 
+        row.append(label, slider, value);
+        return row;
+    }
+
+    fontRow() {
+        const row = this.menuRow();
+        const label = document.createElement("span");
+        label.textContent = "Font";
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = 50;
+        slider.max = 300;
+        slider.step = 10;
+        slider.value = this.fontScale;
+        const value = document.createElement("span");
+        value.textContent = this.fontScale + "%";
+        slider.addEventListener("input", () => {
+            value.textContent = slider.value + "%";
+        });
+        // the fonts are changed once, when the mouse button is released
+        slider.addEventListener("change", () => {
+            this.fontScale = Number(slider.value);
+            this.renderPlot().catch(this.showError);
+        });
         row.append(label, slider, value);
         return row;
     }
@@ -280,7 +358,7 @@ class VegaPlot extends React.Component {
             } else {
                 // back to the original size
                 this.scale = 100;
-                this.applyScale();
+                this.setScale(1);
                 this.sizeSlider.value = 100;
                 this.sizeValue.textContent = "100%";
             }
