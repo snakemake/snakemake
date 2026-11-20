@@ -51,7 +51,20 @@ class ButtonViewManager extends AbstractViewManager {
         };
         return this.renderButton(props);
     }
-
+    handleVega(entry, resultPath) {
+        let app = this.app;
+        let props = {
+            href: "#",
+            onClick: function() {
+                app.setView({
+                    content: "vega",
+                    contentPath: entry.data_uri,
+                    resultPath: resultPath
+                });
+            }
+        };
+        return this.renderButton(props);
+    }
     handleDefault(entry, resultPath) {
         let props = {
             href: entry.data_uri,
