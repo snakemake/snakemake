@@ -11,6 +11,11 @@ from snakemake_interface_common.exceptions import WorkflowError, ApiError
 from snakemake_interface_logger_plugins.common import LogEvent
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from snakemake.rules import Rule
+
 
 def format_error(
     ex, lineno, linemaps=None, snakefile=None, show_traceback=False, rule=None
@@ -249,14 +254,14 @@ class RuleException(Exception):
 
 
 class InputFunctionException(WorkflowError):
-    def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
+    def __init__(self, msg, wildcards, lineno=None, snakefile=None, rule=None):
         fmt_msg = (
             "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
         )
-        if isinstance(msg, Exception):
+        if isinstance(msg, Exception) and rule is not None:
             fmt_msg += "\nTraceback:\n" + "\n".join(
                 format_traceback(cut_traceback(msg), rule.workflow.linemaps)
             )
@@ -324,7 +329,9 @@ class MissingOutputException(RuleException):
 
 
 class MissingInputException(IOException):
-    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
+    def __init__(
+        self, job, files: Sequence[str], include=None, lineno=None, snakefile=None
+    ):
         msg = "Missing input files"
 
         if any(map(lambda f: f.startswith("~"), files)):
@@ -560,7 +567,12 @@ class NestedCoroutineError(WorkflowError):
 
 
 class IncompleteCheckpointException(Exception):
-    def __init__(self, rule, targetfile):
+    def __init__(
+        self,
+        rule,
+        targetfile,
+        extra: "list[IncompleteCheckpointException] | None" = None,
+    ):
         super().__init__(
             "The requested checkpoint output is not yet created. "
             "If you see this error, you have likely tried to use "
@@ -577,13 +589,22 @@ class IncompleteCheckpointException(Exception):
         self.rule = rule
         from snakemake.io import checkpoint_target
 
-        self.targetfile = checkpoint_target(targetfile)
+        self._targetfile = checkpoint_target(targetfile)
+        self.extra = extra
+
+    @property
+    def targetfile(self):
+        targetfile = [self._targetfile]
+        if self.extra:
+            for e in self.extra:
+                targetfile.extend(e.targetfile)
+        return targetfile
 
 
 class InputOpenException(Exception):
     def __init__(self, iofile):
         self.iofile = iofile
-        self.rule = None
+        self.rule: "Rule | None" = None
 
 
 class CacheMissException(Exception):
