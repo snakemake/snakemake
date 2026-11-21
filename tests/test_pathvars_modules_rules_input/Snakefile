@@ -1,0 +1,10 @@
+module mod:
+    snakefile:
+        "module/Snakefile"
+
+use rule * from mod
+
+rule all:
+    default_target: True
+    input:
+        rules.final.input,
