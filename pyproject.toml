@@ -289,6 +289,7 @@ sphinx-autobuild = ">=2024.10.3,<2026"
 sphinx-design = ">=0.7.0,<1.0"
 sphinx-autodoc-typehints = ">=2.0.1,<4"
 sphinx-reredirects = ">=1.1.0, <2"
+sphinx-tabs = ">=3.5.0, <4"
 
 [tool.pixi.feature.docs.tasks.build-docs]
 description = "Build the documentation in the docs/ directory"
