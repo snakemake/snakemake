@@ -43,6 +43,8 @@ def test_lint(lint, case):
     except sp.CalledProcessError as e:
         if case == "negative":
             assert e.output.decode().strip()
+            # A crash also exits with a non-zero status, make sure we got lints.
+            assert "Traceback" not in e.output.decode()
             if "not_used_params" in lint.name:
                 # Check that the correct line number is reported
                 assert "line 3" in e.output.decode().strip()
