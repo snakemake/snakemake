@@ -2,10 +2,15 @@ import os
 from pathlib import Path
 import tempfile
 from unittest.mock import patch, sentinel
+
+import pytest
+
 from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
     GitlabFile,
+    LocalGitFile,
+    LocalSourceFile,
     infer_source_file,
 )
 
@@ -15,6 +20,34 @@ def test_gitlabfile_host_propagation():
 
     assert file.get_basedir().host == file.host
     assert file.join("another/path").host == file.host
+
+
+def test_local_git_file_join():
+    # rules from a module loaded via gitfile() have a LocalGitFile basedir, which
+    # gets joined with relative paths (e.g. script paths)
+    basedir = LocalGitFile("/some/repo", "workflow/Snakefile", tag="v1").get_basedir()
+    joined = basedir.join("scripts/test.py")
+    assert isinstance(joined, LocalGitFile)
+    assert joined.path == "workflow/scripts/test.py"
+    assert joined.repo_path == "/some/repo"
+    assert joined.ref == "v1"
+
+    # join only accepts str paths, SourceFile objects have to be resolved by the caller
+    with pytest.raises(AssertionError):
+        basedir.join(LocalSourceFile("scripts/test.py"))
+
+
+def test_infer_source_file_local_git_basedir():
+    # how Job._path_to_source_file resolves a module rule's script path
+    basedir = LocalGitFile("/some/repo", "workflow/Snakefile", tag="v1").get_basedir()
+    resolved = infer_source_file("scripts/test.py", basedir=basedir)
+    assert isinstance(resolved, LocalGitFile)
+    assert resolved.path == "workflow/scripts/test.py"
+    assert resolved.ref == "v1"
+    # absolute local paths are not joined onto the basedir
+    resolved = infer_source_file("/abs/scripts/test.py", basedir=basedir)
+    assert isinstance(resolved, LocalSourceFile)
+    assert resolved.path == "/abs/scripts/test.py"
 
 
 def test_github_file_fetch():
