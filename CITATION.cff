@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+type: software
+title: Snakemake
+version: 8.29.3
+date-released: '2025-03-09'
+# doi: 10.5066/??
+abstract: The Snakemake workflow management system is a tool to create
+  reproducible and scalable data analyses.
+repository-artifact: https://pypi.org/project/snakemake/
+repository-code: https://github.com/snakemake/snakemake
+license: MIT
+authors:
+- family-names: Köster
+  given-names: Johannes
+  orcid: https://orcid.org/0000-0001-9818-9320
+  alias: johanneskoester
+preferred-citation:
+  type: article
+  authors:
+  - family-names: Köster
+    given-names: Johannes
+    orcid: https://orcid.org/0000-0001-9818-9320
+  - family-names: Rahmann
+    given-names: Sven
+    orcid: https://orcid.org/0000-0002-8536-6065
+  title: Snakemake—a scalable bioinformatics workflow engine
+  doi: 10.1093/bioinformatics/bts480
+  journal: Bioinformatics
+  volume: 28
+  issue: 19
+  start: 2520
+  end: 2522
+  year: 2012
+  month: 8
