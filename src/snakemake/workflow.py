@@ -1658,13 +1658,16 @@ class Workflow(WorkflowExecutorInterface):
 
         default_target = self.default_target
         linemap: Dict[int, int] = dict()
-        self.linemaps[snakefile.get_path_or_uri(secret_free=True)] = linemap
         code, rulecount = parse(
             snakefile,
             self,
             rulecount=self._rulecount,
             linemap=linemap,
         )
+        # Only register the linemap once parsing has succeeded: syntax errors
+        # raised by the parser already carry Snakefile line numbers and must
+        # not be remapped via a partial linemap of the compiled code.
+        self.linemaps[snakefile.get_path_or_uri(secret_free=True)] = linemap
         self._rulecount = rulecount
 
         if print_compilation:
