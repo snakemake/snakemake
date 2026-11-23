@@ -1912,7 +1912,9 @@ def generate_parser_metadata(parser, args):
 
 def parse_args(argv):
     # first try, parse only known args and deploy eventually requested global dependencies
-    pre_args, _ = get_argument_parser(mode=ArgparserMode.PRE, omit_help=True).parse_known_args(argv)
+    pre_args, _ = get_argument_parser(
+        mode=ArgparserMode.PRE, omit_help=True
+    ).parse_known_args(argv)
 
     snakefile = resolve_snakefile(pre_args.snakefile, allow_missing=True)
     workflow_profile = None
