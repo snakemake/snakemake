@@ -66,6 +66,7 @@ The ``benchmark`` directive takes a string that points to the file where benchma
 Similar to output files, the path can contain wildcards (it must be the same wildcards as in the output files).
 
 When a job derived from the rule is executed, Snakemake will measure the wall clock time, memory usage (in MiB), and several other handy metrics, and store it in the file in tab-delimited format.
+Note that for the very small example data used in this tutorial, the benchmarked job usually terminates so quickly that some metrics (e.g. the memory usage) cannot be sampled anymore, leading to NA values in the benchmark file.
 
 It is possible to repeat a benchmark multiple times in order to get a sense for the variability of the measurements.
 This can be done by annotating the benchmark file.
@@ -133,8 +134,9 @@ with ``envs/samtools.yaml`` defined as
   channels:
     - bioconda
     - conda-forge
+    - nodefaults
   dependencies:
-    - samtools =1.9
+    - samtools =1.19
 
 .. note::
 

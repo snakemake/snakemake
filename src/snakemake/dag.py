@@ -1391,16 +1391,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 or not self.forcefiles.isdisjoint(job.output)
             )
 
+        def is_allowed(job):
+            """Return whether the rule of the job may run, given --allowed-rules.
+
+            If rules_allowed_for_needrun is None or empty, every rule may run.
+            """
+            if not self.rules_allowed_for_needrun:
+                return True
+            return job.rule.name in self.rules_allowed_for_needrun
+
         async def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-
-            if (
-                self.rules_allowed_for_needrun
-                and job.rule.name not in self.rules_allowed_for_needrun
-            ):
-                reason.clear()
-                return reason
 
             if is_forced(job):
                 reason.forced = True
@@ -1521,8 +1523,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
+        # With checkpoints, the DAG also contains jobs of rules outside of
+        # --allowed-rules. They are no candidates, so that neither the
+        # bi-directional BFS below nor forcing can make them run.
         candidates = [
-            [job for job in level if not self.finished(job)]
+            [job for job in level if not self.finished(job) and is_allowed(job)]
             for level in self.toposorted()
         ]
 
@@ -2287,10 +2292,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all software envs
             # are deployed.
-            await self.workflow.software_deployment_manager.cache_envs(
-                self.needrun_jobs()
-            )
-            await self.workflow.software_deployment_manager.deploy_envs(
+            await self.workflow.software_deployment_manager.prepare_envs(
                 self.needrun_jobs()
             )
             potential_new_ready_jobs = True
@@ -3015,7 +3017,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if path.exists():
             raise WorkflowError(f"Archive already exists:\n{path}")
 
-        await self.workflow.software_deployment_manager.cache_envs(self.jobs)
+        await self.workflow.software_deployment_manager.prepare_envs(
+            self.jobs, deploy=False
+        )
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))

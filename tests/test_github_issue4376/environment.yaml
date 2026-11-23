@@ -1,0 +1,5 @@
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - numpy=2.2.3

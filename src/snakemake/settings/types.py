@@ -256,6 +256,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
+    DEFAULT_DEPLOYMENT_PREFIX: Path = Path(".snakemake/software/deployments")
+
     def __init__(
         self,
         deployment_methods: AnySet[str] = frozenset(),
@@ -268,8 +270,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     ) -> None:
         super().__init__()
         self.deployment_methods: AnySet[str] = deployment_methods
-        self.deployment_prefix: Path = deployment_prefix or Path(
-            ".snakemake/software/deployments"
+        self.deployment_prefix: Path = (
+            deployment_prefix or self.DEFAULT_DEPLOYMENT_PREFIX
         )
         self.cache_prefix: Path = cache_prefix or Path(".snakemake/software/cache")
         self.pinfile_prefix: Path = pinfile_prefix or Path(".snakemake/software/pins")

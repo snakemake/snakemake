@@ -1,7 +1,10 @@
+import hashlib
 from itertools import chain
 import threading
 import sys
 from typing import Dict
+
+from importlib.metadata import Distribution
 from immutables import Map
 from snakemake.common.constants import ON_WINDOWS
 from snakemake_interface_common.exceptions import WorkflowError
@@ -11,12 +14,10 @@ from enum import Enum
 import platformdirs
 from functools import partial
 from typing import Iterable
-from typing import Self
 from threading import Thread
 from datetime import timedelta
 from pathlib import Path
 from typing import Set
-from dataclasses import dataclass
 from typing import Optional
 import subprocess as sp
 import time
@@ -25,6 +26,8 @@ from flufl.lock import Lock
 from packaging.requirements import Requirement
 
 from snakemake import __version__
+from snakemake.logging import logger
+from snakemake.common.misc import get_minor_version
 
 
 class PackageType(Enum):
@@ -42,12 +45,17 @@ class RuntimeDependencyManager:
     _lock_lifetime = timedelta(seconds=30)
 
     def __init__(self, deployment_prefix: Path):
+        version_path = f"py_{sys.version_info.major}.{sys.version_info.minor}/snakemake_{get_minor_version()}"
+        if is_editable():
+            version_path += "+edits"
         self._prefixes: Map[PackageType, Path] = {
             PackageType.GLOBAL: platformdirs.user_cache_path(
-                appname="snakemake", version=__version__, ensure_exists=True
+                appname="snakemake", version=version_path, ensure_exists=True
             )
             / "global_dependencies",
-            PackageType.WORKFLOW: deployment_prefix / "workflow_dependencies",
+            PackageType.WORKFLOW: deployment_prefix
+            / "workflow_dependencies"
+            / version_path,
         }
         self._packages: Dict[PackageType, Dict[str, Requirement]] = {
             PackageType.WORKFLOW: dict(),
@@ -97,6 +105,7 @@ class RuntimeDependencyManager:
                 self._packages[PackageType.GLOBAL].values(),
                 self._prefixes[PackageType.GLOBAL],
                 prior_env_packages,
+                separate_by_hash=False,
             )
         except sp.CalledProcessError as e:
             raise WorkflowError(
@@ -110,10 +119,13 @@ class RuntimeDependencyManager:
 
         try:
             self._deploy_packages_per_type(
-                self._packages[PackageType.GLOBAL].values(),
+                self._packages[PackageType.WORKFLOW].values(),
                 self._prefixes[PackageType.WORKFLOW],
                 prior_env_packages,
                 prior_global_packages,
+                # workflow specific packages have to be separated by their hash to avoid conflicts
+                # between workflows and between different profiles of the same workflow
+                separate_by_hash=True,
             )
         except sp.CalledProcessError as e:
             # try to solve together as a fallback
@@ -125,6 +137,7 @@ class RuntimeDependencyManager:
                     ),
                     self._prefixes[PackageType.WORKFLOW],
                     prior_env_packages,
+                    separate_by_hash=True,
                 )
             except sp.CalledProcessError as e2:
                 raise WorkflowError(
@@ -143,6 +156,7 @@ class RuntimeDependencyManager:
         packages: Iterable[Requirement],
         prefix: Path,
         *prior_package_sets: Set[Requirement],
+        separate_by_hash: bool = False,
     ) -> None:
         """Deploys the runtime dependencies for the given package type, optionally
         considering additional packages (e.g. plugin packages when deploying
@@ -152,6 +166,9 @@ class RuntimeDependencyManager:
         if not packages:
             # no packages requested, stop early
             return
+
+        if separate_by_hash:
+            prefix = prefix / hash_packages(packages)
 
         prior_packages = {}
         for pkg_set in prior_package_sets:
@@ -184,6 +201,8 @@ class RuntimeDependencyManager:
                         "--target",
                         str(prefix),
                         "--dry-run",
+                        "--python",
+                        sys.executable,
                     ]
                     + [str(pkg) for pkg in prior_packages.values()],
                     check=True,
@@ -196,25 +215,55 @@ class RuntimeDependencyManager:
                     package
                     for package in parse_uv_pip_dry_run_output(res.stderr)
                     if package.name in requested_pkg_names
+                    or package.name not in prior_packages
                 )
                 if posterior_packages:
-                    # explicitly install the determined versions of the requested
-                    # packages under the prefix
+                    print(
+                        f"Deploying packages (prefix: {prefix}): {', '.join(str(pkg) for pkg in posterior_packages)}",
+                        file=sys.stderr,
+                    )
+                    # remove old packages that are not needed anymore.
+                    # get all packages in the prefix and remove those that are not in the dryrun result
+                    to_uninstall = [
+                        str(pkg)
+                        for pkg in self.get_packages_in_prefix(prefix)
+                        if pkg not in posterior_packages
+                    ]
+                    if to_uninstall:
+                        sp.run(
+                            [
+                                self.uv_exec,
+                                "pip",
+                                "uninstall",
+                                "-y",
+                                "--target",
+                                str(prefix),
+                                "--python",
+                                sys.executable,
+                            ]
+                            + to_uninstall,
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                        )
+                    # install the new packages that are needed according to the dryrun result
                     sp.run(
                         [
                             self.uv_exec,
                             "pip",
                             "install",
-                            "--no-deps",
+                            "--no-deps",  # we have an explicitl list, the rest is in the prior packages
                             "--target",
                             str(prefix),
+                            "--python",
+                            sys.executable,
                         ]
                         + [str(pkg) for pkg in posterior_packages],
                         check=True,
                         capture_output=True,
                         text=True,
                     )
-                    sys.path.insert(0, str(prefix))
+                sys.path.insert(0, str(prefix))
             finally:
                 stop_refresher.set()
 
@@ -240,6 +289,10 @@ class RuntimeDependencyManager:
             extras = "'".join(entry.get("extras", []))
             if extras:
                 extras = f"[{extras}]"
+            if editable_location := entry.get("editable_project_location"):
+                return Requirement(
+                    f"{entry['name']}{extras} @ {Path(editable_location).as_uri()}"
+                )
             return Requirement(f"{entry['name']}{extras}=={entry['version']}")
 
         return map(
@@ -278,3 +331,19 @@ def parse_uv_pip_dry_run_output(output: str) -> Iterable[Requirement]:
         if line.startswith(install_prefix):
             pkg_str = line.removeprefix(install_prefix)
             yield Requirement(pkg_str)
+
+
+def is_editable() -> bool:
+    direct_url = Distribution.from_name("snakemake").read_text("direct_url.json")
+    if direct_url is None:
+        return False
+    dir_info = json.loads(direct_url).get("dir_info", {})
+    return dir_info.get("editable", False)
+
+
+def hash_packages(packages: Iterable[Requirement]) -> str:
+    """Generates a hash for the given set of packages."""
+    m = hashlib.sha256()
+    for pkg in sorted(packages, key=str):
+        m.update(str(pkg).encode())
+    return m.hexdigest()
