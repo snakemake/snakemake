@@ -269,6 +269,7 @@ def run(
     executor_settings=None,
     cleanup_scripts=True,
     scheduler_ilp_solver=None,
+    max_jobs_per_timespan=None,
     report=None,
     report_after_run=False,
     report_stylesheet=None,
@@ -588,6 +589,9 @@ def run(
                         executor_settings=executor_settings,
                         scheduler_settings=SchedulerSettings(
                             solver=scheduler_ilp_solver,
+                        ),
+                        scheduling_settings=settings.SchedulingSettings(
+                            max_jobs_per_timespan=max_jobs_per_timespan,
                         ),
                     )
 
