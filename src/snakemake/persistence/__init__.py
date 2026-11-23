@@ -38,7 +38,7 @@ class MetadataRecord(SQLModel):
     code: str | None = None
     record_format_version: int = 0
     software_stack_hash: str | None = None
-    software: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    software: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
     job_hash: int | None = None
     starttime: float | None = None
     endtime: float | None = None
@@ -388,6 +388,16 @@ class PersistenceBase(
             self._mark_incomplete(self._get_key(f), external_jobid)
 
     async def finished(self, job: Any) -> None:
+        """
+        Unmark the outputs of a finished job as incomplete.
+
+        Unless metadata is dropped, the main Snakemake process (or the remote
+        executor with immediate submit) also stores a metadata record for each
+        output. The input checksums of that record are computed once per job.
+
+        Args:
+            job (Any): The finished job.
+        """
         self._clear_cache()
 
         if not self.dag.workflow.execution_settings.keep_metadata:
@@ -406,6 +416,16 @@ class PersistenceBase(
             shellcmd = job.shellcmd
             fallback_time = time.time()
             job_hash_val = hash(job)
+            # input checksums do not depend on the output file, compute them once
+            checksums = (
+                {
+                    str(infile): await infile.checksum(self.max_checksum_file_size)
+                    for infile in job.input
+                }
+                if job.output
+                else {}
+            )
+            checksums = {k: v for k, v in checksums.items() if v is not None}
 
             for f in job.output:
                 key = self._get_key(f)
@@ -414,12 +434,6 @@ class PersistenceBase(
                     if await f.exists()
                     else fallback_time
                 )
-
-                checksums = {
-                    str(infile): await infile.checksum(self.max_checksum_file_size)
-                    for infile in job.input
-                }
-                checksums = {k: v for k, v in checksums.items() if v is not None}
 
                 record = self._read_record(key) or MetadataRecord()
 
@@ -438,7 +452,7 @@ class PersistenceBase(
                 record.input_checksums = checksums
                 record.software = (
                     [
-                        f"{software.name} {software.version}"
+                        {"name": software.name, "version": software.version}
                         for software in job.software_env.report_software()
                         if not software.is_secondary
                     ]

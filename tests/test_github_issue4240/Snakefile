@@ -1,0 +1,25 @@
+rule all:
+    input:
+        expand("out{j}.txt", j=range(3)),
+
+
+# larger than the checksum size threshold, hence not eligible for a checksum
+rule big:
+    output:
+        "big.txt",
+    run:
+        with open(output[0], "wb") as out:
+            out.write(b"x" * (workflow.dag_settings.max_checksum_file_size + 1))
+
+
+rule a:
+    input:
+        expand("in{i}.txt", i=range(3)),
+        "big.txt",
+    output:
+        expand("out{j}.txt", j=range(3)),
+    run:
+        content = "".join(open(f).read() for f in input if f != "big.txt")
+        for f in output:
+            with open(f, "w") as out:
+                out.write(content)

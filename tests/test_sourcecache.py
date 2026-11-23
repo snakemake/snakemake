@@ -2,12 +2,38 @@ import os
 from pathlib import Path
 import tempfile
 from unittest.mock import patch, sentinel
+
+import git
+import pytest
+
+from snakemake.exceptions import WorkflowError
 from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
     GitlabFile,
+    LocalGitFile,
+    SourceCache,
     infer_source_file,
 )
+
+GIT_FILE_CONTENTS = {
+    "non_utf8.bin": b"\x87\x00\xff\n",
+    "final_newline.txt": b"text\n",
+    "two_final_newlines.txt": b"text\n\n",
+    "no_final_newline.txt": b"text",
+}
+
+
+@pytest.fixture
+def git_repo(tmp_path):
+    repo_path = tmp_path / "repo"
+    repo = git.Repo.init(repo_path)
+    for name, content in GIT_FILE_CONTENTS.items():
+        (repo_path / name).write_bytes(content)
+    repo.index.add(list(GIT_FILE_CONTENTS))
+    repo.index.commit("add files")
+    yield repo
+    repo.close()
 
 
 def test_gitlabfile_host_propagation():
@@ -236,3 +262,56 @@ def test_hosted_repo_cache_key_distinguishes_provider_and_host():
     finally:
         GithubFile._hosted_repos = old_cache
         GitlabFile._hosted_repos = old_cache
+
+
+@pytest.mark.parametrize("name", GIT_FILE_CONTENTS)
+def test_local_git_file_preserves_bytes(git_repo, tmp_path, name):
+    file = LocalGitFile(git_repo.working_dir, name, commit=git_repo.head.commit.hexsha)
+
+    with SourceCache(tmp_path / "cache").open(file, "rb") as content:
+        assert content.read() == GIT_FILE_CONTENTS[name]
+
+
+def make_hosted_file(git_repo, cache_path, path):
+    """Return a GithubFile served from a local bare clone of git_repo.
+
+    HostedGitRepo reuses an existing clone instead of cloning from the
+    network, so placing one where it looks makes the test run offline.
+    """
+    file = GithubFile(repo="owner/repo", path=path, commit=git_repo.head.commit.hexsha)
+    file.cache_path = cache_path
+    git.Repo.clone_from(
+        git_repo.working_dir, file.cache_path / file.host / file.repo, bare=True
+    ).close()
+    return file
+
+
+@pytest.mark.parametrize("name", GIT_FILE_CONTENTS)
+def test_hosted_git_file_preserves_bytes(git_repo, tmp_path, name):
+    source_cache = SourceCache(tmp_path / "cache")
+    file = make_hosted_file(git_repo, source_cache.cache_path, name)
+
+    with (
+        patch.dict(GithubFile._hosted_repos, clear=True),
+        source_cache.open(file, "rb") as content,
+    ):
+        assert content.read() == GIT_FILE_CONTENTS[name]
+
+
+def test_local_git_file_missing_path_raises_workflow_error(git_repo, tmp_path):
+    file = LocalGitFile(
+        git_repo.working_dir, "missing.txt", commit=git_repo.head.commit.hexsha
+    )
+
+    with pytest.raises(WorkflowError, match="Failed to get local git source file"):
+        SourceCache(tmp_path / "cache").open(file, "rb")
+
+
+def test_hosted_git_file_missing_path_raises_workflow_error(git_repo, tmp_path):
+    file = make_hosted_file(git_repo, tmp_path / "cache", "missing.txt")
+
+    with (
+        patch.dict(GithubFile._hosted_repos, clear=True),
+        pytest.raises(WorkflowError, match="Failed to get git source file"),
+    ):
+        file.open()
