@@ -256,6 +256,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         deployment method to use (e.g. "conda", "container", "envmodules")
     """
 
+    DEFAULT_DEPLOYMENT_PREFIX: Path = Path(".snakemake/software/deployments")
+
     def __init__(
         self,
         deployment_methods: AnySet[str] = frozenset(),
@@ -265,17 +267,19 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
         not_block_search_path_envvars: bool = False,
         with_pkgs: AnySet[str] = frozenset(),
         workflow_with_pkgs: AnySet[str] = frozenset(),
+        cleanup_cache_after_run: bool = False,
     ) -> None:
         super().__init__()
         self.deployment_methods: AnySet[str] = deployment_methods
-        self.deployment_prefix: Path = deployment_prefix or Path(
-            ".snakemake/software/deployments"
+        self.deployment_prefix: Path = (
+            deployment_prefix or self.DEFAULT_DEPLOYMENT_PREFIX
         )
         self.cache_prefix: Path = cache_prefix or Path(".snakemake/software/cache")
         self.pinfile_prefix: Path = pinfile_prefix or Path(".snakemake/software/pins")
         self.not_block_search_path_envvars: bool = not_block_search_path_envvars
         self.with_pkgs: AnySet[str] = with_pkgs
         self.workflow_with_pkgs: AnySet[str] = workflow_with_pkgs
+        self.cleanup_cache_after_run: bool = cleanup_cache_after_run
 
     def deployment_method(self) -> AnySet[str]:
         return self.deployment_methods

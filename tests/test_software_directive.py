@@ -394,3 +394,26 @@ def test_software_directive_fallback():
         dpath("test_software_fallback"),
         deployment_method={"conda"},
     )
+
+
+class _FakeEnv:
+    def __init__(self, within=None):
+        self.within = within
+
+
+class TestCollectEnvs:
+    """``_collect_envs`` (deployment/__init__.py) feeds ``prepare_envs``: a
+    ``within`` env must be listed before the env that runs inside it, and each
+    env only once."""
+
+    def test_within_envs_come_first_without_duplicates(self):
+        manager = _make_deployment_manager("conda", "container")
+        container = _FakeEnv()
+        conda = _FakeEnv(within=container)
+        jobs = [
+            SimpleNamespace(software_env=conda),
+            SimpleNamespace(software_env=container),
+            SimpleNamespace(software_env=None),
+            SimpleNamespace(software_env=conda),
+        ]
+        assert manager._collect_envs(jobs) == [container, conda]

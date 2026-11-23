@@ -38,7 +38,7 @@ class MetadataRecord(SQLModel):
     code: str | None = None
     record_format_version: int = 0
     software_stack_hash: str | None = None
-    software: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    software: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
     job_hash: int | None = None
     starttime: float | None = None
     endtime: float | None = None
@@ -452,7 +452,7 @@ class PersistenceBase(
                 record.input_checksums = checksums
                 record.software = (
                     [
-                        f"{software.name} {software.version}"
+                        {"name": software.name, "version": software.version}
                         for software in job.software_env.report_software()
                         if not software.is_secondary
                     ]
