@@ -21,7 +21,7 @@ from snakemake.exceptions import ResourceDuplicationError
 from snakemake.io import _IOFile
 from snakemake.persistence.db import DbPersistence
 from snakemake.persistence.file import FilePersistence
-from snakemake.resources import GroupResources, is_ordinary_string, Resources
+from snakemake.resources import GroupResources, is_ordinary_string, Resources, Resource
 from snakemake.scheduling.job_scheduler import JobScheduler
 from snakemake.settings.enums import RerunTrigger, PersistenceBackend
 
@@ -1231,6 +1231,15 @@ def test_group_jobs_resources(mocker):
         disk_mb=100000,
         disk_mib=95368,
     )
+
+
+def test_size_resource_callable_can_return_none():
+    """A size resource callable may return None, leaving the resource unset (#4364)."""
+    resource = Resource("mem_mb", lambda wildcards, attempt: None)
+
+    evaluated = resource.standardize_size().evaluate(wildcards=None, attempt=1)
+
+    assert evaluated.value is None
 
 
 @skip_on_windows
