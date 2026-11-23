@@ -1494,7 +1494,10 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
-                    if self.deployment_settings.cleanup_cache_after_run:
+                    if (
+                        self.deployment_settings.cleanup_cache_after_run and
+                        not self.remote_execution_settings.immediate_submit
+                    ):
                         logger.info("Cleaning up software asset cache after run...")
                         self.async_run(
                             self.software_deployment_manager.cleanup_cache(

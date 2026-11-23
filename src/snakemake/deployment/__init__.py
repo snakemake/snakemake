@@ -168,7 +168,7 @@ class SoftwareDeploymentManager:
         for job in jobs:
             env = job.software_env
             if env is not None:
-                await env.cleanup_cache()
+                await env.remove_cache()
 
     def get_env_from_job(self, job: "snakemake.jobs.Job") -> Optional[EnvBase]:
         assert job.software_env_spec is not None
