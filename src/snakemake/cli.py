@@ -409,6 +409,7 @@ def get_argument_parser(
     profiles=None,
     mode: ArgparserMode = ArgparserMode.FULL,
     recollect_plugins: bool = False,
+    omit_help: bool = False,
 ):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
@@ -457,6 +458,7 @@ def get_argument_parser(
         "environment for GNU Make-like workflows.",
         formatter_class=snakemake.common.argparse.ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
+        add_help=not omit_help,
         config_file_parser_class=ProfileConfigFileParser,
     )
 
@@ -1910,7 +1912,7 @@ def generate_parser_metadata(parser, args):
 
 def parse_args(argv):
     # first try, parse only known args and deploy eventually requested global dependencies
-    pre_args, _ = get_argument_parser(mode=ArgparserMode.PRE).parse_known_args(argv)
+    pre_args, _ = get_argument_parser(mode=ArgparserMode.PRE, omit_help=True).parse_known_args(argv)
 
     snakefile = resolve_snakefile(pre_args.snakefile, allow_missing=True)
     workflow_profile = None
@@ -1977,7 +1979,7 @@ def parse_args(argv):
     # handle runtime dependencies (reparse args to include profiles)
     if profiles:
         pre_args, _ = get_argument_parser(
-            profiles=profiles, mode=ArgparserMode.PRE
+            profiles=profiles, mode=ArgparserMode.PRE, omit_help=True
         ).parse_known_args(argv)
 
     deploy_runtime_dependencies = (pre_args.mode != ExecMode.SUBPROCESS) and (
@@ -1997,6 +1999,7 @@ def parse_args(argv):
         profiles=profiles if pre_args.mode == ExecMode.DEFAULT else None,
         mode=ArgparserMode.FULL,
         recollect_plugins=deploy_runtime_dependencies,
+        omit_help=False,
     )
 
     # configargparse appends the profile args to the end of argv
