@@ -1,0 +1,14 @@
+rule all:
+    input:
+        expand("out/{i}.txt", i=range(4)),
+
+
+rule work:
+    output:
+        "out/{i}.txt",
+    shell:
+        # wait until the test saw all submissions, but not forever, so that
+        # the test fails instead of hanging if jobs are held back until a
+        # running job finishes
+        "for i in $(seq 300); do test -e released && break; sleep 0.1; done; "
+        "touch {output}"

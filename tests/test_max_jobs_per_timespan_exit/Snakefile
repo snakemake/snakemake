@@ -1,0 +1,10 @@
+rule all:
+    input:
+        "out.txt",
+
+
+rule work:
+    output:
+        "out.txt",
+    shell:
+        "touch {output}"

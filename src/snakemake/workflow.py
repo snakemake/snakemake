@@ -26,7 +26,6 @@ import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, Any
 
-from snakemake.runtime_dependencies import RuntimeDependencyManager
 from snakemake.deployment import EnvSpecs
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
@@ -1188,8 +1187,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        self.async_run(self.software_deployment_manager.cache_envs(self.dag.jobs))
-        self.async_run(self.software_deployment_manager.deploy_envs(self.dag.jobs))
+        self.async_run(self.software_deployment_manager.prepare_envs(self.dag.jobs))
 
     def cleanup_software_envs(self) -> None:
         assert self.dag_settings is not None
@@ -1349,10 +1347,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
 
             self.async_run(
-                self.software_deployment_manager.cache_envs(self.dag.needrun_jobs())
-            )
-            self.async_run(
-                self.software_deployment_manager.deploy_envs(self.dag.needrun_jobs())
+                self.software_deployment_manager.prepare_envs(self.dag.needrun_jobs())
             )
 
             dryrun_or_touch = self.dryrun or self.touch
