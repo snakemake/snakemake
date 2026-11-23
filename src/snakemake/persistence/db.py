@@ -15,7 +15,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine.url import make_url, URL
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlmodel import SQLModel, Field
 import sqlite3
@@ -116,7 +116,8 @@ class DbPersistence(PersistenceBase):
                                 f"ALTER TABLE snakemake_metadata ADD COLUMN {name} {dtype}"
                             )
                         )
-                    except OperationalError as e:
+                    except (OperationalError, ProgrammingError):
+                        conn.rollback()
                         if name not in get_columns():
                             # Column still does not exist after attempted addition, raise error.
                             # Otherwise, the OperationalError was due to a concurrent column addition, so we can ignore it.
