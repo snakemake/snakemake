@@ -1495,8 +1495,8 @@ class Workflow(WorkflowExecutorInterface):
                         )
                 else:
                     if (
-                        self.deployment_settings.cleanup_cache_after_run and
-                        not self.remote_execution_settings.immediate_submit
+                        self.deployment_settings.cleanup_cache_after_run
+                        and not self.remote_execution_settings.immediate_submit
                     ):
                         logger.info("Cleaning up software asset cache after run...")
                         self.async_run(
