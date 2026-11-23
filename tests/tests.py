@@ -533,8 +533,12 @@ def test_persistence_backend_db_schema_migration(tmp_path):
         assert not missing, f"add {missing} to DbPersistence._migrate_schema"
 
     assert persistence._read_record("old.out").rule == "a"
-    persistence._write_record("new.out", MetadataRecord(rule="b", software=[{"name": "c", "version": "1.0"}]))
-    assert persistence._read_record("new.out").software == [{"name": "c", "version": "1.0"}]
+    persistence._write_record(
+        "new.out", MetadataRecord(rule="b", software=[{"name": "c", "version": "1.0"}])
+    )
+    assert persistence._read_record("new.out").software == [
+        {"name": "c", "version": "1.0"}
+    ]
 
 
 def test_same_wildcard():
