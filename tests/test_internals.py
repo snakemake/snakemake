@@ -19,7 +19,7 @@ from snakemake.common.misc import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
 from snakemake.iocontainers import InputFiles, ParamStore, Wildcards
-from snakemake.dag import DAG, _local_mtime_if_exists
+from snakemake.dag import DAG
 from snakemake.io import IOCache, _IOFile
 from snakemake.scheduling import job_scheduler
 from snakemake.scheduling.job_scheduler import JobRateLimiter, JobScheduler
@@ -366,7 +366,7 @@ def test_check_output_mtime_detects_older_output(tmp_path, monkeypatch):
 
 
 def _local_mtime_reference(f):
-    """The existence and mtime checks that _local_mtime_if_exists combines."""
+    """The existence and mtime checks that local_mtime_if_exists combines."""
 
     async def reference():
         """Check exists_local(), then read mtime_uncached(skip_storage=True)."""
@@ -440,7 +440,7 @@ def test_local_mtime_if_exists_matches_reference(tmp_path, path, stat_calls):
         expected = _outcome(_local_mtime_reference(f))
         with pytest.MonkeyPatch.context() as monkeypatch:
             calls = _stat_calls(monkeypatch, tmp_path)
-            assert _outcome(_local_mtime_if_exists(f)) == expected
+            assert _outcome(f.local_mtime_if_exists()) == expected
         assert sum(calls.values()) == stat_calls
     finally:
         os.chmod(tmp_path / "unsearchable", 0o700)
@@ -467,7 +467,7 @@ def test_local_mtime_if_exists_does_not_hide_unexpanded_file():
     f = _IOFile(lambda wildcards: "file", _rule_without_iocache())
 
     with pytest.raises(ValueError):
-        asyncio.run(_local_mtime_if_exists(f))
+        asyncio.run(f.local_mtime_if_exists())
 
 
 def test_local_mtime_if_exists_skips_broken_reparse_point(tmp_path, monkeypatch):
@@ -480,4 +480,4 @@ def test_local_mtime_if_exists_skips_broken_reparse_point(tmp_path, monkeypatch)
     monkeypatch.setattr(os, "stat", lambda path, follow_symlinks=True: junction)
     f = _BrokenJunctionIOFile(str(tmp_path / "junction"), _rule_without_iocache())
 
-    assert asyncio.run(_local_mtime_if_exists(f)) is None
+    assert asyncio.run(f.local_mtime_if_exists()) is None

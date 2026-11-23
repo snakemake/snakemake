@@ -13,7 +13,6 @@ import hashlib
 import html
 import os
 import shutil
-import stat
 import subprocess
 import tarfile
 import textwrap
@@ -90,34 +89,6 @@ from snakemake.sourcecache import LocalSourceFile, SourceFile
 from snakemake.settings.enums import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
-
-
-async def _local_mtime_if_exists(f: _IOFile) -> Optional[float]:
-    """Return the local mtime of f, or None if f does not exist locally.
-
-    Same result as checking exists_local() before reading
-    mtime_uncached(skip_storage=True).local(), but a regular file needs a single
-    stat call. Except for links, this does not consult the IOCache, which is
-    inactive once jobs run.
-    """
-    path = f.file
-    try:
-        lstat_result = os.stat(path, follow_symlinks=False)
-    except (OSError, ValueError):
-        # os.path.exists returns False in these cases as well
-        return None
-    if (
-        stat.S_ISLNK(lstat_result.st_mode)
-        # other reparse points on Windows, e.g. junctions
-        or getattr(lstat_result, "st_reparse_tag", 0)
-    ) and not await f.exists_local():
-        # broken link
-        return None
-    try:
-        return f._mtime_from_lstat(lstat_result).local()
-    except (FileNotFoundError, PermissionError):
-        # let mtime_uncached report the error
-        return (await f.mtime_uncached(skip_storage=True)).local()
 
 
 def toposort(graph):
@@ -822,12 +793,12 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         existing_input = [
             (mtime, f)
             for f in job.input
-            if (mtime := await _local_mtime_if_exists(f)) is not None
+            if (mtime := await f.local_mtime_if_exists()) is not None
         ]
         if existing_input:
             newest_input_mtime, newest_input_path = max(existing_input)
             for output_path in expanded_output:
-                output_mtime = await _local_mtime_if_exists(output_path)
+                output_mtime = await output_path.local_mtime_if_exists()
                 if output_mtime is None:
                     # can happen for temp files in combination with touch executor
                     continue

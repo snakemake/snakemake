@@ -606,6 +606,33 @@ class _IOFile(AnnotatedStringFormatMixin, str):
                 "read permissions."
             )
 
+    async def local_mtime_if_exists(self) -> Optional[float]:
+        """Return the local mtime, or None if the file does not exist locally.
+
+        Same result as checking exists_local() before reading
+        mtime_uncached(skip_storage=True).local(), but a regular file needs a single
+        stat call. Except for links, this does not consult the IOCache, which is
+        inactive once jobs run.
+        """
+        path = self.file
+        try:
+            lstat_result = os.stat(path, follow_symlinks=False)
+        except (OSError, ValueError):
+            # os.path.exists returns False in these cases as well
+            return None
+        if (
+            stat.S_ISLNK(lstat_result.st_mode)
+            # other reparse points on Windows, e.g. junctions
+            or getattr(lstat_result, "st_reparse_tag", 0)
+        ) and not await self.exists_local():
+            # broken link
+            return None
+        try:
+            return self._mtime_from_lstat(lstat_result).local()
+        except (FileNotFoundError, PermissionError):
+            # let mtime_uncached report the error
+            return (await self.mtime_uncached(skip_storage=True)).local()
+
     def _mtime_from_lstat(
         self, lstat_result: os.stat_result, mtime_in_storage: Optional[float] = None
     ) -> Mtime:
