@@ -121,6 +121,11 @@ def test_new_env_is_deployed(env):
     assert env.deploy_count == 1
     assert is_deployed(env)
     assert not get_deployment_lock_file(env).exists()
+    # The flag is the renamed claim file. unlock() deleted the lock file.
+    assert get_deployment_done_file(env).stat().st_nlink == 1
+    assert sorted(env.deployment_path.parent.iterdir()) == sorted(
+        [env.deployment_path, get_deployment_done_file(env)]
+    )
 
 
 def test_complete_env_is_not_deployed_again(env, monkeypatch):
@@ -238,6 +243,25 @@ def test_lost_lock_raises_and_writes_no_flag(env):
     with pytest.raises(WorkflowError, match="Lost deployment lock"):
         asyncio.run(_make_manager()._deploy_env(env))
     assert not get_deployment_done_file(env).exists()
+
+
+def test_lock_broken_before_flag_write_writes_no_flag(env, monkeypatch):
+    # Another run breaks the lock after the ownership check, just before the
+    # flag is written. flufl.lock then deletes the claim file of this run, so
+    # the rename of the claim file to the flag fails.
+    done_file = str(get_deployment_done_file(env))
+    real_replace = os.replace
+
+    def replace(src, dst):
+        if str(dst) == done_file:
+            Lock(str(get_deployment_lock_file(env)))._break()
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(WorkflowError, match="Lost deployment lock"):
+        asyncio.run(_make_manager()._deploy_env(env))
+    assert not get_deployment_done_file(env).exists()
+    assert not is_deployed(env)
 
 
 def test_no_hard_links_gives_clear_error(env, monkeypatch):

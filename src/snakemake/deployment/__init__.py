@@ -238,15 +238,20 @@ class SoftwareDeploymentManager:
                 # Flag without directory, for example after a manual delete.
                 done_file.unlink(missing_ok=True)
             await env.managed_deploy()
-            # Another run takes the lock if this run was paused for too long.
-            # That run can have removed or replaced this deployment.
+
+            # Check the lock file if any run has not taken over this deployment
+            lost_lock = WorkflowError(
+                f"Lost deployment lock {get_deployment_lock_file(env)} during "
+                "deployment. The environment is not marked as complete."
+            )
             if not lock.is_locked:
-                raise WorkflowError(
-                    f"Lost deployment lock {get_deployment_lock_file(env)} during "
-                    "deployment. The environment is not marked as complete."
-                )
-            # Write the flag before the lock is released.
-            done_file.touch()
+                raise lost_lock
+            try:
+                # Use the flufl claim file to atomatically check if the lock is alive,
+                # and create the done_file
+                os.replace(lock.claimfile, done_file)
+            except FileNotFoundError:
+                raise lost_lock
 
     def _needs_deployment(self, env: EnvBase) -> bool:
         return env.is_deployable() and not is_deployed(env)
