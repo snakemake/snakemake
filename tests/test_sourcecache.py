@@ -5,12 +5,14 @@ from unittest.mock import patch, sentinel
 
 import git
 import pytest
+import tenacity
 
 from snakemake.exceptions import WorkflowError
 from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
     GitlabFile,
+    HostedGitRepo,
     LocalGitFile,
     SourceCache,
     infer_source_file,
@@ -315,3 +317,68 @@ def test_hosted_git_file_missing_path_raises_workflow_error(git_repo, tmp_path):
         pytest.raises(WorkflowError, match="Failed to get git source file"),
     ):
         file.open()
+
+
+def _bare_clone_into(to_path, **kwargs):
+    git.Repo.init(to_path, bare=True).close()
+
+
+def test_hosted_git_repo_clone_lost_race(tmp_path):
+    cache_path = tmp_path / "cache"
+    repo_clone = cache_path / "github.com" / "owner" / "repo"
+
+    def clone_while_other_process_wins(url, to_path, **kwargs):
+        # Another process moves its clone to the final location first.
+        _bare_clone_into(repo_clone)
+        (repo_clone / "other-process").touch()
+        _bare_clone_into(to_path)
+
+    with patch.object(
+        git.Repo, "clone_from", side_effect=clone_while_other_process_wins
+    ):
+        hosted_repo = HostedGitRepo("owner/repo", cache_path, "", "github.com")
+
+    assert hosted_repo.repo_clone == repo_clone
+    # The clone of the other process stays, and the own clone is removed.
+    assert (repo_clone / "other-process").exists()
+    assert os.listdir(repo_clone.parent) == ["repo"]
+
+
+def test_hosted_git_repo_clone_is_retried(tmp_path, monkeypatch):
+    monkeypatch.setattr(HostedGitRepo._clone.retry, "wait", tenacity.wait_none())
+    cache_path = tmp_path / "cache"
+    calls = []
+
+    def fail_once(url, to_path, **kwargs):
+        calls.append(to_path)
+        if len(calls) == 1:
+            raise git.GitCommandError("clone", 128, "temporary network error")
+        _bare_clone_into(to_path)
+
+    with patch.object(git.Repo, "clone_from", side_effect=fail_once):
+        hosted_repo = HostedGitRepo("owner/repo", cache_path, "", "github.com")
+
+    assert len(calls) == 2
+    assert hosted_repo.repo_clone.exists()
+    # The temporary directory of the failed attempt is removed.
+    assert os.listdir(hosted_repo.repo_clone.parent) == ["repo"]
+
+
+def test_hosted_git_repo_clone_gives_up(tmp_path, monkeypatch):
+    monkeypatch.setattr(HostedGitRepo._clone.retry, "wait", tenacity.wait_none())
+    cache_path = tmp_path / "cache"
+    error = git.GitCommandError(
+        ["git", "clone", "https://user:secret@github.com/owner/repo"], 128
+    )
+
+    with (
+        patch.object(git.Repo, "clone_from", side_effect=error) as clone_from,
+        pytest.raises(
+            WorkflowError, match="Failed to clone github.com/owner/repo"
+        ) as e,
+    ):
+        HostedGitRepo("owner/repo", cache_path, "user:secret@", "github.com")
+
+    assert "secret" not in str(e.value)
+    assert clone_from.call_count == 3
+    assert os.listdir(cache_path / "github.com" / "owner") == []
