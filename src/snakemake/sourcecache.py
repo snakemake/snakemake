@@ -366,8 +366,6 @@ class HostedGitRepo:
             # the directory to the final location
             os.rename(tmpdir, self.repo_clone)
         except OSError as e:
-            # On Linux, a rename to a directory that is not empty fails with
-            # ENOTEMPTY, not with EEXIST (FileExistsError).
             if e.errno not in (errno.EEXIST, errno.ENOTEMPTY):
                 raise
             # another process won the race
@@ -519,9 +517,9 @@ class HostingProviderFile(SourceFile):
 
     @property
     def cache_path(self) -> Path:
-        assert (
-            self._cache_path
-        ), "bug: cache_path not set, should be done by SourceCache"
+        assert self._cache_path, (
+            "bug: cache_path not set, should be done by SourceCache"
+        )
 
         return self._cache_path
 
@@ -842,8 +840,6 @@ class SourceCache:
         try:
             self.cache(source_file)
         except Exception as e:
-            # Log the cause, since the caller only reports that the file is not
-            # accessible.
             logger.debug(
                 f"Source file {source_file.get_path_or_uri(secret_free=True)} is "
                 f"not accessible: {e!r}"
