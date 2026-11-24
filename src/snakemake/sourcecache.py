@@ -53,14 +53,33 @@ def _check_git_args(
         )
 
 
+_URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>]*")
 # The user information ends at the last @ of the authority (as in urllib.parse),
 # since a password can contain an unencoded @.
-_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/?#\s]*@")
+_URL_USERINFO = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/?#]*@")
 
 
-def _redact_url_userinfo(text: str) -> str:
-    """Replace the user information (e.g. user:password) of all URLs in text."""
-    return _URL_USERINFO.sub(r"\g<scheme>***@", text)
+def _redact_query_param(param: str) -> str:
+    key, eq, _ = param.partition("=")
+    if eq:
+        return f"{key}=***"
+    return "***" if param else param
+
+
+def _redact_url(url: str) -> str:
+    url = _URL_USERINFO.sub(r"\g<scheme>***@", url)
+    base, sep, rest = url.partition("?")
+    if not sep:
+        return url
+    query, hash_sep, fragment = rest.partition("#")
+    query = "&".join(_redact_query_param(param) for param in query.split("&"))
+    return f"{base}?{query}{hash_sep}{fragment}"
+
+
+def _redact_url_secrets(text: str) -> str:
+    """Replace the user information (e.g. user:password) and all query values
+    (e.g. tokens) of all URLs in text."""
+    return _URL.sub(lambda match: _redact_url(match.group(0)), text)
 
 
 def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:
@@ -850,12 +869,10 @@ class SourceCache:
         try:
             self.cache(source_file)
         except Exception as e:
-            logger.debug(
-                _redact_url_userinfo(
-                    f"Source file {source_file.get_path_or_uri(secret_free=True)} "
-                    f"is not accessible: {e!r}"
-                )
-            )
+            # Log only the type of the exception, since its message can contain
+            # secrets that are not in a URL (e.g. from a header).
+            url = _redact_url_secrets(source_file.get_path_or_uri(secret_free=True))
+            logger.debug(f"Source file {url} is not accessible ({type(e).__name__}).")
             return False
         return True
 

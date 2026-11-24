@@ -18,7 +18,7 @@ from snakemake.sourcecache import (
     HostedGitRepo,
     LocalGitFile,
     SourceCache,
-    _redact_url_userinfo,
+    _redact_url_secrets,
     infer_source_file,
 )
 
@@ -412,26 +412,37 @@ def test_hosted_git_repo_clone_removes_temp_dir_after_rename_error(
 
 
 @pytest.mark.parametrize(
-    "url",
+    "url, expected",
     [
-        "https://user:secret@example.com/path/file.txt",
+        (
+            "https://user:secret@example.com/path/file.txt",
+            "https://***@example.com/path/file.txt",
+        ),
         # An unencoded @ in the password. The host starts after the last @.
-        "https://user:p@ss@secret@example.com/path/file.txt",
+        (
+            "https://user:p@ss@secret@example.com/path/file.txt",
+            "https://***@example.com/path/file.txt",
+        ),
+        (
+            "https://example.com/data?access_token=secret",
+            "https://example.com/data?access_token=***",
+        ),
     ],
 )
-def test_exists_does_not_log_url_credentials(tmp_path, caplog, url):
+def test_exists_does_not_log_url_credentials(tmp_path, caplog, url, expected):
     source_cache = SourceCache(tmp_path / "cache")
 
+    error = WorkflowError(f"Failed for {url} with header Authorization: hdrsecret")
+
     with (
-        patch.object(
-            SourceCache, "cache", side_effect=WorkflowError(f"Failed for {url}")
-        ),
+        patch.object(SourceCache, "cache", side_effect=error),
         caplog.at_level(logging.DEBUG, logger=logger.name),
     ):
         assert not source_cache.exists(GenericSourceFile(url))
 
+    assert f"Source file {expected} is not accessible (WorkflowError)." in caplog.text
+    # The message of the exception is not logged.
     assert "secret" not in caplog.text
-    assert "https://***@example.com/path/file.txt" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -439,14 +450,21 @@ def test_exists_does_not_log_url_credentials(tmp_path, caplog, url):
     [
         (
             "https://user:p@ss@example.com/a and ftp://u@host?x=1@y",
-            "https://***@example.com/a and ftp://***@host?x=1@y",
+            "https://***@example.com/a and ftp://***@host?x=***",
         ),
-        # URLs without credentials stay the same.
+        # All query values, also values without a key. The fragment stays.
+        (
+            "Error('https://example.com/a?token=t1&sig=t2&flag&=t3#part')",
+            "Error('https://example.com/a?token=***&sig=***&***&=***#part')",
+        ),
+        # URLs without credentials or query stay the same.
         (
             "https://example.com/a@b and s3://bucket/key and mail me@example.com",
             "https://example.com/a@b and s3://bucket/key and mail me@example.com",
         ),
+        # A query outside of a URL stays the same.
+        ("key=value?a=b", "key=value?a=b"),
     ],
 )
-def test_redact_url_userinfo(text, expected):
-    assert _redact_url_userinfo(text) == expected
+def test_redact_url_secrets(text, expected):
+    assert _redact_url_secrets(text) == expected
