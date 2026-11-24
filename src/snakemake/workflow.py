@@ -1,11 +1,9 @@
-from typing import ClassVar
-from snakemake.deployment import EnvSpecs
-
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from typing import ClassVar
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 import hashlib
@@ -27,6 +25,8 @@ from datetime import datetime
 import tarfile
 import tempfile
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, Any
+
+from snakemake.deployment import EnvSpecs
 from snakemake.io.flags.access_patterns import AccessPatternFactory
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.deployment import SoftwareDeploymentManager
@@ -1187,8 +1187,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        self.async_run(self.software_deployment_manager.cache_envs(self.dag.jobs))
-        self.async_run(self.software_deployment_manager.deploy_envs(self.dag.jobs))
+        self.async_run(self.software_deployment_manager.prepare_envs(self.dag.jobs))
 
     def cleanup_software_envs(self) -> None:
         assert self.dag_settings is not None
@@ -1348,10 +1347,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
 
             self.async_run(
-                self.software_deployment_manager.cache_envs(self.dag.needrun_jobs())
-            )
-            self.async_run(
-                self.software_deployment_manager.deploy_envs(self.dag.needrun_jobs())
+                self.software_deployment_manager.prepare_envs(self.dag.needrun_jobs())
             )
 
             dryrun_or_touch = self.dryrun or self.touch
@@ -1493,6 +1489,16 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
+                    if (
+                        self.deployment_settings.cleanup_cache_after_run
+                        and not self.remote_execution_settings.immediate_submit
+                    ):
+                        logger.info("Cleaning up software asset cache after run...")
+                        self.async_run(
+                            self.software_deployment_manager.cleanup_cache(
+                                self.dag.jobs
+                            )
+                        )
                     if not self.execution_settings.no_hooks:
                         self._onsuccess(self.logger_manager.get_logfile())
                     self.logger_manager.logfile_hint()

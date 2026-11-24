@@ -501,14 +501,21 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
 
     async def sanitize_local_storage_copies(self):
         """Remove local copies of storage files that will be recreated in this run."""
+
+        async def remove_local_copy(f):
+            # Preserve real protected outputs for the normal protection check.
+            if not await f.protected():
+                await f.remove(remove_non_empty_dir=True, only_local=True)
+                # Local removal must invalidate the observation made above.
+                if self.workflow.iocache.active:
+                    self.workflow.iocache.exists_local[f] = False
+
         async with asyncio.TaskGroup() as tg:
             for job in self.needrun_jobs():
                 if not self.is_running(job):
                     for f in job.output:
                         if f.is_storage and await f.exists_local():
-                            tg.create_task(
-                                f.remove(remove_non_empty_dir=True, only_local=True)
-                            )
+                            tg.create_task(remove_local_copy(f))
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -1276,6 +1283,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                         visited=visited,
                         known_producers=known_producers,
                         progress=progress,
+                        create_inventory=create_inventory,
                     )
                     producer[res.file] = selected_job
                 except (
@@ -1390,16 +1398,18 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
                 or not self.forcefiles.isdisjoint(job.output)
             )
 
+        def is_allowed(job):
+            """Return whether the rule of the job may run, given --allowed-rules.
+
+            If rules_allowed_for_needrun is None or empty, every rule may run.
+            """
+            if not self.rules_allowed_for_needrun:
+                return True
+            return job.rule.name in self.rules_allowed_for_needrun
+
         async def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-
-            if (
-                self.rules_allowed_for_needrun
-                and job.rule.name not in self.rules_allowed_for_needrun
-            ):
-                reason.clear()
-                return reason
 
             if is_forced(job):
                 reason.forced = True
@@ -1520,8 +1530,11 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
+        # With checkpoints, the DAG also contains jobs of rules outside of
+        # --allowed-rules. They are no candidates, so that neither the
+        # bi-directional BFS below nor forcing can make them run.
         candidates = [
-            [job for job in level if not self.finished(job)]
+            [job for job in level if not self.finished(job) and is_allowed(job)]
             for level in self.toposorted()
         ]
 
@@ -2286,10 +2299,7 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all software envs
             # are deployed.
-            await self.workflow.software_deployment_manager.cache_envs(
-                self.needrun_jobs()
-            )
-            await self.workflow.software_deployment_manager.deploy_envs(
+            await self.workflow.software_deployment_manager.prepare_envs(
                 self.needrun_jobs()
             )
             potential_new_ready_jobs = True
@@ -3014,7 +3024,9 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
         if path.exists():
             raise WorkflowError(f"Archive already exists:\n{path}")
 
-        await self.workflow.software_deployment_manager.cache_envs(self.jobs)
+        await self.workflow.software_deployment_manager.prepare_envs(
+            self.jobs, deploy=False
+        )
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))

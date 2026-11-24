@@ -1,0 +1,10 @@
+rule all:
+    input:
+        expand("out/{i}.txt", i=range(12)),
+
+
+rule work:
+    output:
+        "out/{i}.txt",
+    shell:
+        "sleep 0.3; touch {output}"

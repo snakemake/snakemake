@@ -1,4 +1,3 @@
-from typing import List
 from snakemake_interface_common.settings import SettingsEnumBase
 
 
