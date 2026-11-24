@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from collections import defaultdict
+from contextlib import contextmanager
 import os
 import re
 import sys
@@ -38,6 +39,8 @@ from snakemake.common.misc import (
 )
 from snakemake.exceptions import (
     CliException,
+    CliParserError,
+    HelpRequested,
     ResourceScopesException,
     print_exception,
 )
@@ -409,7 +412,6 @@ def get_argument_parser(
     profiles=None,
     mode: ArgparserMode = ArgparserMode.FULL,
     recollect_plugins: bool = False,
-    omit_help: bool = False,
 ):
     """Generate and return argument parser."""
     from snakemake.profiles import ProfileConfigFileParser
@@ -458,8 +460,16 @@ def get_argument_parser(
         "environment for GNU Make-like workflows.",
         formatter_class=snakemake.common.argparse.ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
-        add_help=not omit_help,
+        add_help=False,
         config_file_parser_class=ProfileConfigFileParser,
+    )
+
+    parser.add_argument(
+        "-h",
+        "--help",
+        action=snakemake.common.argparse.HelpAction,
+        nargs=0,
+        help="Show this help message and exit",
     )
 
     group_exec = parser.add_argument_group("EXECUTION")
@@ -1910,11 +1920,24 @@ def generate_parser_metadata(parser, args):
     return metadata
 
 
+@contextmanager
+def handle_cli_help_and_parser_errors():
+    try:
+        yield
+    except HelpRequested:
+        get_argument_parser(mode=ArgparserMode.FULL).print_help()
+        sys.exit(0)
+    except CliParserError as e:
+        help_msg = get_argument_parser(mode=ArgparserMode.FULL).format_help()
+        print(help_msg, f"Error parsing arguments: {e}", file=sys.stderr, sep="\n")
+        sys.exit(1)
+
+
 def parse_args(argv):
     # first try, parse only known args and deploy eventually requested global dependencies
-    pre_args, _ = get_argument_parser(
-        mode=ArgparserMode.PRE, omit_help=True
-    ).parse_known_args(argv)
+
+    with handle_cli_help_and_parser_errors():
+        pre_args, _ = get_argument_parser(mode=ArgparserMode.PRE).parse_known_args(argv)
 
     snakefile = resolve_snakefile(pre_args.snakefile, allow_missing=True)
     workflow_profile = None
@@ -1980,9 +2003,11 @@ def parse_args(argv):
 
     # handle runtime dependencies (reparse args to include profiles)
     if profiles:
-        pre_args, _ = get_argument_parser(
-            profiles=profiles, mode=ArgparserMode.PRE, omit_help=True
-        ).parse_known_args(argv)
+        with handle_cli_help_and_parser_errors():
+            pre_args, _ = get_argument_parser(
+                profiles=profiles,
+                mode=ArgparserMode.PRE,
+            ).parse_known_args(argv)
 
     deploy_runtime_dependencies = (pre_args.mode != ExecMode.SUBPROCESS) and (
         pre_args.with_pkgs or pre_args.workflow_with_pkgs
@@ -2001,7 +2026,6 @@ def parse_args(argv):
         profiles=profiles if pre_args.mode == ExecMode.DEFAULT else None,
         mode=ArgparserMode.FULL,
         recollect_plugins=deploy_runtime_dependencies,
-        omit_help=False,
     )
 
     # configargparse appends the profile args to the end of argv
@@ -2011,10 +2035,12 @@ def parse_args(argv):
     if profiles and "--" in effective_argv:
         sep_idx = effective_argv.index("--")
         explicit_targets = effective_argv[sep_idx + 1 :]
-        args = parser.parse_args(effective_argv[:sep_idx])
+        with handle_cli_help_and_parser_errors():
+            args = parser.parse_args(effective_argv[:sep_idx])
         args.targets = list(args.targets) + explicit_targets
     else:
-        args = parser.parse_args(argv)
+        with handle_cli_help_and_parser_errors():
+            args = parser.parse_args(effective_argv)
 
     return parser, args
 
