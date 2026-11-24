@@ -1,3 +1,5 @@
+import errno
+import logging
 import os
 from pathlib import Path
 import tempfile
@@ -5,14 +7,18 @@ from unittest.mock import patch, sentinel
 
 import git
 import pytest
+import tenacity
 
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
 from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
     GitlabFile,
+    HostedGitRepo,
     LocalGitFile,
     SourceCache,
+    _redact_url_secrets,
     infer_source_file,
 )
 
@@ -315,3 +321,153 @@ def test_hosted_git_file_missing_path_raises_workflow_error(git_repo, tmp_path):
         pytest.raises(WorkflowError, match="Failed to get git source file"),
     ):
         file.open()
+
+
+def _bare_clone_into(to_path, **kwargs):
+    git.Repo.init(to_path, bare=True).close()
+
+
+def test_hosted_git_repo_clone_lost_race(tmp_path):
+    cache_path = tmp_path / "cache"
+    repo_clone = cache_path / "github.com" / "owner" / "repo"
+
+    def clone_while_other_process_wins(url, to_path, **kwargs):
+        # Another process moves its clone to the final location first.
+        _bare_clone_into(repo_clone)
+        (repo_clone / "other-process").touch()
+        _bare_clone_into(to_path)
+
+    with patch.object(
+        git.Repo, "clone_from", side_effect=clone_while_other_process_wins
+    ):
+        hosted_repo = HostedGitRepo("owner/repo", cache_path, "", "github.com")
+
+    assert hosted_repo.repo_clone == repo_clone
+    # The clone of the other process stays, and the own clone is removed.
+    assert (repo_clone / "other-process").exists()
+    assert os.listdir(repo_clone.parent) == ["repo"]
+
+
+def test_hosted_git_repo_clone_is_retried(tmp_path, monkeypatch):
+    monkeypatch.setattr(HostedGitRepo._clone.retry, "wait", tenacity.wait_none())
+    cache_path = tmp_path / "cache"
+    calls = []
+
+    def fail_once(url, to_path, **kwargs):
+        calls.append(to_path)
+        if len(calls) == 1:
+            raise git.GitCommandError("clone", 128, "temporary network error")
+        _bare_clone_into(to_path)
+
+    with patch.object(git.Repo, "clone_from", side_effect=fail_once):
+        hosted_repo = HostedGitRepo("owner/repo", cache_path, "", "github.com")
+
+    assert len(calls) == 2
+    assert hosted_repo.repo_clone.exists()
+    # The temporary directory of the failed attempt is removed.
+    assert os.listdir(hosted_repo.repo_clone.parent) == ["repo"]
+
+
+def test_hosted_git_repo_clone_gives_up(tmp_path, monkeypatch):
+    monkeypatch.setattr(HostedGitRepo._clone.retry, "wait", tenacity.wait_none())
+    cache_path = tmp_path / "cache"
+    error = git.GitCommandError(
+        ["git", "clone", "https://user:secret@github.com/owner/repo"], 128
+    )
+
+    with (
+        patch.object(git.Repo, "clone_from", side_effect=error) as clone_from,
+        pytest.raises(
+            WorkflowError, match="Failed to clone github.com/owner/repo"
+        ) as e,
+    ):
+        HostedGitRepo("owner/repo", cache_path, "user:secret@", "github.com")
+
+    assert "secret" not in str(e.value)
+    assert clone_from.call_count == 3
+    assert os.listdir(cache_path / "github.com" / "owner") == []
+
+
+def test_hosted_git_repo_clone_removes_temp_dir_after_rename_error(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(HostedGitRepo._clone.retry, "wait", tenacity.wait_none())
+    cache_path = tmp_path / "cache"
+    error = PermissionError(errno.EACCES, "Permission denied")
+
+    with (
+        patch.object(
+            git.Repo,
+            "clone_from",
+            side_effect=lambda url, to_path, **kwargs: _bare_clone_into(to_path),
+        ),
+        patch("snakemake.sourcecache.os.rename", side_effect=error) as rename,
+        pytest.raises(PermissionError),
+    ):
+        HostedGitRepo("owner/repo", cache_path, "", "github.com")
+
+    assert rename.call_count == 3
+    # No attempt leaves its temporary clone.
+    assert os.listdir(cache_path / "github.com" / "owner") == []
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        (
+            "https://user:secret@example.com/path/file.txt",
+            "https://***@example.com/path/file.txt",
+        ),
+        # An unencoded @ in the password. The host starts after the last @.
+        (
+            "https://user:p@ss@secret@example.com/path/file.txt",
+            "https://***@example.com/path/file.txt",
+        ),
+        (
+            "https://example.com/data?access_token=secret",
+            "https://example.com/data?access_token=***",
+        ),
+        # An apostrophe is valid in the user information and in a query value.
+        (
+            "https://user:pa'secret@example.com/data?token=t'secret",
+            "https://***@example.com/data?token=***",
+        ),
+    ],
+)
+def test_exists_does_not_log_url_credentials(tmp_path, caplog, url, expected):
+    source_cache = SourceCache(tmp_path / "cache")
+
+    error = WorkflowError(f"Failed for {url} with header Authorization: hdrsecret")
+
+    with (
+        patch.object(SourceCache, "cache", side_effect=error),
+        caplog.at_level(logging.DEBUG, logger=logger.name),
+    ):
+        assert not source_cache.exists(GenericSourceFile(url))
+
+    assert f"Source file {expected} is not accessible (WorkflowError)." in caplog.text
+    # The message of the exception is not logged.
+    assert "secret" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://user:p@ss@example.com/a", "https://***@example.com/a"),
+        ("ftp://u@host?x=1@y", "ftp://***@host?x=***"),
+        ("https://u:pa'ss@host/a?t='x", "https://***@host/a?t=***"),
+        # Outer whitespace does not stop the redaction.
+        (" https://u:p@host/a?t=x", "https://***@host/a?t=***"),
+        ("\nhttps://u:p@host/a?t=x\n", "https://***@host/a?t=***"),
+        # All query values, also values without a key. The fragment stays.
+        (
+            "https://example.com/a?token=t1&sig=t2&flag&=t3#part",
+            "https://example.com/a?token=***&sig=***&***&=***#part",
+        ),
+        # URLs without credentials or query stay the same.
+        ("https://example.com/a@b", "https://example.com/a@b"),
+        ("s3://bucket/key", "s3://bucket/key"),
+    ],
+)
+def test_redact_url_secrets(url, expected):
+    assert _redact_url_secrets(url) == expected

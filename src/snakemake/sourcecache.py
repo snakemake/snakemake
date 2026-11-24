@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import errno
 from pathlib import Path
 import posixpath
 import re
@@ -50,6 +51,31 @@ def _check_git_args(
         raise SourceFileError(
             "exactly one of tag, branch, or commit must be specified."
         )
+
+
+# The user information ends at the last @ of the authority (as in urllib.parse),
+# since a password can contain an unencoded @.
+_URL_USERINFO = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/?#]*@")
+
+
+def _redact_query_param(param: str) -> str:
+    key, eq, _ = param.partition("=")
+    if eq:
+        return f"{key}=***"
+    return "***" if param else param
+
+
+def _redact_url_secrets(url: str) -> str:
+    """Replace the user information (e.g. user:password) and all query values
+    (e.g. tokens) of the complete URL."""
+    # Strip outer whitespace, since the pattern must match at the start.
+    url = _URL_USERINFO.sub(r"\g<scheme>***@", url.strip())
+    base, sep, rest = url.partition("?")
+    if not sep:
+        return url
+    query, hash_sep, fragment = rest.partition("#")
+    query = "&".join(_redact_query_param(param) for param in query.split("&"))
+    return f"{base}?{query}{hash_sep}{fragment}"
 
 
 def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:
@@ -331,25 +357,44 @@ class HostedGitRepo:
             # lock-free cloning of the repository
             logger.info(f"Cloning {host}/{repo} to {self.repo_clone}")
             self.repo_clone.parent.mkdir(parents=True, exist_ok=True)
-            tmpdir = tempfile.mkdtemp(prefix=f"{self.repo_clone}.")
-            # the clone is not atomic, hence we do that in a temporary directory
-            # We only want the database, thus we create a bare clone
-            try:
-                Repo.clone_from(repo_url, to_path=tmpdir, bare=True)
-            except Exception:
-                # clean up on any exception
-                shutil.rmtree(tmpdir)
-                raise
-            try:
-                # move is atomic if repo_clone does not exist, so we can safely move
-                # the directory to the final location
-                os.rename(tmpdir, self.repo_clone)
-            except FileExistsError:
-                # another process won the race
-                shutil.rmtree(tmpdir)
+            self._clone(repo_url, auth)
             self._fetched = True
 
             self._repo = Repo(self.repo_clone)
+
+    @retry(
+        wait=wait_exponential(multiplier=2, min=3),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
+    def _clone(self, repo_url: str, auth: str) -> None:
+        from git import Repo
+
+        if self.repo_clone.exists():
+            # another process has cloned the repository during an earlier attempt
+            return
+        # the clone is not atomic, hence we do that in a temporary directory
+        tmpdir = tempfile.mkdtemp(prefix=f"{self.repo_clone}.")
+        try:
+            # We only want the database, thus we create a bare clone
+            Repo.clone_from(repo_url, to_path=tmpdir, bare=True)
+        except Exception as e:
+            # clean up on any exception
+            shutil.rmtree(tmpdir)
+            # The error message contains the URL, thus remove the credentials.
+            msg = str(e).replace(auth, "") if auth else str(e)
+            raise WorkflowError(
+                f"Failed to clone {self.host}/{self.repo_name}: {msg}"
+            ) from None
+        try:
+            # move is atomic if repo_clone does not exist, so we can safely move
+            # the directory to the final location
+            os.rename(tmpdir, self.repo_clone)
+        except OSError as e:
+            # cleanup, then ignore the error if another process won the race
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            if e.errno not in (errno.EEXIST, errno.ENOTEMPTY):
+                raise
 
     def ref_exists(self, commit: Optional[str], branch_or_tag: Optional[str]):
         import git
@@ -818,8 +863,12 @@ class SourceCache:
         # files in order to be able to distinguish the whether the item really does
         # not exist or is just temporarily not readable.
         try:
-            self.cache(source_file, retries=1)
-        except Exception:
+            self.cache(source_file)
+        except Exception as e:
+            # Log only the type of the exception, since its message can contain
+            # secrets that are not in a URL (e.g. from a header).
+            url = _redact_url_secrets(source_file.get_path_or_uri(secret_free=True))
+            logger.debug(f"Source file {url} is not accessible ({type(e).__name__}).")
             return False
         return True
 
@@ -844,7 +893,7 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def cache(self, source_file: SourceFile, retries: int = 3):
+    def cache(self, source_file: SourceFile):
         cache_entry = self.cache_entry(source_file)
         if not cache_entry.exists():
             self._do_cache(source_file, cache_entry)
