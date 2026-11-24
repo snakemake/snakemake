@@ -36,7 +36,7 @@ dependencies = [
   "configargparse",
   "connection_pool>=0.0.3",
   "docutils>=0.20,<0.23",
-  "gitpython",
+  "gitpython >=3.1.28",
   "humanfriendly",
   "jinja2>=3.0,<4.0",
   "jsonschema",
@@ -62,7 +62,7 @@ dependencies = [
   "yte>=1.5.5,<2.0",
   "dpath>=2.1.6,<3.0.0",
   "sqlmodel>=0.0.37,<0.0.43",
-  "flufl-lock>=9.1.0,<10",
+  "flufl-lock>=9.1.0,<11",
   "uv>=0.13.6,<0.14",
 ]
 
@@ -105,6 +105,9 @@ snakemake = { path = ".", editable = true, extras = ["all"] }
 #snakemake-interface-software-deployment-plugins = { path = "../snakemake-interface-software-deployment-plugins", editable = true }
 #snakemake-software-deployment-plugin-container = { path = "../snakemake-software-deployment-plugin-container", editable = true }
 #snakemake-software-deployment-plugin-conda = { path = "../snakemake-software-deployment-plugin-conda", editable = true }
+
+[tool.pixi.dependencies]
+gcc = "*" # for building wheels
 
 [tool.pixi.environments]
 dev = { features = ["test", "docs", "style"] }

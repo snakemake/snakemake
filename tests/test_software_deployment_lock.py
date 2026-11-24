@@ -34,6 +34,9 @@ class FakeEnv:
 
     def __init__(self, prefix: Path, deploy_time: float = 0.0, fail: bool = False):
         self.deployment_path = prefix / "abc123"
+        # Read by SoftwareDeploymentManager.prepare_envs and _collect_envs.
+        self.spec = "fake env"
+        self.within = None
         self.deploy_time = deploy_time
         self.fail = fail
         self.deploy_count = 0
@@ -114,7 +117,7 @@ def test_paths(env):
 
 
 def test_new_env_is_deployed(env):
-    asyncio.run(_make_manager().deploy_envs([_job(env)]))
+    asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.deploy_count == 1
     assert is_deployed(env)
     assert not get_deployment_lock_file(env).exists()
@@ -125,7 +128,7 @@ def test_complete_env_is_not_deployed_again(env, monkeypatch):
     monkeypatch.setattr(
         deployment, "Lock", MagicMock(side_effect=AssertionError("no lock"))
     )
-    asyncio.run(_make_manager().deploy_envs([_job(env)]))
+    asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.deploy_count == 0
 
 
@@ -145,7 +148,7 @@ def test_concurrent_deployments_deploy_once(env):
 def test_directory_without_flag_is_repaired(env):
     env.deployment_path.mkdir()
     (env.deployment_path / "partial").touch()
-    asyncio.run(_make_manager().deploy_envs([_job(env)]))
+    asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.remove_count == 1
     assert env.deploy_count == 1
     assert is_deployed(env)
@@ -168,7 +171,7 @@ def test_late_flag_prevents_removal(env):
 def test_flag_without_directory_is_deployed(env):
     env.deployment_path.parent.mkdir(parents=True, exist_ok=True)
     get_deployment_done_file(env).touch()
-    asyncio.run(_make_manager().deploy_envs([_job(env)]))
+    asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.deploy_count == 1
     assert env.remove_count == 0
     assert is_deployed(env)
@@ -177,14 +180,14 @@ def test_flag_without_directory_is_deployed(env):
 def test_failed_deployment_writes_no_flag(env):
     env.fail = True
     with pytest.raises(WorkflowError):
-        asyncio.run(_make_manager().deploy_envs([_job(env)]))
+        asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.deployment_path.exists()
     assert not get_deployment_done_file(env).exists()
     assert not get_deployment_lock_file(env).exists()
 
     # The next run removes the partial directory and deploys again.
     env.fail = False
-    asyncio.run(_make_manager().deploy_envs([_job(env)]))
+    asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.remove_count == 1
     assert env.deploy_count == 2
     assert is_deployed(env)
@@ -256,7 +259,7 @@ def test_dryrun_does_not_lock_remove_or_deploy(env, monkeypatch):
     monkeypatch.setattr(
         deployment, "Lock", MagicMock(side_effect=AssertionError("no lock"))
     )
-    asyncio.run(_make_manager(dryrun=True).deploy_envs([_job(env)]))
+    asyncio.run(_make_manager(dryrun=True).prepare_envs([_job(env)]))
     assert env.deploy_count == 0
     assert env.remove_count == 0
     assert env.deployment_path.exists()

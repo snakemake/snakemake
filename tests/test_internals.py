@@ -1,7 +1,7 @@
 import asyncio
 import os
 import threading
-from collections import Counter
+from collections import Counter, namedtuple
 from functools import partial
 from types import SimpleNamespace
 
@@ -15,12 +15,22 @@ import snakemake.common.misc as common
 from snakemake.common.misc import is_local_file
 from snakemake.pathvars import Pathvars
 from snakemake.ioutils import subpath
-from snakemake.iocontainers import Wildcards, InputFiles
+from snakemake.iocontainers import InputFiles, ParamStore, Wildcards
 from snakemake.io import _IOFile
 from snakemake.scheduling import job_scheduler
 from snakemake.scheduling.job_scheduler import JobRateLimiter, JobScheduler
 from snakemake.settings.types import MaxJobsPerTimespan
 from snakemake_interface_common.exceptions import WorkflowError
+
+
+def test_param_store_namedtuple_roundtrip():
+    Sample = namedtuple("Sample", ["sample_name", "alias"])
+    sample = Sample("tumor-1", "primary")
+
+    unpacked = ParamStore.from_value(sample).unpack()
+
+    assert unpacked.sample_name == "tumor-1"
+    assert unpacked.alias == "primary"
 
 
 def test_subpath():
