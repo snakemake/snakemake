@@ -15,6 +15,7 @@ import asyncio
 from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
 import errno
+import logging
 import os
 import threading
 
@@ -67,6 +68,9 @@ class DeploymentLock(Lock):
     while the claim file of the old owner still exists, and the old owner can
     still rename its claim file to the done flag (see _deploy_env). In this
     order, no run can take the lock until the old claim file is gone.
+
+    The other steps are the same as in Lock._break of flufl.lock 10.0.0:
+    https://gitlab.com/flufl/flufl.lock/-/blob/main/src/flufl/lock/_lockfile.py?ref_type=heads#L568
     """
 
     def _break(self) -> None:
@@ -74,6 +78,9 @@ class DeploymentLock(Lock):
             # As in flufl.lock: do not break a file that is not a lock file.
             _ = self.details
         except NotLockedError:
+            logging.getLogger("flufl.lock").error(
+                "lockfile exists but isn't safe to break: %s", self._lockfile
+            )
             return
         # As in flufl.lock: stop other runs from breaking the lock again.
         with suppress(PermissionError):
