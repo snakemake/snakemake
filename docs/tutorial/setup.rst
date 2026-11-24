@@ -14,6 +14,7 @@ Run tutorial for free in the cloud via GitHub Codespaces
 --------------------------------------------------------
 
 The easiest way to run this tutorial is to use GitHub Codespaces, which enables performing the exercises via your browser---including all required software, for free and in the cloud.
+Personal GitHub accounts include a monthly `free quota <https://docs.github.com/en/billing/concepts/product-billing/github-codespaces>`_ of Codespaces usage, which amounts to 60 hours on the default machine and is therefore more than enough to complete the tutorial at a relaxed pace.
 In order to do this, simply open the predefined `snakemake-tutorial GitHub Codespace <https://codespaces.new/snakemake/snakemake-tutorial-data>`_ in your browser.
 The Codespace provides you with a `Visual Studio Code <https://code.visualstudio.com>`_ development environment, which you can learn about in the linked documentation.
 Once you have a basic understanding of this environment, you can go on directly with :ref:`tutorial-basics`.
