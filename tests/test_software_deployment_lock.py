@@ -15,12 +15,13 @@ from unittest.mock import MagicMock
 
 import flufl.lock._lockfile as flufl_lockfile
 import pytest
-from flufl.lock import Lock
+from flufl.lock import Lock, TimeOutError
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_executor_plugins.settings import SharedFSUsage
 
 from snakemake import deployment
 from snakemake.deployment import (
+    DeploymentLock,
     SoftwareDeploymentManager,
     get_deployment_done_file,
     get_deployment_lock_file,
@@ -131,7 +132,9 @@ def test_new_env_is_deployed(env):
 def test_complete_env_is_not_deployed_again(env, monkeypatch):
     _complete(env)
     monkeypatch.setattr(
-        deployment, "Lock", MagicMock(side_effect=AssertionError("no lock"))
+        deployment,
+        "DeploymentLock",
+        MagicMock(side_effect=AssertionError("no lock")),
     )
     asyncio.run(_make_manager().prepare_envs([_job(env)]))
     assert env.deploy_count == 0
@@ -254,7 +257,7 @@ def test_lock_broken_before_flag_write_writes_no_flag(env, monkeypatch):
 
     def replace(src, dst):
         if str(dst) == done_file:
-            Lock(str(get_deployment_lock_file(env)))._break()
+            DeploymentLock(str(get_deployment_lock_file(env)))._break()
         return real_replace(src, dst)
 
     monkeypatch.setattr(os, "replace", replace)
@@ -262,6 +265,42 @@ def test_lock_broken_before_flag_write_writes_no_flag(env, monkeypatch):
         asyncio.run(_make_manager()._deploy_env(env))
     assert not get_deployment_done_file(env).exists()
     assert not is_deployed(env)
+
+
+def test_no_run_takes_lock_while_old_claim_file_exists(env, monkeypatch):
+    # Run A is about to rename its claim file to the done flag. Run B breaks
+    # the lock and pauses after its first delete. Run C must not get the lock
+    # in this gap, because the claim file of A must already be gone.
+    lock_file = str(get_deployment_lock_file(env))
+    done_file = str(get_deployment_done_file(env))
+    real_replace = os.replace
+    real_unlink = os.unlink
+    c_got_lock = []
+
+    def unlink_then_try_c(path):
+        real_unlink(path)
+        if not c_got_lock:
+            monkeypatch.setattr(os, "unlink", real_unlink)
+            c = DeploymentLock(lock_file)
+            try:
+                c.lock(timedelta(seconds=0.5))
+                c_got_lock.append(True)
+                c.unlock()
+            except TimeOutError:
+                c_got_lock.append(False)
+
+    def replace(src, dst):
+        if str(dst) == done_file:
+            monkeypatch.setattr(os, "unlink", unlink_then_try_c)
+            DeploymentLock(lock_file)._break()
+            monkeypatch.setattr(os, "unlink", real_unlink)
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(WorkflowError, match="Lost deployment lock"):
+        asyncio.run(_make_manager()._deploy_env(env))
+    assert c_got_lock == [False]
+    assert not get_deployment_done_file(env).exists()
 
 
 def test_no_hard_links_gives_clear_error(env, monkeypatch):
@@ -281,7 +320,9 @@ def test_no_hard_links_gives_clear_error(env, monkeypatch):
 def test_dryrun_does_not_lock_remove_or_deploy(env, monkeypatch):
     env.deployment_path.mkdir()
     monkeypatch.setattr(
-        deployment, "Lock", MagicMock(side_effect=AssertionError("no lock"))
+        deployment,
+        "DeploymentLock",
+        MagicMock(side_effect=AssertionError("no lock")),
     )
     asyncio.run(_make_manager(dryrun=True).prepare_envs([_job(env)]))
     assert env.deploy_count == 0

@@ -12,8 +12,9 @@ from pathlib import Path
 import tempfile
 from typing import Any, AsyncIterator, Dict, Iterable
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
+import errno
 import os
 import threading
 
@@ -58,6 +59,36 @@ def is_deployed(env: DeployableEnvBase) -> bool:
     return get_deployment_done_file(env).exists() and env.deployment_path.exists()
 
 
+class DeploymentLock(Lock):
+    """A flufl.lock lock that also deletes the claim file of the old owner
+    before the lock file when it breaks an expired lock.
+
+    flufl.lock deletes the lock file first. Then a third run can take the lock
+    while the claim file of the old owner still exists, and the old owner can
+    still rename its claim file to the done flag (see _deploy_env). In this
+    order, no run can take the lock until the old claim file is gone.
+    """
+
+    def _break(self) -> None:
+        try:
+            # As in flufl.lock: do not break a file that is not a lock file.
+            _ = self.details
+        except NotLockedError:
+            return
+        # As in flufl.lock: stop other runs from breaking the lock again.
+        with suppress(PermissionError):
+            self._touch(self._lockfile)
+        winner = self._read()
+        for path in (winner, self._lockfile):
+            if not path:
+                continue
+            try:
+                os.unlink(path)
+            except OSError as e:
+                if e.errno not in (errno.ENOENT, errno.ESTALE):
+                    raise
+
+
 def _refresh_deployment_lock(lock: Lock, stop: threading.Event) -> None:
     interval = DEPLOYMENT_LOCK_LIFETIME.total_seconds() / 2
     while not stop.wait(interval):
@@ -76,7 +107,7 @@ async def deployment_lock(env: DeployableEnvBase) -> AsyncIterator[Lock]:
     expire. A lock of a dead owner clears when its lifetime ends.
     """
     lock_file = get_deployment_lock_file(env)
-    lock = Lock(str(lock_file))
+    lock = DeploymentLock(str(lock_file))
     lock.lifetime = DEPLOYMENT_LOCK_LIFETIME
     warned = False
     while True:
