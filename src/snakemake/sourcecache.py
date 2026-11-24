@@ -53,6 +53,14 @@ def _check_git_args(
         )
 
 
+_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/\s@]+@")
+
+
+def _redact_url_userinfo(text: str) -> str:
+    """Replace the user information (e.g. user:password) of all URLs in text."""
+    return _URL_USERINFO.sub(r"\g<scheme>***@", text)
+
+
 def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:
     for suff in suffix:
         if path.endswith(suff):
@@ -366,10 +374,10 @@ class HostedGitRepo:
             # the directory to the final location
             os.rename(tmpdir, self.repo_clone)
         except OSError as e:
+            # cleanup, then ignore the error if another process won the race
+            shutil.rmtree(tmpdir, ignore_errors=True)
             if e.errno not in (errno.EEXIST, errno.ENOTEMPTY):
                 raise
-            # another process won the race
-            shutil.rmtree(tmpdir)
 
     def ref_exists(self, commit: Optional[str], branch_or_tag: Optional[str]):
         import git
@@ -841,8 +849,10 @@ class SourceCache:
             self.cache(source_file)
         except Exception as e:
             logger.debug(
-                f"Source file {source_file.get_path_or_uri(secret_free=True)} is "
-                f"not accessible: {e!r}"
+                _redact_url_userinfo(
+                    f"Source file {source_file.get_path_or_uri(secret_free=True)} "
+                    f"is not accessible: {e!r}"
+                )
             )
             return False
         return True

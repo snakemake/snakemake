@@ -1,3 +1,5 @@
+import errno
+import logging
 import os
 from pathlib import Path
 import tempfile
@@ -8,6 +10,7 @@ import pytest
 import tenacity
 
 from snakemake.exceptions import WorkflowError
+from snakemake.logging import logger
 from snakemake.sourcecache import (
     GenericSourceFile,
     GithubFile,
@@ -382,3 +385,42 @@ def test_hosted_git_repo_clone_gives_up(tmp_path, monkeypatch):
     assert "secret" not in str(e.value)
     assert clone_from.call_count == 3
     assert os.listdir(cache_path / "github.com" / "owner") == []
+
+
+def test_hosted_git_repo_clone_removes_temp_dir_after_rename_error(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(HostedGitRepo._clone.retry, "wait", tenacity.wait_none())
+    cache_path = tmp_path / "cache"
+    error = PermissionError(errno.EACCES, "Permission denied")
+
+    with (
+        patch.object(
+            git.Repo,
+            "clone_from",
+            side_effect=lambda url, to_path, **kwargs: _bare_clone_into(to_path),
+        ),
+        patch("snakemake.sourcecache.os.rename", side_effect=error) as rename,
+        pytest.raises(PermissionError),
+    ):
+        HostedGitRepo("owner/repo", cache_path, "", "github.com")
+
+    assert rename.call_count == 3
+    # No attempt leaves its temporary clone.
+    assert os.listdir(cache_path / "github.com" / "owner") == []
+
+
+def test_exists_does_not_log_url_credentials(tmp_path, caplog):
+    url = "https://user:secret@example.com/path/file.txt"
+    source_cache = SourceCache(tmp_path / "cache")
+
+    with (
+        patch.object(
+            SourceCache, "cache", side_effect=WorkflowError(f"Failed for {url}")
+        ),
+        caplog.at_level(logging.DEBUG, logger=logger.name),
+    ):
+        assert not source_cache.exists(GenericSourceFile(url))
+
+    assert "secret" not in caplog.text
+    assert "https://***@example.com/path/file.txt" in caplog.text
