@@ -10,8 +10,16 @@ from typing import Optional
 from dataclasses import dataclass
 from pathlib import Path
 import tempfile
-from typing import Any, Dict, Iterable
+from typing import Any, AsyncIterator, Dict, Iterable
+import asyncio
+from contextlib import asynccontextmanager, suppress
+from datetime import timedelta
+import errno
+import logging
 import os
+import threading
+
+from flufl.lock import Lock, NotLockedError, TimeOutError
 
 import snakemake
 from snakemake.common.typing import AnySet
@@ -22,6 +30,7 @@ from snakemake_interface_software_deployment_plugins.registry import (
 from snakemake_interface_software_deployment_plugins import (
     EnvSpecBase,
     EnvBase,
+    DeployableEnvBase,
     EnvSpecSourceFile,
     ShellExecutable,
 )
@@ -31,6 +40,111 @@ from snakemake.common.misc import (
     is_local_file,
     get_snakemake_searchpaths,
 )
+
+DEPLOYMENT_LOCK_LIFETIME = timedelta(seconds=30)
+DEPLOYMENT_LOCK_POLL = timedelta(seconds=5)
+
+
+def get_deployment_lock_file(env: DeployableEnvBase) -> Path:
+    """Return the lock file of a deployment that a run holds while deploying."""
+    return env.deployment_path.with_name(f"{env.deployment_path.name}.lock")
+
+
+def get_deployment_done_file(env: DeployableEnvBase) -> Path:
+    """Return the flag file that marks a complete deployment."""
+    return env.deployment_path.with_name(f"{env.deployment_path.name}.done")
+
+
+def is_deployed(env: DeployableEnvBase) -> bool:
+    """Return True if the deployment is complete."""
+    return get_deployment_done_file(env).exists() and env.deployment_path.exists()
+
+
+class DeploymentLock(Lock):
+    """A flufl.lock lock that also deletes the claim file of the old owner
+    before the lock file when it breaks an expired lock.
+
+    flufl.lock deletes the lock file first. Then a third run can take the lock
+    while the claim file of the old owner still exists, and the old owner can
+    still rename its claim file to the done flag (see _deploy_env). In this
+    order, no run can take the lock until the old claim file is gone.
+
+    The other steps are the same as in Lock._break of flufl.lock 10.0.0:
+    https://gitlab.com/flufl/flufl.lock/-/blob/main/src/flufl/lock/_lockfile.py?ref_type=heads#L568
+    """
+
+    def _break(self) -> None:
+        try:
+            # As in flufl.lock: do not break a file that is not a lock file.
+            _ = self.details
+        except NotLockedError:
+            logging.getLogger("flufl.lock").error(
+                "lockfile exists but isn't safe to break: %s", self._lockfile
+            )
+            return
+        # As in flufl.lock: stop other runs from breaking the lock again.
+        with suppress(PermissionError):
+            self._touch(self._lockfile)
+        winner = self._read()
+        for path in (winner, self._lockfile):
+            if not path:
+                continue
+            try:
+                os.unlink(path)
+            except OSError as e:
+                if e.errno not in (errno.ENOENT, errno.ESTALE):
+                    raise
+
+
+def _refresh_deployment_lock(lock: Lock, stop: threading.Event) -> None:
+    interval = DEPLOYMENT_LOCK_LIFETIME.total_seconds() / 2
+    while not stop.wait(interval):
+        try:
+            lock.refresh()
+        except NotLockedError:
+            # The caller checks lock.is_locked before it writes the done flag.
+            return
+
+
+@asynccontextmanager
+async def deployment_lock(env: DeployableEnvBase) -> AsyncIterator[Lock]:
+    """Hold the deployment lock of env. Wait until other runs release it.
+
+    A thread refreshes the lock, so that a blocking plugin call does not let it
+    expire. A lock of a dead owner clears when its lifetime ends.
+    """
+    lock_file = get_deployment_lock_file(env)
+    lock = DeploymentLock(str(lock_file))
+    lock.lifetime = DEPLOYMENT_LOCK_LIFETIME
+    warned = False
+    while True:
+        try:
+            await asyncio.to_thread(lock.lock, DEPLOYMENT_LOCK_POLL)
+            break
+        except TimeOutError:
+            if not warned:
+                logger.warning(
+                    f"Waiting for parallel deployment to finish (lock: {lock_file})."
+                )
+                warned = True
+        except OSError as e:
+            raise WorkflowError(
+                f"Could not create deployment lock {lock_file}. The filesystem of "
+                "the software deployment prefix must support hard links.",
+                e,
+            )
+    stop = threading.Event()
+    refresher = threading.Thread(
+        target=_refresh_deployment_lock, args=(lock, stop), daemon=True
+    )
+    refresher.start()
+    try:
+        yield lock
+    finally:
+        stop.set()
+        refresher.join()
+        # Removes the lock file only if this run still owns it.
+        lock.unlock(unconditionally=True)
 
 
 class SoftwareDeploymentManager:
@@ -132,10 +246,53 @@ class SoftwareDeploymentManager:
                 await self._cache_env(env)
             if deploy and self._needs_deployment(env):
                 self._log(f"Deploying software environment {env.spec}.")
-                await env.managed_deploy()
+                await self._deploy_env(env)
+
+    async def _deploy_env(self, env: DeployableEnvBase) -> None:
+        """Deploy env under its deployment lock, and write the done flag."""
+        from snakemake.io import wait_for_files
+
+        done_file = get_deployment_done_file(env)
+        async with deployment_lock(env) as lock:
+            # Another run can have finished while this run waited.
+            if is_deployed(env):
+                return
+            if env.deployment_path.exists():
+                # Directory without flag: a partial deployment, or the flag is
+                # not visible yet on a slow filesystem. Do not delete a good
+                # environment.
+                try:
+                    await wait_for_files(
+                        [str(done_file)],
+                        latency_wait=self.workflow.execution_settings.latency_wait,
+                    )
+                    return
+                except IOError:
+                    logger.info(
+                        f"Removing incomplete deployment {env.deployment_path}."
+                    )
+                    env.managed_remove()
+            else:
+                # Flag without directory, for example after a manual delete.
+                done_file.unlink(missing_ok=True)
+            await env.managed_deploy()
+
+            # Check the lock file if any run has not taken over this deployment
+            lost_lock = WorkflowError(
+                f"Lost deployment lock {get_deployment_lock_file(env)} during "
+                "deployment. The environment is not marked as complete."
+            )
+            if not lock.is_locked:
+                raise lost_lock
+            try:
+                # Use the flufl claim file to atomically check if the lock is alive,
+                # and create the done_file
+                os.replace(lock.claimfile, done_file)
+            except FileNotFoundError:
+                raise lost_lock
 
     def _needs_deployment(self, env: EnvBase) -> bool:
-        return env.is_deployable() and not env.deployment_path.exists()
+        return env.is_deployable() and not is_deployed(env)
 
     async def _cache_env(self, env: EnvBase) -> None:
         assets = [
@@ -178,7 +335,11 @@ class SoftwareDeploymentManager:
             env = job.software_env
             if env is not None:
                 await env.cleanup_cache()
-                env.managed_remove()
+                if env.is_deployable():
+                    async with deployment_lock(env):
+                        get_deployment_done_file(env).unlink(missing_ok=True)
+                        if env.deployment_path.exists():
+                            env.managed_remove()
 
     async def cleanup_cache(self, jobs: Iterable["snakemake.jobs.Job"]) -> None:
         for job in jobs:

@@ -193,6 +193,7 @@ cmd = [
   "not test_conda_global",
   "tests/tests.py",                    # tested in test-simple
   "tests/tests_using_conda.py",
+  "tests/test_software_deployment_lock.py",
   "tests/test_expand.py",
   "tests/test_io.py",
   "tests/test_schema.py",
