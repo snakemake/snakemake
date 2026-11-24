@@ -247,7 +247,7 @@ class SoftwareDeploymentManager:
             if not lock.is_locked:
                 raise lost_lock
             try:
-                # Use the flufl claim file to atomatically check if the lock is alive,
+                # Use the flufl claim file to atomically check if the lock is alive,
                 # and create the done_file
                 os.replace(lock.claimfile, done_file)
             except FileNotFoundError:
