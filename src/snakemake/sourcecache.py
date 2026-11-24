@@ -68,7 +68,8 @@ def _redact_query_param(param: str) -> str:
 def _redact_url_secrets(url: str) -> str:
     """Replace the user information (e.g. user:password) and all query values
     (e.g. tokens) of the complete URL."""
-    url = _URL_USERINFO.sub(r"\g<scheme>***@", url)
+    # Strip outer whitespace, since the pattern must match at the start.
+    url = _URL_USERINFO.sub(r"\g<scheme>***@", url.strip())
     base, sep, rest = url.partition("?")
     if not sep:
         return url

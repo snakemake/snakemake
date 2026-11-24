@@ -456,6 +456,9 @@ def test_exists_does_not_log_url_credentials(tmp_path, caplog, url, expected):
         ("https://user:p@ss@example.com/a", "https://***@example.com/a"),
         ("ftp://u@host?x=1@y", "ftp://***@host?x=***"),
         ("https://u:pa'ss@host/a?t='x", "https://***@host/a?t=***"),
+        # Outer whitespace does not stop the redaction.
+        (" https://u:p@host/a?t=x", "https://***@host/a?t=***"),
+        ("\nhttps://u:p@host/a?t=x\n", "https://***@host/a?t=***"),
         # All query values, also values without a key. The fragment stays.
         (
             "https://example.com/a?token=t1&sig=t2&flag&=t3#part",
