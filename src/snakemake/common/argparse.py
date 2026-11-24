@@ -3,6 +3,7 @@ import collections
 import dataclasses
 
 import configargparse
+from snakemake.exceptions import CliParserError, HelpRequested
 
 
 class ArgumentParser(configargparse.ArgumentParser):
@@ -20,6 +21,16 @@ class ArgumentParser(configargparse.ArgumentParser):
         group = ArgumentGroup(self, *args, **kwargs)
         self._action_groups.append(group)
         return group
+
+    def error(self, message):
+        # Custom error handling
+        raise CliParserError(message)
+
+
+class HelpAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        # Instead of printing help, raise a custom exception or set a flag
+        raise HelpRequested()
 
 
 class ArgumentGroup(argparse._ArgumentGroup):
