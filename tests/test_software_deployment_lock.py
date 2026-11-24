@@ -303,6 +303,87 @@ def test_no_run_takes_lock_while_old_claim_file_exists(env, monkeypatch):
     assert not get_deployment_done_file(env).exists()
 
 
+@pytest.mark.parametrize("break_impl", ["flufl_break", "deployment_lock"])
+def test_takeover_during_break_accepts_no_incomplete_deployment(
+    env, monkeypatch, break_impl
+):
+    """Run A completes its deployment and is about to rename its claim file to
+    the done flag. Run B breaks the lock and pauses after its first delete.
+    Run C takes the lock as soon as it can and starts to rebuild. Run A does
+    its rename while B pauses.
+
+    flufl.lock deletes the lock file first, so C can take the lock while the
+    claim file of A still exists. Then A marks the incomplete rebuild of C as
+    complete. DeploymentLock deletes the claim file of A first, so C cannot
+    take the lock in the gap, and the rename of A fails.
+    """
+    if break_impl == "flufl_break":
+        monkeypatch.setattr(deployment.DeploymentLock, "_break", Lock._break)
+    lock_file = str(get_deployment_lock_file(env))
+    done_file = str(get_deployment_done_file(env))
+    real_replace = os.replace
+    real_unlink = os.unlink
+    c_lock = DeploymentLock(lock_file, lifetime=timedelta(seconds=30))
+    c_got_lock_in_gap = []
+    a_rename_error = []
+    a_claimfile = []
+
+    def c_takes_lock_and_starts_rebuild(timeout):
+        try:
+            c_lock.lock(timeout)
+        except TimeOutError:
+            return False
+        # Like _deploy_env of C: remove the directory and start to deploy.
+        shutil.rmtree(env.deployment_path)
+        env.deployment_path.mkdir()
+        return True
+
+    def in_gap():
+        c_got_lock_in_gap.append(
+            c_takes_lock_and_starts_rebuild(timedelta(seconds=0.5))
+        )
+        try:
+            real_replace(a_claimfile[0], done_file)
+        except FileNotFoundError as e:
+            a_rename_error.append(e)
+
+    def unlink(path):
+        real_unlink(path)
+        if not c_got_lock_in_gap:
+            monkeypatch.setattr(os, "unlink", real_unlink)
+            in_gap()
+
+    def replace(src, dst):
+        if str(dst) != done_file:
+            return real_replace(src, dst)
+        a_claimfile.append(src)
+        monkeypatch.setattr(os, "unlink", unlink)
+        DeploymentLock(lock_file)._break()
+        monkeypatch.setattr(os, "unlink", real_unlink)
+        if not c_got_lock_in_gap[0]:
+            assert c_takes_lock_and_starts_rebuild(timedelta(seconds=10))
+        if a_rename_error:
+            raise a_rename_error[0]
+
+    monkeypatch.setattr(os, "replace", replace)
+    try:
+        if break_impl == "flufl_break":
+            # The race: A gets no error, and its flag marks the incomplete
+            # rebuild of C as complete.
+            asyncio.run(_make_manager()._deploy_env(env))
+            assert c_got_lock_in_gap == [True]
+            assert is_deployed(env)
+            assert not (env.deployment_path / "bin").exists()
+        else:
+            with pytest.raises(WorkflowError, match="Lost deployment lock"):
+                asyncio.run(_make_manager()._deploy_env(env))
+            assert c_got_lock_in_gap == [False]
+            assert not is_deployed(env)
+        assert c_lock.is_locked
+    finally:
+        c_lock.unlock(unconditionally=True)
+
+
 def test_no_hard_links_gives_clear_error(env, monkeypatch):
     env.deployment_path.parent.mkdir(parents=True, exist_ok=True)
 
