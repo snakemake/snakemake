@@ -498,16 +498,22 @@ def test_github_issue2213():
 PARALLEL_DEPLOY_TIMEOUT = 900
 
 
-def _start_parallel_deploy_run(base: Path, name: str) -> sp.Popen:
+def _start_parallel_deploy_run(base: Path, name: str, pause=False) -> sp.Popen:
+    """Start a run. With pause, the run holds its deployment until the test
+    calls _release_deployment (see test_conda_parallel_deploy/run_snakemake.py).
+    """
     workdir = base / name
     workdir.mkdir()
     log = open(base / f"{name}.log", "w")
+    env = dict(os.environ)
+    if pause:
+        env["SNAKEMAKE_TEST_DEPLOY_STARTED"] = str(base / "deploy_started")
+        env["SNAKEMAKE_TEST_DEPLOY_RELEASE"] = str(base / "deploy_release")
     # A new session, so that the test can kill all child processes.
     return sp.Popen(
         [
             sys.executable,
-            "-m",
-            "snakemake",
+            str(dpath("test_conda_parallel_deploy/run_snakemake.py")),
             "--snakefile",
             str(dpath("test_conda_parallel_deploy/Snakefile")),
             "--directory",
@@ -523,8 +529,13 @@ def _start_parallel_deploy_run(base: Path, name: str) -> sp.Popen:
         ],
         stdout=log,
         stderr=sp.STDOUT,
+        env=env,
         start_new_session=True,
     )
+
+
+def _release_deployment(base: Path) -> None:
+    (base / "deploy_release").touch()
 
 
 def _wait_parallel_deploy_run(proc: sp.Popen) -> int:
@@ -543,21 +554,45 @@ def _parallel_deploy_env_dirs(base: Path):
     return [p for p in prefix.iterdir() if p.is_dir() and p.name != "staged_packages"]
 
 
-def _wait_for_deployment_start(base: Path, proc: sp.Popen) -> Path:
-    """Wait until run A holds the lock and has made the environment directory."""
+def _wait_for_log(base: Path, name: str, proc: sp.Popen, condition, what: str):
     deadline = time.time() + PARALLEL_DEPLOY_TIMEOUT
     while time.time() < deadline:
-        env_dirs = _parallel_deploy_env_dirs(base)
-        if env_dirs and env_dirs[0].with_name(f"{env_dirs[0].name}.lock").exists():
-            return env_dirs[0]
+        if condition():
+            return
         if proc.poll() is not None:
             pytest.fail(
-                "Run A ended before it started the deployment:\n"
-                + (base / "run_a.log").read_text()
+                f"Run {name} ended before {what}:\n"
+                + (base / f"{name}.log").read_text()
             )
         time.sleep(0.05)
     os.killpg(proc.pid, signal.SIGKILL)
-    pytest.fail("Run A did not start the deployment in time.")
+    pytest.fail(f"Run {name} did not reach {what} in time.")
+
+
+def _wait_for_deployment_start(base: Path, proc: sp.Popen) -> Path:
+    """Wait until the paused run A has deployed, but not written the done flag."""
+    _wait_for_log(
+        base,
+        "run_a",
+        proc,
+        lambda: (base / "deploy_started").exists(),
+        "the end of the deployment",
+    )
+    (env_dir,) = _parallel_deploy_env_dirs(base)
+    assert env_dir.with_name(f"{env_dir.name}.lock").exists()
+    assert not env_dir.with_name(f"{env_dir.name}.done").exists()
+    return env_dir
+
+
+def _wait_for_lock_wait(base: Path, name: str, proc: sp.Popen) -> None:
+    _wait_for_log(
+        base,
+        name,
+        proc,
+        lambda: "Waiting for parallel deployment to finish"
+        in (base / f"{name}.log").read_text(),
+        "the wait for the deployment lock",
+    )
 
 
 def _check_parallel_deploy_run(base: Path, name: str, returncode: int) -> str:
@@ -572,9 +607,13 @@ def _check_parallel_deploy_run(base: Path, name: str, returncode: int) -> str:
 @connected
 @conda_plugin
 def test_conda_parallel_deploy(tmp_path):
-    run_a = _start_parallel_deploy_run(tmp_path, "run_a")
+    run_a = _start_parallel_deploy_run(tmp_path, "run_a", pause=True)
     env_dir = _wait_for_deployment_start(tmp_path, run_a)
     run_b = _start_parallel_deploy_run(tmp_path, "run_b")
+    # Run B must wait for the lock of run A, and not use the environment yet.
+    _wait_for_lock_wait(tmp_path, "run_b", run_b)
+    assert not (tmp_path / "run_b" / "sum.txt").exists()
+    _release_deployment(tmp_path)
     rc_a = _wait_parallel_deploy_run(run_a)
     rc_b = _wait_parallel_deploy_run(run_b)
     _check_parallel_deploy_run(tmp_path, "run_a", rc_a)
@@ -587,7 +626,8 @@ def test_conda_parallel_deploy(tmp_path):
 @connected
 @conda_plugin
 def test_conda_killed_deploy(tmp_path):
-    run_a = _start_parallel_deploy_run(tmp_path, "run_a")
+    # Run A is killed after the deployment, before it writes the done flag.
+    run_a = _start_parallel_deploy_run(tmp_path, "run_a", pause=True)
     env_dir = _wait_for_deployment_start(tmp_path, run_a)
     os.killpg(run_a.pid, signal.SIGKILL)
     run_a.wait()
@@ -600,6 +640,7 @@ def test_conda_killed_deploy(tmp_path):
         tmp_path, "run_b", _wait_parallel_deploy_run(run_b)
     )
     assert "Waiting for parallel deployment to finish" in log
+    assert "Removing incomplete deployment" in log
     assert env_dir.with_name(f"{env_dir.name}.done").exists()
 
 
