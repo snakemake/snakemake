@@ -53,7 +53,9 @@ def _check_git_args(
         )
 
 
-_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/\s@]+@")
+# The user information ends at the last @ of the authority (as in urllib.parse),
+# since a password can contain an unencoded @.
+_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/?#\s]*@")
 
 
 def _redact_url_userinfo(text: str) -> str:

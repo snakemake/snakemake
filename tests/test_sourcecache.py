@@ -18,6 +18,7 @@ from snakemake.sourcecache import (
     HostedGitRepo,
     LocalGitFile,
     SourceCache,
+    _redact_url_userinfo,
     infer_source_file,
 )
 
@@ -410,8 +411,15 @@ def test_hosted_git_repo_clone_removes_temp_dir_after_rename_error(
     assert os.listdir(cache_path / "github.com" / "owner") == []
 
 
-def test_exists_does_not_log_url_credentials(tmp_path, caplog):
-    url = "https://user:secret@example.com/path/file.txt"
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:secret@example.com/path/file.txt",
+        # An unencoded @ in the password. The host starts after the last @.
+        "https://user:p@ss@secret@example.com/path/file.txt",
+    ],
+)
+def test_exists_does_not_log_url_credentials(tmp_path, caplog, url):
     source_cache = SourceCache(tmp_path / "cache")
 
     with (
@@ -424,3 +432,21 @@ def test_exists_does_not_log_url_credentials(tmp_path, caplog):
 
     assert "secret" not in caplog.text
     assert "https://***@example.com/path/file.txt" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "https://user:p@ss@example.com/a and ftp://u@host?x=1@y",
+            "https://***@example.com/a and ftp://***@host?x=1@y",
+        ),
+        # URLs without credentials stay the same.
+        (
+            "https://example.com/a@b and s3://bucket/key and mail me@example.com",
+            "https://example.com/a@b and s3://bucket/key and mail me@example.com",
+        ),
+    ],
+)
+def test_redact_url_userinfo(text, expected):
+    assert _redact_url_userinfo(text) == expected
