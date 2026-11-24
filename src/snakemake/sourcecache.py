@@ -53,7 +53,6 @@ def _check_git_args(
         )
 
 
-_URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>]*")
 # The user information ends at the last @ of the authority (as in urllib.parse),
 # since a password can contain an unencoded @.
 _URL_USERINFO = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/?#]*@")
@@ -66,7 +65,9 @@ def _redact_query_param(param: str) -> str:
     return "***" if param else param
 
 
-def _redact_url(url: str) -> str:
+def _redact_url_secrets(url: str) -> str:
+    """Replace the user information (e.g. user:password) and all query values
+    (e.g. tokens) of the complete URL."""
     url = _URL_USERINFO.sub(r"\g<scheme>***@", url)
     base, sep, rest = url.partition("?")
     if not sep:
@@ -74,12 +75,6 @@ def _redact_url(url: str) -> str:
     query, hash_sep, fragment = rest.partition("#")
     query = "&".join(_redact_query_param(param) for param in query.split("&"))
     return f"{base}?{query}{hash_sep}{fragment}"
-
-
-def _redact_url_secrets(text: str) -> str:
-    """Replace the user information (e.g. user:password) and all query values
-    (e.g. tokens) of all URLs in text."""
-    return _URL.sub(lambda match: _redact_url(match.group(0)), text)
 
 
 def _replace_suffix(path: str, suffix: List[str], replacement: str) -> Optional[str]:

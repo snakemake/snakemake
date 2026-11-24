@@ -427,6 +427,11 @@ def test_hosted_git_repo_clone_removes_temp_dir_after_rename_error(
             "https://example.com/data?access_token=secret",
             "https://example.com/data?access_token=***",
         ),
+        # An apostrophe is valid in the user information and in a query value.
+        (
+            "https://user:pa'secret@example.com/data?token=t'secret",
+            "https://***@example.com/data?token=***",
+        ),
     ],
 )
 def test_exists_does_not_log_url_credentials(tmp_path, caplog, url, expected):
@@ -446,25 +451,20 @@ def test_exists_does_not_log_url_credentials(tmp_path, caplog, url, expected):
 
 
 @pytest.mark.parametrize(
-    "text, expected",
+    "url, expected",
     [
-        (
-            "https://user:p@ss@example.com/a and ftp://u@host?x=1@y",
-            "https://***@example.com/a and ftp://***@host?x=***",
-        ),
+        ("https://user:p@ss@example.com/a", "https://***@example.com/a"),
+        ("ftp://u@host?x=1@y", "ftp://***@host?x=***"),
+        ("https://u:pa'ss@host/a?t='x", "https://***@host/a?t=***"),
         # All query values, also values without a key. The fragment stays.
         (
-            "Error('https://example.com/a?token=t1&sig=t2&flag&=t3#part')",
-            "Error('https://example.com/a?token=***&sig=***&***&=***#part')",
+            "https://example.com/a?token=t1&sig=t2&flag&=t3#part",
+            "https://example.com/a?token=***&sig=***&***&=***#part",
         ),
         # URLs without credentials or query stay the same.
-        (
-            "https://example.com/a@b and s3://bucket/key and mail me@example.com",
-            "https://example.com/a@b and s3://bucket/key and mail me@example.com",
-        ),
-        # A query outside of a URL stays the same.
-        ("key=value?a=b", "key=value?a=b"),
+        ("https://example.com/a@b", "https://example.com/a@b"),
+        ("s3://bucket/key", "s3://bucket/key"),
     ],
 )
-def test_redact_url_secrets(text, expected):
-    assert _redact_url_secrets(text) == expected
+def test_redact_url_secrets(url, expected):
+    assert _redact_url_secrets(url) == expected
