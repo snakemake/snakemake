@@ -2664,6 +2664,45 @@ def test_incomplete_params():
     )
 
 
+@skip_on_windows  # the workflows use shell commands
+@pytest.mark.parametrize(
+    "snakefile, partial_content",
+    [
+        # rule a writes a partial a.txt, then exits non-zero
+        ("Snakefile", "partial"),
+        # rule a exits 0, but its empty a.txt fails ensure(non_empty=True)
+        ("Snakefile_ensure", ""),
+    ],
+)
+def test_keep_incomplete_keeps_incomplete_marker(tmp_path, snakefile, partial_content):
+    """Outputs kept by --keep-incomplete must stay marked as incomplete.
+
+    Rule a fails and leaves a partial a.txt behind, which --keep-incomplete
+    keeps. If the job's incomplete markers are removed anyway, the next run
+    treats a.txt as complete and silently builds b.txt from the partial file.
+    """
+    shutil.copy(dpath("test_keep_incomplete") / snakefile, tmp_path / "Snakefile")
+    snakemake = [sys.executable, "-m", "snakemake", "--cores", "1"]
+
+    # first run: rule a fails, its partial output is kept
+    first = sp.run([*snakemake, "--keep-incomplete"], cwd=tmp_path)
+    assert first.returncode != 0
+    assert (tmp_path / "a.txt").read_text().strip() == partial_content
+
+    # second run: rule a would now succeed, but the kept a.txt is incomplete,
+    # so Snakemake must refuse to use it
+    (tmp_path / "ok").touch()
+    second = sp.run(snakemake, cwd=tmp_path, capture_output=True, text=True)
+    assert second.returncode != 0
+    assert "Incomplete files:" in second.stderr
+    assert not (tmp_path / "b.txt").exists()
+
+    # third run: --rerun-incomplete regenerates a.txt before b.txt uses it
+    third = sp.run([*snakemake, "--rerun-incomplete"], cwd=tmp_path)
+    assert third.returncode == 0
+    assert (tmp_path / "b.txt").read_text().strip() == "complete"
+
+
 @skip_on_windows
 def test_github_issue261():
     run(dpath("test_github_issue261"), targets=["test1/target1/config1.done"])

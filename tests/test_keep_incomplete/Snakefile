@@ -1,0 +1,20 @@
+rule all:
+    input:
+        "b.txt",
+
+
+rule a:
+    output:
+        "a.txt",
+    # writes a partial output, then fails unless "ok" exists
+    shell:
+        "echo partial > {output}; test -e ok; echo complete > {output}"
+
+
+rule b:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+    shell:
+        "cp {input} {output}"

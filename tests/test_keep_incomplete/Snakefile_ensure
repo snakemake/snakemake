@@ -1,0 +1,21 @@
+rule all:
+    input:
+        "b.txt",
+
+
+rule a:
+    output:
+        ensure("a.txt", non_empty=True),
+    # exits 0 but writes an empty output, failing the ensure check, unless
+    # "ok" exists
+    shell:
+        "if [ -e ok ]; then echo complete > {output}; else touch {output}; fi"
+
+
+rule b:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+    shell:
+        "cp {input} {output}"

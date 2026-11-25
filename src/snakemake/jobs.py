@@ -1247,21 +1247,28 @@ class Job(
                 )
 
         except Exception as e:
-            # cleanup metadata in case of any exception above
-            self.dag.workflow.persistence.cleanup(self)
+            # Delete the metadata records in case of any exception above, but
+            # keep the incomplete markers: the outputs may still exist, and
+            # only finished() may unmark them.
+            self.dag.workflow.persistence.cleanup_records(self)
             raise e
 
+        keep_incomplete = self.dag.workflow.execution_settings.keep_incomplete
+        if error and not keep_incomplete:
+            await self.cleanup(skip_cleanup_outputs)
+
         try:
-            await self.dag.workflow.persistence.finished(self)
+            # Outputs of a failed job that are kept (--keep-incomplete) are not
+            # finished: keep their incomplete markers, so that later runs do
+            # not treat them as complete.
+            if not (error and keep_incomplete):
+                await self.dag.workflow.persistence.finished(self)
         except IOError as e:
             raise WorkflowError(
                 "Error recording metadata for finished job "
                 "({}). Please ensure write permissions for the "
                 "directory {}".format(e, self.dag.workflow.persistence.path)
             )
-
-        if error and not self.dag.workflow.execution_settings.keep_incomplete:
-            await self.cleanup(skip_cleanup_outputs)
 
     @property
     def name(self):
