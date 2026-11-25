@@ -1,0 +1,49 @@
+shell.executable("bash")
+
+# lock is newer than synced, so rule sync has to be rerun (#4166).
+shell("touch synced && sleep 1 && touch lock")
+
+
+rule all:
+    input:
+        "direct.out",
+        "chained.out",
+
+
+rule sync:
+    input:
+        "lock",
+    output:
+        "synced",
+    shell:
+        "touch {output}"
+
+
+# Missing output, but its only input from the rerun job is ancient.
+rule direct:
+    input:
+        ancient("synced"),
+    output:
+        "direct.out",
+    shell:
+        "echo direct > {output}"
+
+
+# Up to date, and its only input from the rerun job is ancient.
+rule present:
+    input:
+        ancient("synced"),
+    output:
+        "present.out",
+    shell:
+        "echo rerun > {output}"
+
+
+# Missing output behind a job that the rerun does not trigger.
+rule chained:
+    input:
+        "present.out",
+    output:
+        "chained.out",
+    shell:
+        "cat {input} > {output} && echo chained >> {output}"
