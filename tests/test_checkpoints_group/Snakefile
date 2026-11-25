@@ -1,0 +1,72 @@
+
+rule all:
+    input:
+        "aggregated/a.txt",
+        "aggregated/b.txt"
+
+
+checkpoint somestep:
+    input:
+        # "samples/{sample}.txt"
+        lambda w, groupid: f"samples/{w.sample}.txt"
+    output:
+        "somestep/{sample}.txt"
+    wildcard_constraints:
+        sample="[^-]"
+    group:
+        "somestep"
+    shell:
+        # simulate some output value
+        "touch {output}"
+
+
+rule add_groupid:
+    input:
+        lambda w, groupid: f"somestep/{w.sample}.txt"
+    output:
+        "somestep/{sample}-{gid}.txt"
+    params:
+        gid="{gid}"
+    wildcard_constraints:
+        sample="[^-]"
+    group:
+        "add_groupid"
+    run:
+        with open(output[0], "w") as f:
+            print(len(params.gid), file=f)
+
+
+rule intermediate:
+    input:
+        lambda w, groupid: f"somestep/{w.sample}-{groupid}.txt"
+    output:
+        "post/{sample}.txt"
+    group:
+        "intermediate"
+    shell:
+        "cp {input} {output}"
+
+
+use rule intermediate as alt_intermediate with:
+    output:
+        "alt/{sample}.txt"
+    group:
+        "alt_intermediate"
+
+
+def aggregate_input(wildcards):
+    # decision based on content of output file
+    with checkpoints.somestep.get(**wildcards).output[0].open() as f:
+        if f.read().strip() == "a":
+            return "post/{sample}.txt"
+        else:
+            return "alt/{sample}.txt"
+
+
+rule aggregate:
+    input:
+        aggregate_input
+    output:
+        "aggregated/{sample}.txt"
+    shell:
+        "cp {input} {output}"
