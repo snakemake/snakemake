@@ -790,22 +790,25 @@ class DAG(DAGExecutorInterface, DAGReportInterface, DAGSchedulerInterface):
     async def check_output_mtime(
         self, job: Job, expanded_output: List[_IOFile]
     ) -> None:
-        # Check whether all output files are newer than the newest input file.
-        # This catches problems with non-sychronous clocks in distributed execution.
+        """Check whether all output files are newer than the newest input file.
+
+        This catches problems with non-synchronous clocks in distributed execution.
+        """
+        if not expanded_output:
+            # no output to compare, e.g. for rules without output files
+            return
         existing_input = [
-            ((await f.mtime_uncached(skip_storage=True)).local(), f)
+            (mtime, f)
             for f in job.input
-            if await f.exists_local()
+            if (mtime := await f.local_mtime_if_exists()) is not None
         ]
         if existing_input:
             newest_input_mtime, newest_input_path = max(existing_input)
             for output_path in expanded_output:
-                if not await output_path.exists_local():
+                output_mtime = await output_path.local_mtime_if_exists()
+                if output_mtime is None:
                     # can happen for temp files in combination with touch executor
                     continue
-                output_mtime = (
-                    await output_path.mtime_uncached(skip_storage=True)
-                ).local()
                 if output_mtime < newest_input_mtime:
                     raise WorkflowError(
                         f"Output {output_path} has older modification time "
