@@ -2664,6 +2664,32 @@ def test_incomplete_params():
     )
 
 
+@skip_on_windows  # the workflow uses shell commands
+def test_keep_incomplete_keeps_incomplete_marker(tmp_path):
+    """Outputs kept by --keep-incomplete must stay marked as incomplete.
+
+    Rule a writes a partial a.txt and then fails. With --keep-incomplete the
+    partial file is kept, but the job is also recorded as finished (the
+    incomplete marker is removed), so the next run treats a.txt as complete
+    and silently builds b.txt from the partial file.
+    """
+    shutil.copy(dpath("test_keep_incomplete") / "Snakefile", tmp_path)
+    snakemake = [sys.executable, "-m", "snakemake", "--cores", "1"]
+
+    # first run: rule a fails, its partial output is kept
+    first = sp.run([*snakemake, "--keep-incomplete"], cwd=tmp_path)
+    assert first.returncode != 0
+    assert (tmp_path / "a.txt").read_text().strip() == "partial"
+
+    # second run: rule a would now succeed. The kept a.txt is incomplete, so
+    # Snakemake must either rerun rule a or refuse to use a.txt. It must not
+    # build b.txt from the partial a.txt.
+    (tmp_path / "ok").touch()
+    sp.run(snakemake, cwd=tmp_path)
+    if (tmp_path / "b.txt").exists():
+        assert (tmp_path / "b.txt").read_text().strip() == "complete"
+
+
 @skip_on_windows
 def test_github_issue261():
     run(dpath("test_github_issue261"), targets=["test1/target1/config1.done"])
