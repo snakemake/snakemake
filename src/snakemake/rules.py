@@ -20,10 +20,7 @@ from functools import partial
 
 from snakemake.pathvars import Pathvars
 
-try:
-    import re._constants as sre_constants
-except ImportError:  # python < 3.11
-    import sre_constants
+import re._constants as sre_constants
 
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_software_deployment_plugins import (
