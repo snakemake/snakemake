@@ -1252,6 +1252,9 @@ class Job(
             raise e
 
         keep_incomplete = self.dag.workflow.execution_settings.keep_incomplete
+        if error and not keep_incomplete:
+            await self.cleanup(skip_cleanup_outputs)
+
         try:
             # Outputs of a failed job that are kept (--keep-incomplete) are not
             # finished: keep their incomplete markers, so that later runs do
@@ -1264,9 +1267,6 @@ class Job(
                 "({}). Please ensure write permissions for the "
                 "directory {}".format(e, self.dag.workflow.persistence.path)
             )
-
-        if error and not keep_incomplete:
-            await self.cleanup(skip_cleanup_outputs)
 
     @property
     def name(self):
