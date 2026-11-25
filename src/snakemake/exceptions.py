@@ -343,6 +343,7 @@ class PeriodicWildcardError(RuleException):
 
 class ProtectedOutputException(IOException):
     def __init__(self, job, files, include=None, lineno=None, snakefile=None):
+        self.reason = str(job.dag.reason(job))
         super().__init__(
             "Write-protected output files",
             job,
@@ -351,6 +352,9 @@ class ProtectedOutputException(IOException):
             lineno=lineno,
             snakefile=snakefile,
         )
+
+    def __str__(self):
+        return f"{super().__str__()}\n    reason: {self.reason}"
 
 
 class ImproperOutputException(IOException):

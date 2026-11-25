@@ -2147,6 +2147,8 @@ A particular output file may require a huge amount of computation time. Hence on
             "somecommand {input} {output}"
 
 A protected file will be write-protected after the rule that produces it is completed.
+If a job would overwrite a write-protected output, Snakemake will raise an error to prevent the workflow being executed.
+During a dry-run, all such conflicts are reported together.
 
 Further, an output file marked as ``temp`` is deleted after all rules that use it as an input are completed:
 
