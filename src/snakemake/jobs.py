@@ -1247,8 +1247,10 @@ class Job(
                 )
 
         except Exception as e:
-            # cleanup metadata in case of any exception above
-            self.dag.workflow.persistence.cleanup(self)
+            # Delete the metadata records in case of any exception above, but
+            # keep the incomplete markers: the outputs may still exist, and
+            # only finished() may unmark them.
+            self.dag.workflow.persistence.cleanup_records(self)
             raise e
 
         keep_incomplete = self.dag.workflow.execution_settings.keep_incomplete

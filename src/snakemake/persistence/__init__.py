@@ -534,6 +534,18 @@ class PersistenceBase(
         for f in job.output:
             self.cleanup_metadata(f)
 
+    def cleanup_records(self, job: Any) -> None:
+        """
+        Delete the metadata records of the outputs of a job, but keep their
+        incomplete markers.
+
+        Args:
+            job (Any): The job whose output records are deleted.
+        """
+        self._clear_cache()
+        for f in job.output:
+            self._delete_record(self._get_key(f))
+
     def has_metadata(self, job: Any) -> bool:
         return all(self.metadata(path) is not None for path in job.output)
 
