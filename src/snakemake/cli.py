@@ -1844,7 +1844,9 @@ def get_argument_parser(
             "--cleanup-software-envs",
             "--sdm-cleanup",
             action="store_true",
-            help="Cleanup unused software environments.",
+            help="Remove the deployed software environments of the jobs in the current "
+            "workflow (the environments the workflow uses). Environments that no "
+            "job refers to are not touched.",
         )
         group_deployment.add_argument(
             "--deploy-software-envs",
