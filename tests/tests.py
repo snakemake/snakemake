@@ -3672,7 +3672,13 @@ def test_github_issue3687():
     target_file = Path(tmpdir) / "dir2/Done"  # type: ignore[arg-type]
     shell("rm -rf {tmpdir}/.snakemake/metadata")
     shell("cp -r {tmpdir}/dir1/D {tmpdir}/")
-    target_file.touch()
+    # Date the output and the new link target in the past, such that the link
+    # created below, and not its target, is newer than the output, whatever the
+    # resolution of the file system timestamps.
+    new_target = Path(tmpdir) / "D"  # type: ignore[arg-type]
+    past = time.time() - 60
+    for path in (target_file, new_target, *new_target.iterdir()):
+        os.utime(path, (past, past))
     timestamp = target_file.stat().st_mtime
     shell("ln -sf ../D {tmpdir}/dir2/")
     run(dpath("test_github_issue3687"), tmpdir=tmpdir, cleanup=False)
