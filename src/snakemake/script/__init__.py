@@ -1025,6 +1025,10 @@ def get_language(source_file, source):
 
         language += "_" + kernel_language.lower()
 
+    # detect marimo notebooks
+    if filename.endswith(".marimo.py"):
+        language = "marimo_python"
+
     return language
 
 
