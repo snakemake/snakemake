@@ -8,10 +8,21 @@ from snakemake.logging import logger
 def data_uri(data, filename, encoding="utf8", mime="text/plain"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
     data = base64.b64encode(data)
-    return f'data:{mime};charset={encoding};filename={filename};base64,{data.decode("utf-8")}'
+    return f"data:{mime};charset={encoding};filename={filename};base64,{data.decode('utf-8')}"
+
+
+VEGA_MIME_TYPES = {
+    ".vl.json": "application/vnd.vegalite+json",
+    ".vg.json": "application/vnd.vega+json",
+}
 
 
 def mime_from_file(file):
+    # Vega / Vega-Lite specs are plain JSON, so detect them by file name.
+    file_str = str(file)
+    for suffix, vega_mime in VEGA_MIME_TYPES.items():
+        if file_str.endswith(suffix):
+            return vega_mime, None
     mime, encoding = mimetypes.guess_type(file)
     if mime is None:
         mime = "text/plain"

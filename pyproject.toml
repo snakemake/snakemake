@@ -73,8 +73,8 @@ Source = "https://github.com/snakemake/snakemake"
 
 [project.optional-dependencies]
 pep = ["eido", "peppy"]
-reports = ["pygments"]
-all = ["eido", "peppy", "pygments"]
+reports = ["pygments", "lzstring"]
+all = ["eido", "peppy", "pygments", "lzstring"]
 
 [project.scripts]
 snakemake = "snakemake.cli:main"
