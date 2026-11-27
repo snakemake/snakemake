@@ -711,3 +711,11 @@ def is_file_not_found_error(exc, considered_files):
 
 class ExpandSoftwareEnvRequiresWildcardsError(Exception):
     pass
+
+
+class HelpRequested(Exception):
+    pass
+
+
+class CliParserError(Exception):
+    pass

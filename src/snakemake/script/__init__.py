@@ -27,7 +27,7 @@ from typing import List, Pattern, Tuple
 from urllib.error import URLError
 
 from snakemake import iocontainers
-from snakemake.iocontainers import Snakemake
+from snakemake.iocontainers import Namedlist, Snakemake
 from snakemake.common.misc import get_snakemake_searchpaths
 from snakemake.common.constants import (
     MIN_PY_VERSION,
@@ -222,8 +222,6 @@ class BashEncoder:
 
     def __init__(
         self,
-        namedlists: List[str] = None,
-        dicts: List[str] = None,
         prefix: str = "snakemake",
     ):
         """namedlists is a list of strings indicating the snakemake object's member
@@ -232,29 +230,22 @@ class BashEncoder:
         that are encoded as dictionaries.
         Prefix is the prefix for the bash variable name(s) e.g., snakemake_input
         """
-        if dicts is None:
-            dicts = []
-        if namedlists is None:
-            namedlists = []
-        self.namedlists = namedlists
-        self.dicts = dicts
         self.prefix = prefix
 
     def encode_snakemake(self, smk: Snakemake) -> str:
         """Turn a snakemake object into a collection of bash associative arrays"""
         arrays = []
         main_aa = dict()
-        for var in vars(smk):
-            val = getattr(smk, var)
-            suffix = "params" if var == "_params_store" else var.strip("_").lower()
-            if var in self.namedlists:
-                aa = f"{self.prefix}_{suffix}={self.encode_namedlist(val)}"
+        for name, val in smk.items():
+            name = name.strip("_").lower()
+            if isinstance(val, Namedlist):
+                aa = f"{self.prefix}_{name}={self.encode_namedlist(val)}"
                 arrays.append(aa)
-            elif var in self.dicts:
-                aa = f"{self.prefix}_{suffix}={self.dict_to_aa(val)}"
+            elif isinstance(val, dict):
+                aa = f"{self.prefix}_{name}={self.dict_to_aa(val)}"
                 arrays.append(aa)
             else:
-                main_aa[var] = val
+                main_aa[name] = val
 
         arrays.append(f"{self.prefix}={self.dict_to_aa(main_aa)}")
         return "\n".join([f"declare -A {aa}" for aa in arrays])
@@ -917,17 +908,7 @@ class BashScript(ScriptBase):
             scriptdir=self.path.get_basedir().get_path_or_uri(secret_free=True),
             bench_iteration=self.run_args.bench_iteration,
         )
-
-        namedlists = [
-            "input",
-            "output",
-            "log",
-            "resources",
-            "wildcards",
-            "_params_store",
-        ]
-        dicts = ["config"]
-        encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
+        encoder = BashEncoder()
         preamble = encoder.encode_snakemake(snakemake)
         return f"{preamble}\n{self.preamble_addendum()}"
 
