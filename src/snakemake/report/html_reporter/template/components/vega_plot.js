@@ -12,6 +12,7 @@ class VegaPlot extends React.Component {
         this.fixedWidth = null;
         this.fixedHeight = null;
         this.scale = 100;
+        this.fitScale = 100;  // the scale at which the plot fits the window
         this.fontScale = 100;
         this.showLegend = true;
         // by default, the plot is scaled up to use the available space
@@ -57,12 +58,12 @@ class VegaPlot extends React.Component {
     }
 
     onWindowResize() {
-        if (!this.fit || !this.embedded || this.resizeFrame !== null) {
+        if (!this.embedded || this.resizeFrame !== null) {
             return;
         }
         this.resizeFrame = requestAnimationFrame(() => {
             this.resizeFrame = null;
-            this.fitToWindow().catch(this.showError);
+            this.updateScale().catch(this.showError);
         });
     }
 
@@ -117,13 +118,7 @@ class VegaPlot extends React.Component {
                     el.querySelector("details").setAttribute("open", "");
                 }
             };
-            if (this.fit) {
-                return this.fitToWindow().then(finish);
-            }
-            if (this.scale !== 100) {
-                this.setScale(this.scale / 100);
-            }
-            finish();
+            return this.updateScale().then(finish);
         });
     }
 
@@ -154,14 +149,14 @@ class VegaPlot extends React.Component {
         return view.resize().runAsync();
     }
 
-    // scale the plot up or down so that it uses as much of the available space as
-    // possible, keeping its aspect ratio
-    async fitToWindow() {
+    // Find the scale at which the plot uses as much of the available space as
+    // possible, keeping its aspect ratio (the plot is left at that scale)
+    async computeFitFactor() {
         const el = this.container.current;
         const area = el.parentElement.parentElement;  // the content area of the report
         const drawing = el.querySelector("canvas, svg");
         if (!drawing) {
-            return;
+            return 1;
         }
         const measure = () => {
             const rect = drawing.getBoundingClientRect();
@@ -200,11 +195,31 @@ class VegaPlot extends React.Component {
                 break;
             }
         }
-        this.scale = factor * 100;
-        if (this.sizeSlider) {
-            this.sizeSlider.value = Math.round(this.scale / 5) * 5;
-            this.sizeValue.textContent = Math.round(this.scale) + "%";
+        return factor;
+    }
+
+    // Update the scale at which the plot fits the window, which is the maximum of the
+    // size slider. With "fit to window" the plot is set to that scale, otherwise it
+    // keeps its scale (but never gets larger than the fitting one).
+    async updateScale() {
+        this.fitScale = (await this.computeFitFactor()) * 100;
+        if (this.fit) {
+            this.scale = this.fitScale;
+        } else {
+            this.scale = Math.min(this.scale, this.fitScale);
+            await this.setScale(this.scale / 100);
         }
+        this.updateSizeSlider();
+    }
+
+    updateSizeSlider() {
+        if (!this.sizeSlider) {
+            return;
+        }
+        this.sizeSlider.min = Math.min(25, this.fitScale);
+        this.sizeSlider.max = this.fitScale;
+        this.sizeSlider.value = this.scale;
+        this.sizeValue.textContent = Math.round(this.scale) + "%";
     }
 
     // the view to save: with "fit to window", the original size
@@ -270,6 +285,7 @@ class VegaPlot extends React.Component {
         if (this.hasLegend) {
             menu.append(this.legendRow());
         }
+        menu.append(this.restoreItem());
     }
 
     menuRow() {
@@ -300,10 +316,11 @@ class VegaPlot extends React.Component {
         label.textContent = "Size";
         const slider = document.createElement("input");
         slider.type = "range";
-        slider.min = 25;
-        slider.max = 300;
-        slider.step = 5;
-        slider.value = Math.round(this.scale / 5) * 5;
+        // the maximum is the scale at which the plot fits the window
+        slider.min = Math.min(25, this.fitScale);
+        slider.max = this.fitScale;
+        slider.step = "any";
+        slider.value = this.scale;
         const value = document.createElement("span");
         value.textContent = Math.round(this.scale) + "%";
         this.sizeSlider = slider;
@@ -311,7 +328,7 @@ class VegaPlot extends React.Component {
 
         // while dragging, only update the label
         slider.addEventListener("input", () => {
-            value.textContent = slider.value + "%";
+            value.textContent = Math.round(slider.value) + "%";
         });
         // re-render once, when the mouse button is released; setting the size by hand
         // switches "fit to window" off
@@ -354,19 +371,27 @@ class VegaPlot extends React.Component {
         const [row, checkbox] = this.checkboxRow("Fit to window", this.fit, (checked) => {
             this.fit = checked;
             if (checked) {
-                this.fitToWindow().catch(this.showError);
-            } else {
-                // back to the original size
-                this.scale = 100;
-                this.setScale(1);
-                this.sizeSlider.value = 100;
-                this.sizeValue.textContent = "100%";
+                this.scale = this.fitScale;
+                this.setScale(this.scale / 100);
+                this.updateSizeSlider();
             }
         });
         this.fitCheckbox = checkbox;
         return row;
     }
-
+    // back to the defaults: fit to window, normal fonts, legend shown
+    restoreItem() {
+        const item = document.createElement("a");
+        item.textContent = "Restore defaults";
+        item.addEventListener("click", () => {
+            this.fit = true;
+            this.fontScale = 100;
+            this.showLegend = true;
+            this.renderPlot().catch(this.showError);
+        });
+        return item;
+    }
+    
     legendRow() {
         const [row] = this.checkboxRow("Legend", this.showLegend, (checked) => {
             this.showLegend = checked;
