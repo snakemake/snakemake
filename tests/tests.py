@@ -3273,13 +3273,54 @@ def test_pathvars_cycle():
 
 
 @skip_on_windows
-def test_pathvars_storage():
+def test_pathvars_storage(monkeypatch, tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("SNAKEMAKE_OUTPUT_CACHE", str(cache_dir))
     run(
         dpath("test_pathvars_storage"),
         default_storage_provider="fs",
         default_storage_prefix="storage",
+        cache=["multiext_child"],
         cores=1,
     )
+    assert sorted(path.suffix for path in cache_dir.iterdir()) == [".csv", ".txt"]
+
+
+@skip_on_windows
+def test_pathvars_local_multiext_cache(monkeypatch, tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("SNAKEMAKE_OUTPUT_CACHE", str(cache_dir))
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    fixture = Path(dpath("test_pathvars_storage"))
+    shutil.copy(fixture / "Snakefile", workdir)
+    shutil.copy(fixture / "storage/input.txt", workdir)
+
+    def run_child():
+        run(
+            workdir,
+            no_tmpdir=True,
+            cleanup=False,
+            check_results=False,
+            targets={"child/result.txt", "child/result.csv"},
+            cache=["multiext_child"],
+        )
+
+    run_child()
+    assert sorted(entry.suffix for entry in cache_dir.iterdir()) == [".csv", ".txt"]
+    for suffix, content in [(".txt", "test\n"), (".csv", "csv\n")]:
+        output = workdir / "child" / f"result{suffix}"
+        assert output.read_text() == content
+        output.unlink()
+
+    # Distinct cached contents prove the second run fetched both files.
+    for entry in cache_dir.iterdir():
+        entry.write_text(entry.suffix)
+    run_child()
+    for suffix in (".txt", ".csv"):
+        assert (workdir / "child" / f"result{suffix}").read_text() == suffix
 
 
 @skip_on_windows  # OS agnostic
