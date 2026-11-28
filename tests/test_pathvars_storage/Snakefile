@@ -41,7 +41,7 @@ rule multiext_parent:
         results="parent/{sample}",
     cache: True
     shell:
-        "cp {input} {output[0]}; cp {input} {output[1]}"
+        "cp {input} {output[0]}; echo csv > {output[1]}"
 
 
 use rule multiext_parent as multiext_child with:

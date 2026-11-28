@@ -492,7 +492,13 @@ class _IOFile(AnnotatedStringFormatMixin, str):
     @property
     def multiext_prefix(self):
         multiext_value = get_flag_value(self._file, "multiext")
-        return multiext_value.prefix if multiext_value is not None else None
+        if multiext_value is None:
+            return None
+        prefix = multiext_value.prefix
+        if self.rule is not None:
+            # Match the pathvar expansion applied to the output filename.
+            return self.rule.pathvars.apply(prefix)
+        return prefix
 
     @property
     def should_keep_local(self):
